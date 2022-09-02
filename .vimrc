@@ -220,6 +220,61 @@ xnoremap # :<C-u>call <SID>VSetSearch('?')<CR>?<C-R>=@/<CR><CR>
 endfunction
 " }}}
 
+" ==========convenient map for grep searching========== {{{
+" g@: call the function set by the 'operatorfunc'
+" <SID>: use for function namespace
+" <c-u>: clear the command line to the begin
+" visualmode(): vim inside function to get the last visual mode type: v, V, <C-v>
+" the two map below are for nomal mode, visual mode
+" how to use: <localleader>giw, viw<localleader>g ...
+augroup grep_group
+    autocmd!
+    autocmd FileType cpp nnoremap <buffer> <localleader>g :set operatorfunc=<SID>GrepOperatorCpp<CR>g@
+    autocmd FileType cpp vnoremap <buffer> <localleader>g :<c-u>call <SID>GrepOperator(visualmode(), "cpp")<CR>
+augroup END
+
+function! s:GrepOperatorCpp(type)
+    call <SID>GrepOperator(a:type, "cpp")
+endfunction
+
+" s: use namespace s
+function! s:GrepOperator(type, filetype)
+    " save the unnamed register before use
+    let saved_unnamed_register = @@
+
+    " visual mode: characterwise
+    " copy the visual selected text to unnamed register
+    " ==#: case-sensitive
+    if a:type ==# 'v'
+        normal! `<v`>y
+    " normal mode: characterwise motion
+    " copy the motion text(like iw/i[) to unnamed register
+    elseif a:type ==# 'char'
+        normal! `[v`]y
+    " others right return for the reson grep can not deal with
+    else
+        return
+    endif
+
+    " execute the grep for searching
+    " !: do not go to the first result, just fill the quickfix list
+    " :copen<CR>: open the quickfix window
+    " silent: do not display the message when running command
+    " shellescape: to deal whit kind like words <that's> which contain single quote in grep
+    if(a:filetype ==# 'cpp')
+        silent execute "lgrep! -R " . shellescape(@@) . " --include=*.{cpp,h,cc} ."
+    else
+        silent execute "lgrep! -R " . shellescape(@@) . " ."
+    endif
+    " open the quickfix list window
+    silent execute "normal! :lopen\<CR>"
+
+    " restore the unnamed register after use
+    let @@ = saved_unnamed_register
+endfunction
+
+" }}}
+
 " ==========cursor shape and color setting========== {{{
 " Set cursor shape and color
 " before . setting shape, after . setting color
