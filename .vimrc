@@ -57,6 +57,10 @@ filetype plugin indent on    " required
 " ==================使用Vundle管理插件========================
 " }}}
 
+" ==========global variables========== {{{
+let g:quickfix_l_is_open = 0
+" }}}
+
 " ==========normal settings========== {{{
 " 让配置变更立即生效, 使用快捷键运行source感觉更好
 " autocmd BufWritePost $MYVIMRC source $MYVIMRC
@@ -227,18 +231,21 @@ endfunction
 " visualmode(): vim inside function to get the last visual mode type: v, V, <C-v>
 " the two map below are for nomal mode, visual mode
 " how to use: <localleader>giw, viw<localleader>g ...
-augroup grep_group
-    autocmd!
-    autocmd FileType cpp nnoremap <buffer> <localleader>g :set operatorfunc=<SID>GrepOperatorCpp<CR>g@
-    autocmd FileType cpp vnoremap <buffer> <localleader>g :<c-u>call <SID>GrepOperator(visualmode(), "cpp")<CR>
-augroup END
+nnoremap <leader>g :set operatorfunc=<SID>GrepOperatorR<CR>g@
+vnoremap <leader>g :<c-u>call <SID>GrepOperator(visualmode(), 1)<CR>
+nnoremap <leader>G :set operatorfunc=<SID>GrepOperatorNR<CR>g@
+vnoremap <leader>G :<c-u>call <SID>GrepOperator(visualmode(), 0)<CR>
 
-function! s:GrepOperatorCpp(type)
-    call <SID>GrepOperator(a:type, "cpp")
+function! s:GrepOperatorR(type)
+    call s:GrepOperator(a:type, 1)
+endfunction
+
+function! s:GrepOperatorNR(type)
+    call s:GrepOperator(a:type, 0)
 endfunction
 
 " s: use namespace s
-function! s:GrepOperator(type, filetype)
+function! s:GrepOperator(type, recursion)
     " save the unnamed register before use
     let saved_unnamed_register = @@
 
@@ -261,13 +268,23 @@ function! s:GrepOperator(type, filetype)
     " :copen<CR>: open the quickfix window
     " silent: do not display the message when running command
     " shellescape: to deal whit kind like words <that's> which contain single quote in grep
-    if(a:filetype ==# 'cpp')
-        silent execute "lgrep! -R " . shellescape(@@) . " --include=*.{cpp,h,cc} ."
+    if(&l:filetype ==# 'cpp' || &l:filetype ==# 'c')
+        if a:recursion
+            silent execute "lgrep! -R " . shellescape(@@) . " --include=*.{c,cc,cpp,h} ."
+        else
+            silent execute "lgrep! " . shellescape(@@) . " %"
+        endif
     else
-        silent execute "lgrep! -R " . shellescape(@@) . " ."
+        if a:recursion
+            silent execute "lgrep! -R " . shellescape(@@) . " ."
+        else
+            silent execute "lgrep! " . shellescape(@@) . " %"
+        endif
     endif
     " open the quickfix list window
     silent execute "normal! :lopen\<CR>"
+    silent execute "normal! \<C-l>"
+    let g:quickfix_l_is_open = 1
 
     " restore the unnamed register after use
     let @@ = saved_unnamed_register
@@ -294,4 +311,34 @@ if &term =~ "xterm"
     " let &t_EI = "\<Esc>[2 q" . "\<Esc>]12;rgb:CD/B3/8B\x7"
     " let &t_VS = "\<Esc>[2 q" . "\<Esc>]12;rgb:CD/B3/8B\x7"
 endif
+" }}}
+
+" ==========toggle setting========== {{{
+" toggle number
+nnoremap <leader>N :setlocal number!<CR>
+
+" toggle foldcolumn
+nnoremap <leader>f :call <SID>FoldColumnToggle()<CR>
+function! s:FoldColumnToggle()
+    if &foldcolumn
+        setlocal foldcolumn=0
+    else
+        setlocal foldcolumn=4
+    endif
+endfunction
+
+" toggle open/close quickfix window
+" TODO bug: when use command 'lopen' g:quickfix_l_is_open cannot be updated
+nnoremap <leader>q :call <SID>QuickfixToggle()<CR>
+function! s:QuickfixToggle()
+    if g:quickfix_l_is_open
+        lclose
+        let g:quickfix_l_is_open = 0
+        " execute g:quickfix_return_to_window . "wincmd w"
+    else
+        " let g:quickfix_return_to_window = winnr()
+        lopen
+        let g:quickfix_l_is_open = 1
+    endif
+endfunction
 " }}}
