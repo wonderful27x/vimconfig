@@ -144,6 +144,9 @@ xnoremap & :&&<CR>
 
 " space进入可视模式并选中单词
 nnoremap <space> viw
+
+" map Y to yank text from cursor to the end of line
+nnoremap Y y$
 " }}}
 
 " ==========tab setting========== {{{
