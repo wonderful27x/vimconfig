@@ -1,5 +1,9 @@
 " echo "My best vim == >^.^< =="
 
+" ==========translator proxy setting========== {{{
+let g:translator_proxy_url = 'socks5://127.0.0.1:1080'
+" }}}
+
 " ==========vim plugin manager========== {{{
 " ==================使用Vundle管理插件========================
 set nocompatible        " be iMproved, required
@@ -249,6 +253,20 @@ endfunction
 " }}}
 
 " ==========convenient map for grep searching========== {{{
+" traverse quickfix window history
+nnoremap <leader>l :lolder<CR>
+nnoremap <leader>L :lnewer<CR>
+
+" command completement of grep
+nnoremap <leader>sa :lvimgrep // ./**/*.cpp ./**/*.cc ./**/*.c ./**/*.h<C-f>:call cursor(0,11)<CR>
+nnoremap <leader>sc :lvimgrep // ./**/*.cpp ./**/*.cc ./**/*.c<C-f>:call cursor(0,11)<CR>
+nnoremap <leader>sh :lvimgrep // ./**/*.h<C-f>:call cursor(0,11)<CR>
+nnoremap <leader>s% :lvimgrep // %<C-f>:call cursor(0,11)<CR>
+nnoremap <leader><leader>sa :lvimgrep /\<\>/ ./**/*.cpp ./**/*.cc ./**/*.c ./**/*.h<C-f>:call cursor(0,11)<CR>
+nnoremap <leader><leader>sc :lvimgrep /\<\>/ ./**/*.cpp ./**/*.cc ./**/*.c<C-f>:call cursor(0,11)<CR>
+nnoremap <leader><leader>sh :lvimgrep /\<\>/ ./**/*.h<C-f>:call cursor(0,11)<CR>
+nnoremap <leader><leader>s% :lvimgrep /\<\>/ %<C-f>:call cursor(0,13)<CR>
+
 " g@: call the function set by the 'operatorfunc'
 " <SID>: use for function namespace
 " <c-u>: clear the command line to the begin
@@ -355,4 +373,18 @@ function! s:QuickfixToggle()
         let g:quickfix_l_is_open = 1
     endif
 endfunction
+" }}}
+
+" ==========section movements========== {{{
+" If your '{' or '}' are not in the first column, and you would like to use "[["
+" and "]]" anyway, try these mappings: bug!
+" map [[ ?{<CR>w99[{
+" map ][ /}<CR>b99]}
+" map ]] j0[[%/{<CR>
+" map [] k$][%?}<CR>
+" bug fix in my way
+nmap [[ []%
+nmap ]] %][%
+" the same as below
+" nmap <silent> ]] :<c-u>execute "normal! %"<CR>][:<c-u>silent execute "normal! %"<CR>
 " }}}
