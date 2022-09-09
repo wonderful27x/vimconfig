@@ -1,12 +1,5 @@
 " echo "My best vim == >^.^< =="
 
-" ==========enable vim folding========== {{{
-augroup filetype_vim
-    autocmd!
-    autocmd FileType vim setlocal foldmethod=marker
-augroup END
-" }}}
-
 " ==========vim plugin manager========== {{{
 " ==================使用Vundle管理插件========================
 set nocompatible        " be iMproved, required
@@ -147,6 +140,34 @@ nnoremap <space> viw
 
 " map Y to yank text from cursor to the end of line
 nnoremap Y y$
+" }}}
+
+" ==========fold setting========== {{{
+" no fold when open file
+set foldlevelstart=99
+
+" vim fold setting
+augroup filetype_vim
+    autocmd!
+    autocmd FileType vim setlocal foldmethod=marker
+augroup END
+
+" cpp fold setting
+augroup filetype_cpp
+    autocmd!
+    autocmd FileType cpp setlocal foldmethod=syntax
+    autocmd FileType c setlocal foldmethod=syntax
+augroup END
+
+" toggle foldcolumn
+nnoremap <leader>f :call <SID>FoldColumnToggle()<CR>
+function! s:FoldColumnToggle()
+    if &foldcolumn
+        setlocal foldcolumn=0
+    else
+        setlocal foldcolumn=4
+    endif
+endfunction
 " }}}
 
 " ==========tab setting========== {{{
@@ -319,16 +340,6 @@ endif
 " ==========toggle setting========== {{{
 " toggle number
 nnoremap <leader>N :setlocal number!<CR>
-
-" toggle foldcolumn
-nnoremap <leader>f :call <SID>FoldColumnToggle()<CR>
-function! s:FoldColumnToggle()
-    if &foldcolumn
-        setlocal foldcolumn=0
-    else
-        setlocal foldcolumn=4
-    endif
-endfunction
 
 " toggle open/close quickfix window
 " TODO bug: when use command 'lopen' g:quickfix_l_is_open cannot be updated
