@@ -87,7 +87,12 @@ set incsearch           " 查找是预览第一处匹配
 set hlsearch            " 高亮查找匹配项
 " :nohlearch 命令暂时关闭高亮模式，直到执行新的或重复的查找命令
 " <C-l>原是清屏重绘快捷键，将其和nohlearch一起作用
-nnoremap <silent> <C-l> :<C-u>nohlsearch<CR><C-l>
+" nnoremap <silent> <C-l> :<C-u>nohlsearch<CR><C-l>
+" 但是清屏会使屏幕闪烁一下，效果非常差，所以重映射<C-i>为暂时关闭高亮模式
+" 并重映射<leader><C-l>为清屏，因为我们想将<C-l>用于其他功能
+nnoremap <silent> <C-i> :<C-u>nohlsearch<CR>
+nnoremap <silent> <leader><C-l> <C-l>
+nnoremap <silent> <C-l> l
 
 " 定义快捷键前缀<Leader>, todo: 有冲突
 " let mapleader=";"
@@ -101,10 +106,17 @@ nnoremap <Leader>ev :vsplit $MYVIMRC<CR>
 nnoremap <Leader>sv :source $MYVIMRC<CR>
 
 " 插入模式下转换光标前单词/字符串大小写
-inoremap <C-y> <esc>m0bviw~`0a
-inoremap <C-f> <esc>m0BviW~`0a
+" inoremap <C-y> <esc>m0bviw~`0a
+" inoremap <C-f> <esc>m0BviW~`0a
+" 改进版本，考虑命名空间god::VIM,
+" 现在想在中间加一个命名空间变成god::EDITOR::VIM
+" 于是编辑成这样god::editorVIM,
+" 光标在editor的末尾，<C-y>将其转换为大写，可是VIM也被转换了
+" 但是这又引入了另一个bug, 当光标位于单词首字母时，只有光标下的字母会被转换
+inoremap <C-y> <esc>mzvgew~`za
+inoremap <C-f> <esc>mzvgEW~`za
 
-" multi map for esc, but i dont like it
+" multi map for esc, But i dont iwe it
 " inoremap jk <esc>
 
 " 设置快捷键当前缓冲区关键字补全，当普通关键字太多时使用，
@@ -254,17 +266,19 @@ endfunction
 
 " ==========convenient map for grep searching========== {{{
 " traverse quickfix window history
-nnoremap <leader>l :lolder<CR>
-nnoremap <leader>L :lnewer<CR>
+nnoremap <leader>q :lolder<CR>
+nnoremap <leader>Q :lnewer<CR>
+" better use than <leader>Q
+nnoremap <leader><leader>q :lnewer<CR>
 
 " command completement of grep
 nnoremap <leader>sa :lvimgrep // ./**/*.cpp ./**/*.cc ./**/*.c ./**/*.h<C-f>:call cursor(0,11)<CR>
 nnoremap <leader>sc :lvimgrep // ./**/*.cpp ./**/*.cc ./**/*.c<C-f>:call cursor(0,11)<CR>
 nnoremap <leader>sh :lvimgrep // ./**/*.h<C-f>:call cursor(0,11)<CR>
 nnoremap <leader>s% :lvimgrep // %<C-f>:call cursor(0,11)<CR>
-nnoremap <leader><leader>sa :lvimgrep /\<\>/ ./**/*.cpp ./**/*.cc ./**/*.c ./**/*.h<C-f>:call cursor(0,11)<CR>
-nnoremap <leader><leader>sc :lvimgrep /\<\>/ ./**/*.cpp ./**/*.cc ./**/*.c<C-f>:call cursor(0,11)<CR>
-nnoremap <leader><leader>sh :lvimgrep /\<\>/ ./**/*.h<C-f>:call cursor(0,11)<CR>
+nnoremap <leader><leader>sa :lvimgrep /\<\>/ ./**/*.cpp ./**/*.cc ./**/*.c ./**/*.h<C-f>:call cursor(0,13)<CR>
+nnoremap <leader><leader>sc :lvimgrep /\<\>/ ./**/*.cpp ./**/*.cc ./**/*.c<C-f>:call cursor(0,13)<CR>
+nnoremap <leader><leader>sh :lvimgrep /\<\>/ ./**/*.h<C-f>:call cursor(0,13)<CR>
 nnoremap <leader><leader>s% :lvimgrep /\<\>/ %<C-f>:call cursor(0,13)<CR>
 
 " g@: call the function set by the 'operatorfunc'
@@ -277,6 +291,9 @@ nnoremap <leader>g :set operatorfunc=<SID>GrepOperatorR<CR>g@
 vnoremap <leader>g :<c-u>call <SID>GrepOperator(visualmode(), 1)<CR>
 nnoremap <leader>G :set operatorfunc=<SID>GrepOperatorNR<CR>g@
 vnoremap <leader>G :<c-u>call <SID>GrepOperator(visualmode(), 0)<CR>
+" better use than <leader>G
+nnoremap <leader><leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
+vnoremap <leader><leader>g :<c-u>call <SID>GrepOperator(visualmode(), 0)<CR>
 
 function! s:GrepOperatorR(type)
     call s:GrepOperator(a:type, 1)
@@ -361,7 +378,7 @@ nnoremap <leader>N :setlocal number!<CR>
 
 " toggle open/close quickfix window
 " TODO bug: when use command 'lopen' g:quickfix_l_is_open cannot be updated
-nnoremap <leader>q :call <SID>QuickfixToggle()<CR>
+nnoremap <leader>w :call <SID>QuickfixToggle()<CR>
 function! s:QuickfixToggle()
     if g:quickfix_l_is_open
         lclose
