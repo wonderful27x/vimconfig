@@ -416,3 +416,14 @@ nmap ]] %][%
 " 这一行为真的很棒，要想跳转到结束可以使用%
 
 " }}}
+
+"==========window setting========== {{{
+" set window size to 0 but not close
+nnoremap <leader>x :<c-u>vertical resize 0<CR>
+nnoremap <leader><leader>x :<c-u>resize 0<CR>
+" add/reduce window size
+nnoremap <S-Up> :<c-u>resize -1<CR>
+nnoremap <S-Down> :<c-u>resize +1<CR>
+nnoremap <S-Left> :<c-u>vertical resize -1<CR>
+nnoremap <S-Right> :<c-u>vertical resize +1<CR>
+" }}}
