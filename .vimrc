@@ -56,6 +56,16 @@ filetype plugin indent on    " required
 
 " ==========global variables========== {{{
 let g:quickfix_l_is_open = 0
+
+let g:v_beg = 0
+let g:v_mid = 0
+let g:v_end = 0
+let g:v_last_p = 0
+
+let g:h_beg = 0
+let g:h_mid = 0
+let g:h_end = 0
+let g:h_last_p = 0
 " }}}
 
 " ==========normal settings========== {{{
@@ -90,9 +100,8 @@ set hlsearch            " 高亮查找匹配项
 " nnoremap <silent> <C-l> :<C-u>nohlsearch<CR><C-l>
 " 但是清屏会使屏幕闪烁一下，效果非常差，所以重映射<C-i>为暂时关闭高亮模式
 " 并重映射<leader><C-l>为清屏，因为我们想将<C-l>用于其他功能
-nnoremap <silent> <C-i> :<C-u>nohlsearch<CR>
+nnoremap <silent> <C-p> :<C-u>nohlsearch<CR>
 nnoremap <silent> <leader><C-l> <C-l>
-nnoremap <silent> <C-l> l
 
 " 定义快捷键前缀<Leader>, todo: 有冲突
 " let mapleader=";"
@@ -103,7 +112,7 @@ nnoremap <Leader>p "+p
 " 设置快捷键打开vimrc
 nnoremap <Leader>ev :vsplit $MYVIMRC<CR>
 " 设置快捷键应用vimrc
-nnoremap <Leader>sv :source $MYVIMRC<CR>
+nnoremap <Leader>sv :source $MYVIMRC<CR>:<C-u>nohlsearch<CR>:echo "run source vimrc ok!"<CR>
 
 " 插入模式下转换光标前单词/字符串大小写
 " inoremap <C-y> <esc>m0bviw~`0a
@@ -426,4 +435,86 @@ nnoremap <S-Up> :<c-u>resize -1<CR>
 nnoremap <S-Down> :<c-u>resize +1<CR>
 nnoremap <S-Left> :<c-u>vertical resize -1<CR>
 nnoremap <S-Right> :<c-u>vertical resize +1<CR>
+" }}}
+
+" ==========binary position========== {{{
+" This is the most powerful cursor moving action created by wonderful!!!
+" As its name shows the cursor moving acts in binary mode
+" <C-j> <C-k> binary move the cursor in vertical direction
+" <C-h> <C-k> binary move the cursor in horizontal direction
+" The cursor will always be in middle when first moving
+" If you miss the target call <leader>c to clear the position and try again
+" The binary position is especially useful when edit with which is not English,
+" beacuse it will be difficult to use f to find where you want to go
+nnoremap <C-j> :<c-u>call <SID>BinaryPositionV("down")<CR>
+nnoremap <C-k> :<c-u>call <SID>BinaryPositionV("up")<CR>
+nnoremap <C-h> :<c-u>call <SID>BinaryPositionH("left")<CR>
+nnoremap <C-l> :<c-u>call <SID>BinaryPositionH("right")<CR>
+noremap <leader>c :<c-u>call <SID>BinaryClear()<CR>
+
+function! s:ResetV()
+    let g:v_beg = line('w0')
+    let g:v_end = line('w$')
+    let g:v_mid = g:v_beg + (g:v_end - g:v_beg) / 2
+    let g:v_last_p = 0
+endfunction
+
+function! s:ResetH()
+    let g:h_beg = 1
+    let g:h_end = col('$')
+    let g:h_mid = g:h_beg + (g:h_end - g:h_beg) / 2
+    let g:h_last_p = 0
+endfunction
+
+function! s:BinaryClear()
+    call <SID>ResetV()
+    call <SID>ResetH()
+    echom "Binary position has benn cleared!"
+endfunction
+
+function! s:BinaryPositionV(direction)
+    let v_p = line('w0')
+    if v_p != g:v_last_p
+       call <SID>ResetV()
+       call cursor(g:v_mid, 0)
+       let g:v_last_p = v_p
+       echom "call BinaryPositionV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
+       return
+   endif
+
+   if a:direction ==? 'down'
+       let g:v_beg = g:v_mid
+   elseif a:direction ==? 'up'
+       let g:v_end = g:v_mid
+   endif
+
+   let g:v_mid = g:v_beg + (g:v_end - g:v_beg) / 2
+
+   call cursor(g:v_mid, 0)
+
+   echom "call BinaryPositionV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
+endfunction
+
+function! s:BinaryPositionH(direction)
+    let h_p = line('.')
+    if h_p != g:h_last_p
+        call <SID>ResetH()
+        call cursor(0, g:h_mid)
+        let g:h_last_p = h_p
+        echom "call BinaryPositionH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
+        return
+    endif
+
+    if a:direction ==? 'left'
+        let g:h_end = g:h_mid
+    elseif a:direction ==? 'right'
+        let g:h_beg = g:h_mid
+    endif
+
+    let g:h_mid = g:h_beg + (g:h_end - g:h_beg) / 2
+
+    call cursor(0, g:h_mid)
+
+    echom "call BinaryPositionH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
+endfunction
 " }}}
