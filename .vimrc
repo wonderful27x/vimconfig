@@ -98,10 +98,10 @@ set hlsearch            " 高亮查找匹配项
 " :nohlearch 命令暂时关闭高亮模式，直到执行新的或重复的查找命令
 " <C-l>原是清屏重绘快捷键，将其和nohlearch一起作用
 " nnoremap <silent> <C-l> :<C-u>nohlsearch<CR><C-l>
-" 但是清屏会使屏幕闪烁一下，效果非常差，所以重映射<C-i>为暂时关闭高亮模式
+" 但是清屏会使屏幕闪烁一下，效果非常差，所以重映射<C-p>为暂时关闭高亮模式
 " 并重映射<leader><C-l>为清屏，因为我们想将<C-l>用于其他功能
 nnoremap <silent> <C-p> :<C-u>nohlsearch<CR>
-nnoremap <silent> <leader><C-l> <C-l>
+nnoremap <silent> <leader><C-l> :<C-u>nohlsearch<CR><C-l>
 
 " 定义快捷键前缀<Leader>, todo: 有冲突
 " let mapleader=";"
