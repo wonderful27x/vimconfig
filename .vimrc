@@ -185,7 +185,7 @@ augroup filetype_cpp
 augroup END
 
 " toggle foldcolumn
-nnoremap <leader>f :call <SID>FoldColumnToggle()<CR>
+nnoremap <leader>d :call <SID>FoldColumnToggle()<CR>
 function! s:FoldColumnToggle()
     if &foldcolumn
         setlocal foldcolumn=0
@@ -358,6 +358,18 @@ function! s:GrepOperator(type, recursion)
     let @@ = saved_unnamed_register
 endfunction
 
+" }}}
+
+" ==========convenient map for file finding========== {{{
+nnoremap <leader>f :find ./**/
+nnoremap <leader><leader>f :find ./**/<C-r><C-w>
+" }}}
+
+" ==========convenient map for translating========== {{{
+nnoremap <leader>t :TranslateW <C-r><C-w>
+nnoremap <leader><leader>t :TranslateW! 
+vnoremap <leader>t :TranslateW
+vnoremap <leader><leader>t :TranslateW!
 " }}}
 
 " ==========cursor shape and color setting========== {{{
