@@ -280,6 +280,10 @@ nnoremap <leader>Q :lnewer<CR>
 " better use than <leader>Q
 nnoremap <leader><leader>q :lnewer<CR>
 
+" command completement of search
+nnoremap <leader>ss /<C-r><C-w>
+nnoremap <leader><leader>ss /\<<C-r><C-w>\><Left><Left>
+
 " command completement of grep
 nnoremap <leader>sa :lvimgrep // ./**/*.cpp ./**/*.cc ./**/*.c ./**/*.h<C-f>:call cursor(0,11)<CR>
 nnoremap <leader>sc :lvimgrep // ./**/*.cpp ./**/*.cc ./**/*.c<C-f>:call cursor(0,11)<CR>
