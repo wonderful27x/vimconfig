@@ -446,6 +446,8 @@ nmap ]] %][%
 " set window size to 0 but not close
 nnoremap <leader>x :<c-u>vertical resize 0<CR>
 nnoremap <leader><leader>x :<c-u>resize 0<CR>
+" max window size
+nnoremap <leader>o :<c-u>resize 1000<CR>:<c-u>vertical resize 1000<CR>:echo "max window size"<CR>
 " add/reduce window size
 nnoremap <S-Up> :<c-u>resize -1<CR>
 nnoremap <S-Down> :<c-u>resize +1<CR>
