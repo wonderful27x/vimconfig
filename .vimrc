@@ -536,3 +536,45 @@ function! s:BinaryPositionH(direction)
     echom "call BinaryPositionH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
 endfunction
 " }}}
+
+" ==========tool functions========== {{{
+" remove left zero: 050 -> 50
+function! RemoveLeftZero(number)
+    " echom 'input: ' . a:number
+    let length = len(a:number)
+    if length == 0
+        return '0'
+    endif
+    let i = 0
+    for n in a:number
+        if n != '0'
+            break
+        endif
+        let i += 1
+    endfor
+    if i == length
+        return a:number
+    else
+        return a:number[i:length-1]
+    endif
+endfunction
+
+" time to millisecond, input format: 23:03:55.998 or 03:55.998
+function! TimeToMillisecond(time)
+    " echom 'input: ' . a:time
+    let length = len(a:time)
+    if length == 0
+        return 0
+    endif
+    let time_list = split(a:time, '\.')
+    let front_time_list = split(time_list[0], ":")
+    if len(front_time_list) == 2
+        return RemoveLeftZero(front_time_list[0]) * 60 * 1000 + RemoveLeftZero(front_time_list[1]) * 1000 + RemoveLeftZero(time_list[1])
+    elseif len(front_time_list) == 3
+        return RemoveLeftZero(front_time_list[0]) * 60 * 60 * 1000 + RemoveLeftZero(front_time_list[1]) * 60 * 1000 + RemoveLeftZero(front_time_list[2]) * 1000 + RemoveLeftZero(time_list[1])
+    else
+        echo 'error time format!'
+        return 0
+    endif
+endfunction
+" }}}
