@@ -57,6 +57,8 @@ filetype plugin indent on    " required
 " ==========global variables========== {{{
 let g:quickfix_l_is_open = 0
 
+let g:nrformats_origin = ''
+
 let g:v_beg = 0
 let g:v_mid = 0
 let g:v_end = 0
@@ -81,7 +83,11 @@ filetype indent on      " 自适应不同语言的智能缩进
 filetype on             " 开启文件检测
 syntax on               " 开启语法高亮
 
-set pastetoggle=<f5>    " paste与paste!的切换，启用paste在使用系统粘贴命令时可以防止奇怪的缩进
+set pastetoggle=<F5>    " paste与paste!的切换，启用paste在使用系统粘贴命令时可以防止奇怪的缩进
+
+" 把所有数字当成十进制，不管是否以0开头或是0x开头
+let g:nrformats_origin = &nrformats
+set nrformats=
 
 " tab 命令补全模式, 此模式tab会显示补全列表
 set wildmenu
@@ -110,7 +116,7 @@ vnoremap <Leader>y "+y
 " 设置快捷键将系统剪切板内容粘贴至vim
 nnoremap <Leader>p "+p
 " 设置快捷键打开vimrc
-nnoremap <Leader>ev :vsplit $MYVIMRC<CR>
+nnoremap <Leader>ev :vsplit $MYVIMRC<CR>:<c-u>resize 9999<CR>:<c-u>vertical resize 9999<CR>:echo "edit vimrc ..."<CR>
 " 设置快捷键应用vimrc
 nnoremap <Leader>sv :source $MYVIMRC<CR>:<C-u>nohlsearch<CR>:echo "run source vimrc ok!"<CR>
 
@@ -152,7 +158,7 @@ nnoremap <C-u> Hzz
 cnoremap <expr> %% getcmdtype() == ':' ? expand('%:h').'/' : '%%'
 
 " f7 执行!ctags -R
-nnoremap <f7> :!ctags -R<CR>
+nnoremap <F7> :!ctags -R<CR>
 " 每次保存文件时自动调用ctags -R, 这种方式不好，它会使得保存变慢，并且不需要tags的项目在保存时也会生成
 " autocmd BufWritePost * call system("ctags -R")
 
@@ -229,7 +235,7 @@ set fileencodings=utf-8,gbk,ucs-bom,default,latin1
 " ==========abbreviations setting========== {{{
 " 缩略句abbreviations类似map, 插入模式下输入x@可以快速替换为对应邮箱
 " 不用担心所有x@都被替换，因为有iskeyword保护
-iabbrev @f wonderful27x@126.com
+iabbrev @e wonderful27x@126.com
 iabbrev @g wonderful27x@gmail.com
 iabbrev @w wonderful27x@outlook.com
 iabbrev @y wangdef@xxxxxxx.com
@@ -370,10 +376,14 @@ nnoremap <leader><leader>f :find ./**/<C-r><C-w>
 " }}}
 
 " ==========convenient map for translating========== {{{
-nnoremap <leader>t :TranslateW <C-r><C-w>
-nnoremap <leader><leader>t :TranslateW! 
-vnoremap <leader>t :TranslateW
-vnoremap <leader><leader>t :TranslateW!
+nnoremap <leader>t :Translate <C-r><C-w>
+nnoremap <leader><leader>t :Translate! 
+vnoremap <leader>t :Translate
+vnoremap <leader><leader>t :Translate!
+" nnoremap <leader>t :TranslateW <C-r><C-w>
+" nnoremap <leader><leader>t :TranslateW! 
+" vnoremap <leader>t :TranslateW
+" vnoremap <leader><leader>t :TranslateW!
 " }}}
 
 " ==========cursor shape and color setting========== {{{
@@ -398,6 +408,20 @@ endif
 " }}}
 
 " ==========toggle setting========== {{{
+" toggle nrformats, 数值进制敏感性设置
+" set nrformats=
+nnoremap <F8> :call <SID>NumberFormatsToggle()<CR>
+function! s:NumberFormatsToggle()
+    if &nrformats == ''
+        let &nrformats = g:nrformats_origin
+        echo "toggle number formats = " . g:nrformats_origin
+    else
+        let g:nrformats_origin = &nrformats
+        let &nrformats = ''
+        echo "toggle number formats = null"
+    endif
+endfunction
+
 " toggle number
 nnoremap <leader>N :setlocal number!<CR>
 
@@ -447,7 +471,7 @@ nmap ]] %][%
 nnoremap <leader>x :<c-u>vertical resize 0<CR>
 nnoremap <leader><leader>x :<c-u>resize 0<CR>
 " max window size
-nnoremap <leader>o :<c-u>resize 1000<CR>:<c-u>vertical resize 1000<CR>:echo "max window size"<CR>
+nnoremap <leader>o :<c-u>resize 9999<CR>:<c-u>vertical resize 9999<CR>:echo "max window size"<CR>
 " add/reduce window size
 nnoremap <S-Up> :<c-u>resize -1<CR>
 nnoremap <S-Down> :<c-u>resize +1<CR>
@@ -541,12 +565,12 @@ endfunction
 " remove left zero: 050 -> 50
 function! RemoveLeftZero(number)
     " echom 'input: ' . a:number
-    let length = len(a:number)
+    let length = strlen(a:number)
     if length == 0
         return '0'
     endif
     let i = 0
-    for n in a:number
+    for n in split(a:number, '\zs')
         if n != '0'
             break
         endif
@@ -577,4 +601,32 @@ function! TimeToMillisecond(time)
         return 0
     endif
 endfunction
+" }}}
+
+" ==========register macro record========== {{{
+" 非常有用的宏保存到寄存器中，在开发时方便使用，就像工具箱一样
+" [经典寄存器内容追加]，用于统计查找模式后的数据，比如有如下log日志：
+" xxx
+" time diff: 123
+" xxx
+" time diff: -23
+" xxx
+" time diff: 37
+" ...
+" 首先执行查找模式： '/time diff: '
+" 然后串行执行宏：100@u
+" 数据将保存到寄存器z中: '123 -23 37 '
+let @u = 'gnl"ZyW'
+" [相邻数据差值计算]，与@u类似
+" 首先执行查找模式： '/time diff: '
+" 然后串行执行宏：100@v
+" 数据将保存到寄存器z中: '-146 60 '
+" let @v = 'gnl"jyiWgnl"kyiW:let t = @k - @j:let @z = @z . t . " "Nh'
+let @v = 'gnl"jyEgnl"kyE:let @j = RemoveLeftZero(@j):let @k = RemoveLeftZero(@k):let t = @k - @j:let @z = @z . t . " "Nh'
+" [相邻时间差值计算]，时间格式应该形如: xxx时:分:秒.毫秒 例: I:time [17:12:39.638 11-03-2022]
+" 首先执行查找模式： 'I:time ['
+" 然后串行执行宏：100@w
+" 一毫秒为单位的时间差数据将保存到寄存器z中
+" let @w = 'gnl"tyiw:let i = @t * 60 * 60 * 1000f:w"tyiw:let i += @t * 60 * 1000;w"tyiw:let i += @t * 1000f.w"tyiw:let i += @tgnl"tyiw:let j = @t * 60 * 60 * 1000f:w"tyiw:let j += @t * 60 * 1000;w"tyiw:let j += @t * 1000f.w"tyiw:let j += @t:let t = j - i:let @z = @z . t . " "Nh'
+let @w = 'gnl"jyEgnl"kyE:let @j = TimeToMillisecond(@j):let @k = TimeToMillisecond(@k):let t = @k - @j:let @z = @z . t . " "Nh'
 " }}}
