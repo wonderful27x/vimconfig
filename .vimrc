@@ -59,6 +59,8 @@ let g:quickfix_l_is_open = 0
 
 let g:nrformats_origin = ''
 
+let g:hex_show = 0
+
 let g:v_beg = 0
 let g:v_mid = 0
 let g:v_end = 0
@@ -629,4 +631,20 @@ let @v = 'gnl"jyEgnl"kyE:let @j = RemoveLeftZero(@j):let @k = RemoveLeftZero(
 " 一毫秒为单位的时间差数据将保存到寄存器z中
 " let @w = 'gnl"tyiw:let i = @t * 60 * 60 * 1000f:w"tyiw:let i += @t * 60 * 1000;w"tyiw:let i += @t * 1000f.w"tyiw:let i += @tgnl"tyiw:let j = @t * 60 * 60 * 1000f:w"tyiw:let j += @t * 60 * 1000;w"tyiw:let j += @t * 1000f.w"tyiw:let j += @t:let t = j - i:let @z = @z . t . " "Nh'
 let @w = 'gnl"jyEgnl"kyE:let @j = TimeToMillisecond(@j):let @k = TimeToMillisecond(@k):let t = @k - @j:let @z = @z . t . " "Nh'
+" }}}
+
+" ==========hex show========== {{{
+nnoremap <silent> <F6> :call <SID>HexShowToggle()<CR>
+function! s:HexShowToggle()
+    let g:hex_show = !g:hex_show
+    if g:hex_show
+        " execute "normal! :%!xxd\r:echo 'hex show'\<CR>"
+        echo "hex show"
+        silent execute "normal! :%!xxd\<CR>"
+    else
+        " execute "normal! :%!xxd -r\r:echo 'restore from hex'\<CR>"
+        echo "restore from hex"
+        silent execute "normal! :%!xxd -r\<CR>"
+    endif
+endfunction
 " }}}
