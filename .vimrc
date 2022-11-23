@@ -1,9 +1,5 @@
 " echo "My best vim == >^.^< =="
 
-" ==========translator proxy setting========== {{{
-let g:translator_proxy_url = 'socks5://127.0.0.1:1080'
-" }}}
-
 " ==========vim plugin manager========== {{{
 " ==================使用Vundle管理插件========================
 set nocompatible        " be iMproved, required
@@ -55,6 +51,10 @@ filetype plugin indent on    " required
 " }}}
 
 " ==========global variables========== {{{
+" translator variable
+" let g:translator_proxy_url = 'socks5://127.0.0.1:1080'
+let g:translator_default_engines = ['bing', 'haici', 'sdcv']
+
 let g:quickfix_l_is_open = 0
 
 let g:nrformats_origin = ''
