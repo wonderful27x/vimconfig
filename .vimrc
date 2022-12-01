@@ -490,10 +490,17 @@ nnoremap <S-Right> :<c-u>vertical resize +1<CR>
 " If you miss the target call <leader>c to clear the position and try again
 " The binary position is especially useful when edit with which is not English,
 " beacuse it will be difficult to use f to find where you want to go
-nnoremap <C-j> :<c-u>call <SID>BinaryPositionV("down")<CR>
-nnoremap <C-k> :<c-u>call <SID>BinaryPositionV("up")<CR>
-nnoremap <C-h> :<c-u>call <SID>BinaryPositionH("left")<CR>
-nnoremap <C-l> :<c-u>call <SID>BinaryPositionH("right")<CR>
+nnoremap <C-j> :<c-u>call <SID>BinaryPositionV("down", "null")<CR>
+nnoremap <C-k> :<c-u>call <SID>BinaryPositionV("up", "null")<CR>
+nnoremap <C-h> :<c-u>call <SID>BinaryPositionH("left", "null")<CR>
+nnoremap <C-l> :<c-u>call <SID>BinaryPositionH("right", "null")<CR>
+
+nnoremap v vmv
+vnoremap <C-j> :<c-u>call <SID>BinaryPositionV("down", "visual")<CR>
+vnoremap <C-k> :<c-u>call <SID>BinaryPositionV("up", "visual")<CR>
+vnoremap <C-h> :<c-u>call <SID>BinaryPositionH("left", "visual")<CR>
+vnoremap <C-l> :<c-u>call <SID>BinaryPositionH("right", "visual")<CR>
+
 noremap <leader>c :<c-u>call <SID>BinaryClear()<CR>
 
 function! s:ResetV()
@@ -513,15 +520,22 @@ endfunction
 function! s:BinaryClear()
     call <SID>ResetV()
     call <SID>ResetH()
-    echom "Binary position has benn cleared!"
+    echom "Binary position has been cleared!"
 endfunction
 
-function! s:BinaryPositionV(direction)
+function! s:VisualMark()
+    silent execute "normal! mw`vv`w"
+endfunction
+
+function! s:BinaryPositionV(direction, type)
     let v_p = line('w0')
     if v_p != g:v_last_p
        call <SID>ResetV()
        call cursor(g:v_mid, 0)
        let g:v_last_p = v_p
+       if a:type ==? 'visual'
+           call <SID>VisualMark()
+       endif
        echom "call BinaryPositionV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
        return
    endif
@@ -536,15 +550,22 @@ function! s:BinaryPositionV(direction)
 
    call cursor(g:v_mid, 0)
 
+   if a:type ==? 'visual'
+       call <SID>VisualMark()
+   endif
+
    echom "call BinaryPositionV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
 endfunction
 
-function! s:BinaryPositionH(direction)
+function! s:BinaryPositionH(direction, type)
     let h_p = line('.')
     if h_p != g:h_last_p
         call <SID>ResetH()
         call cursor(0, g:h_mid)
         let g:h_last_p = h_p
+        if a:type ==? 'visual'
+           call <SID>VisualMark()
+        endif
         echom "call BinaryPositionH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
         return
     endif
@@ -558,6 +579,10 @@ function! s:BinaryPositionH(direction)
     let g:h_mid = g:h_beg + (g:h_end - g:h_beg) / 2
 
     call cursor(0, g:h_mid)
+
+    if a:type ==? 'visual'
+       call <SID>VisualMark()
+    endif
 
     echom "call BinaryPositionH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
 endfunction
