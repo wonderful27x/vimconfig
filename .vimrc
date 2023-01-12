@@ -362,7 +362,7 @@ function! s:GrepOperator(type, recursion)
         endif
     endif
     " open the quickfix list window
-    silent execute "normal! :lopen\<CR>"
+    silent execute "lopen"
     silent execute "normal! \<C-l>"
     let g:quickfix_l_is_open = 1
 
@@ -429,14 +429,13 @@ nnoremap <leader>N :setlocal number!<CR>
 
 " toggle open/close quickfix window
 " TODO bug: when use command 'lopen' g:quickfix_l_is_open cannot be updated
+" learn what is wincmd w、winnr()
 nnoremap <leader>w :call <SID>QuickfixToggle()<CR>
 function! s:QuickfixToggle()
     if g:quickfix_l_is_open
         lclose
         let g:quickfix_l_is_open = 0
-        " execute g:quickfix_return_to_window . "wincmd w"
     else
-        " let g:quickfix_return_to_window = winnr()
         lopen
         let g:quickfix_l_is_open = 1
     endif
@@ -656,6 +655,11 @@ let @v = 'gnl"jyEgnl"kyE:let @j = RemoveLeftZero(@j):let @k = RemoveLeftZero(
 " 一毫秒为单位的时间差数据将保存到寄存器z中
 " let @w = 'gnl"tyiw:let i = @t * 60 * 60 * 1000f:w"tyiw:let i += @t * 60 * 1000;w"tyiw:let i += @t * 1000f.w"tyiw:let i += @tgnl"tyiw:let j = @t * 60 * 60 * 1000f:w"tyiw:let j += @t * 60 * 1000;w"tyiw:let j += @t * 1000f.w"tyiw:let j += @t:let t = j - i:let @z = @z . t . " "Nh'
 let @w = 'gnl"jyEgnl"kyE:let @j = TimeToMillisecond(@j):let @k = TimeToMillisecond(@k):let t = @k - @j:let @z = @z . t . " "Nh'
+" [以空格作为间隔符拼接所有行]
+" 即把所有行以空格为间隔拼接到一行，或者将所有行的换行符替换为空格
+" 直接串行执行宏：100@x
+let @x = '"Zy$:let @z = @z . " "j'
+" 提示：运行宏之前应该先清空寄存器z -> qzq
 " }}}
 
 " ==========hex show========== {{{
@@ -663,13 +667,11 @@ nnoremap <silent> <F6> :call <SID>HexShowToggle()<CR>
 function! s:HexShowToggle()
     let g:hex_show = !g:hex_show
     if g:hex_show
-        " execute "normal! :%!xxd\r:echo 'hex show'\<CR>"
+        silent execute "%!xxd"
         echo "hex show"
-        silent execute "normal! :%!xxd\<CR>"
     else
-        " execute "normal! :%!xxd -r\r:echo 'restore from hex'\<CR>"
+        silent execute "%!xxd -r"
         echo "restore from hex"
-        silent execute "normal! :%!xxd -r\<CR>"
     endif
 endfunction
 " }}}
