@@ -293,14 +293,14 @@ nnoremap <leader>sw /<C-r><C-w>
 nnoremap <leader><leader>sw /\<<C-r><C-w>\><Left><Left>
 
 " command completement of grep
-nnoremap <leader>sa :lvimgrep // ./**/*.cpp ./**/*.cc ./**/*.c ./**/*.h<C-f>:call cursor(0,11)<CR>
+nnoremap <leader>sa :lvimgrep // ./**/*.cpp ./**/*.cc ./**/*.c ./**/*.h ./**/*.hpp<C-f>:call cursor(0,11)<CR>
 nnoremap <leader>sc :lvimgrep // ./**/*.cpp ./**/*.cc ./**/*.c<C-f>:call cursor(0,11)<CR>
-nnoremap <leader>sh :lvimgrep // ./**/*.h<C-f>:call cursor(0,11)<CR>
+nnoremap <leader>sh :lvimgrep // ./**/*.h ./**/*.hpp<C-f>:call cursor(0,11)<CR>
 nnoremap <leader>s% :lvimgrep // %<C-f>:call cursor(0,11)<CR>
 nnoremap <leader>ss :lvimgrep // ./**/*<C-f>:call cursor(0,11)<CR>
-nnoremap <leader><leader>sa :lvimgrep /\<\>/ ./**/*.cpp ./**/*.cc ./**/*.c ./**/*.h<C-f>:call cursor(0,13)<CR>
+nnoremap <leader><leader>sa :lvimgrep /\<\>/ ./**/*.cpp ./**/*.cc ./**/*.c ./**/*.h ./**/*.hpp<C-f>:call cursor(0,13)<CR>
 nnoremap <leader><leader>sc :lvimgrep /\<\>/ ./**/*.cpp ./**/*.cc ./**/*.c<C-f>:call cursor(0,13)<CR>
-nnoremap <leader><leader>sh :lvimgrep /\<\>/ ./**/*.h<C-f>:call cursor(0,13)<CR>
+nnoremap <leader><leader>sh :lvimgrep /\<\>/ ./**/*.h ./**/*.hpp<C-f>:call cursor(0,13)<CR>
 nnoremap <leader><leader>s% :lvimgrep /\<\>/ %<C-f>:call cursor(0,13)<CR>
 nnoremap <leader><leader>ss :lvimgrep /\<\>/ ./**/*<C-f>:call cursor(0,13)<CR>
 
@@ -352,7 +352,7 @@ function! s:GrepOperator(type, recursion)
     " shellescape: to deal whit kind like words <that's> which contain single quote in grep
     if(&l:filetype ==# 'cpp' || &l:filetype ==# 'c')
         if a:recursion
-            silent execute "lgrep! -R " . shellescape(@@) . " --include=*.{c,cc,cpp,h} ."
+            silent execute "lgrep! -R " . shellescape(@@) . " --include=*.{c,cc,cpp,h,hpp} ."
         else
             silent execute "lgrep! " . shellescape(@@) . " %"
         endif
