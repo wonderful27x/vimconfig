@@ -1,5 +1,18 @@
 " echo "My best vim == >^.^< =="
 
+" Quick Start
+" -----------
+" 1) clone Vundle for vim plugin magager
+" >>>>> git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
+"
+" 2) add your vim config here and copy it
+" >>>>> cp .vimrc ~/
+"
+" 3) open your vim and run command for plugin install
+" >>>>> :PluginInstall
+
+
+
 " ==========vim plugin manager========== {{{
 " ==================使用Vundle管理插件========================
 set nocompatible        " be iMproved, required
