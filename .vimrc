@@ -190,6 +190,9 @@ augroup filetype_cpp
     autocmd!
     autocmd FileType cpp setlocal foldmethod=syntax
     autocmd FileType c setlocal foldmethod=syntax
+    " 低版本的vim可能造成无法忍受的卡顿!!! 请替换为下面的方式，但折叠功能会大打折扣
+    " autocmd FileType cpp setlocal foldmethod=indent
+    " autocmd FileType c setlocal foldmethod=indent
 augroup END
 
 " toggle foldcolumn
