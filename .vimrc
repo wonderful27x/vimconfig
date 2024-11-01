@@ -1,5 +1,18 @@
 " echo "My best vim == >^.^< =="
 
+" Quick Start
+" -----------
+" 1) clone Vundle for vim plugin magager
+" >>>>> git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
+"
+" 2) add your vim config here and copy it
+" >>>>> cp .vimrc ~/
+"
+" 3) open your vim and run command for plugin install
+" >>>>> :PluginInstall
+
+
+
 " ==========vim plugin manager========== {{{
 " ==================使用Vundle管理插件========================
 set nocompatible        " be iMproved, required
@@ -30,6 +43,7 @@ Plugin 'weirongxu/plantuml-previewer.vim'   "plantuml预览, need sudo apt-get i
 Plugin 'tyru/open-browser.vim'              "浏览器预览渲染图, plantuml用
 Plugin 'octol/vim-cpp-enhanced-highlight'   "cpp语法高亮
 Plugin 'voldikss/vim-translator'            "vim翻译工具
+Plugin 'tikhomirov/vim-glsl'                "opengl着色器语言语法高亮
 " Plugin 'scrooloose/vim-slumlord'            "plantuml预览, 使用ASCII码在vim内部预览，效果很差
 " Plugin 'sheerun/vim-polyglot'               "语法包，包含大量语法如c++、cmake、glsl、markdown、plantuml... 太过重量级，内部会修改很多配置
 " All of your Plugins must be added before the following line
