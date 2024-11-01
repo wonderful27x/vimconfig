@@ -286,26 +286,26 @@ endfunction
 
 " ==========convenient map for grep searching========== {{{
 " traverse quickfix window history
-nnoremap <leader>q :lolder<CR>
-nnoremap <leader>Q :lnewer<CR>
+nnoremap <leader>q :colder<CR>
+nnoremap <leader>Q :cnewer<CR>
 " better use than <leader>Q
-nnoremap <leader><leader>q :lnewer<CR>
+nnoremap <leader><leader>q :cnewer<CR>
 
 " command completement of search
 nnoremap <leader>sw /<C-r><C-w>
 nnoremap <leader><leader>sw /\<<C-r><C-w>\><Left><Left>
 
 " command completement of grep
-nnoremap <leader>sa :lvimgrep // ./**/*.cpp ./**/*.cc ./**/*.c ./**/*.h ./**/*.hpp<C-f>:call cursor(0,11)<CR>
-nnoremap <leader>sc :lvimgrep // ./**/*.cpp ./**/*.cc ./**/*.c<C-f>:call cursor(0,11)<CR>
-nnoremap <leader>sh :lvimgrep // ./**/*.h ./**/*.hpp<C-f>:call cursor(0,11)<CR>
-nnoremap <leader>s% :lvimgrep // %<C-f>:call cursor(0,11)<CR>
-nnoremap <leader>ss :lvimgrep // ./**/*<C-f>:call cursor(0,11)<CR>
-nnoremap <leader><leader>sa :lvimgrep /\<\>/ ./**/*.cpp ./**/*.cc ./**/*.c ./**/*.h ./**/*.hpp<C-f>:call cursor(0,13)<CR>
-nnoremap <leader><leader>sc :lvimgrep /\<\>/ ./**/*.cpp ./**/*.cc ./**/*.c<C-f>:call cursor(0,13)<CR>
-nnoremap <leader><leader>sh :lvimgrep /\<\>/ ./**/*.h ./**/*.hpp<C-f>:call cursor(0,13)<CR>
-nnoremap <leader><leader>s% :lvimgrep /\<\>/ %<C-f>:call cursor(0,13)<CR>
-nnoremap <leader><leader>ss :lvimgrep /\<\>/ ./**/*<C-f>:call cursor(0,13)<CR>
+nnoremap <leader>sa :vimgrep // ./**/*.cpp ./**/*.cc ./**/*.c ./**/*.h ./**/*.hpp<C-f>:call cursor(0,11)<CR>
+nnoremap <leader>sc :vimgrep // ./**/*.cpp ./**/*.cc ./**/*.c<C-f>:call cursor(0,11)<CR>
+nnoremap <leader>sh :vimgrep // ./**/*.h ./**/*.hpp<C-f>:call cursor(0,11)<CR>
+nnoremap <leader>s% :vimgrep // %<C-f>:call cursor(0,11)<CR>
+nnoremap <leader>ss :vimgrep // ./**/*<C-f>:call cursor(0,11)<CR>
+nnoremap <leader><leader>sa :vimgrep /\<\>/ ./**/*.cpp ./**/*.cc ./**/*.c ./**/*.h ./**/*.hpp<C-f>:call cursor(0,13)<CR>
+nnoremap <leader><leader>sc :vimgrep /\<\>/ ./**/*.cpp ./**/*.cc ./**/*.c<C-f>:call cursor(0,13)<CR>
+nnoremap <leader><leader>sh :vimgrep /\<\>/ ./**/*.h ./**/*.hpp<C-f>:call cursor(0,13)<CR>
+nnoremap <leader><leader>s% :vimgrep /\<\>/ %<C-f>:call cursor(0,13)<CR>
+nnoremap <leader><leader>ss :vimgrep /\<\>/ ./**/*<C-f>:call cursor(0,13)<CR>
 
 " g@: call the function set by the 'operatorfunc'
 " <SID>: use for function namespace
@@ -355,19 +355,20 @@ function! s:GrepOperator(type, recursion)
     " shellescape: to deal whit kind like words <that's> which contain single quote in grep
     if(&l:filetype ==# 'cpp' || &l:filetype ==# 'c')
         if a:recursion
-            silent execute "lgrep! -R " . shellescape(@@) . " --include=*.{c,cc,cpp,h,hpp} ."
+            silent execute "grep! -R " . shellescape(@@) . " --include=*.{c,cc,cpp,h,hpp} ."
         else
-            silent execute "lgrep! " . shellescape(@@) . " %"
+            silent execute "grep! " . shellescape(@@) . " %"
         endif
     else
         if a:recursion
-            silent execute "lgrep! -R " . shellescape(@@) . " ."
+            silent execute "grep! -R " . shellescape(@@) . " ."
         else
-            silent execute "lgrep! " . shellescape(@@) . " %"
+            silent execute "grep! " . shellescape(@@) . " %"
         endif
     endif
     " open the quickfix list window
-    silent execute "lopen"
+    silent execute "copen"
+    silent execute "normal! \<C-w>J"
     silent execute "normal! \<C-l>"
     let g:quickfix_l_is_open = 1
 
@@ -433,15 +434,15 @@ endfunction
 nnoremap <leader>N :setlocal number!<CR>
 
 " toggle open/close quickfix window
-" TODO bug: when use command 'lopen' g:quickfix_l_is_open cannot be updated
+" TODO bug: when use command 'copen' g:quickfix_l_is_open cannot be updated
 " learn what is wincmd w、winnr()
 nnoremap <leader>w :call <SID>QuickfixToggle()<CR>
 function! s:QuickfixToggle()
     if g:quickfix_l_is_open
-        lclose
+        cclose
         let g:quickfix_l_is_open = 0
     else
-        lopen
+        copen
         let g:quickfix_l_is_open = 1
     endif
 endfunction
