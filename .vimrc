@@ -457,6 +457,7 @@ function! s:QuickfixToggle()
         let g:quickfix_l_is_open = 0
     else
         copen
+        silent execute "normal! \<C-w>J"
         let g:quickfix_l_is_open = 1
     endif
 endfunction
