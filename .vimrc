@@ -521,7 +521,11 @@ vnoremap <C-k> :<c-u>call <SID>BinaryPositionV("up", "visual")<CR>
 vnoremap <C-h> :<c-u>call <SID>BinaryPositionH("left", "visual")<CR>
 vnoremap <C-l> :<c-u>call <SID>BinaryPositionH("right", "visual")<CR>
 
-noremap <leader>c :<c-u>call <SID>BinaryClear()<CR>
+nnoremap <silent> j j: <c-u>call <SID>BinaryClear("true")<CR>
+nnoremap <silent> k k: <c-u>call <SID>BinaryClear("true")<CR>
+nnoremap <silent> l l: <c-u>call <SID>BinaryClear("true")<CR>
+nnoremap <silent> h h: <c-u>call <SID>BinaryClear("true")<CR>
+noremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
 
 function! s:ResetV()
     let g:v_beg = line('w0')
@@ -537,10 +541,12 @@ function! s:ResetH()
     let g:h_last_p = 0
 endfunction
 
-function! s:BinaryClear()
+function! s:BinaryClear(quiet)
     call <SID>ResetV()
     call <SID>ResetH()
-    echom "Binary position has been cleared!"
+    if a:quiet !=? 'true'
+        echom "Binary position has been cleared!"
+    endif
 endfunction
 
 function! s:VisualMark()
