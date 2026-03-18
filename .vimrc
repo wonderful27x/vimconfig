@@ -530,7 +530,7 @@ noremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
 
 function! s:ResetV()
     let g:v_beg = line('w0')
-    let g:v_end = line('w$')
+    let g:v_end = line('w$') + 1
     let g:v_mid = g:v_beg + (g:v_end - g:v_beg) / 2
     let g:v_last_p = 0
 endfunction
