@@ -2,68 +2,99 @@
 
 " Quick Start
 " -----------
-" 1) clone Vundle for vim plugin magager
+" 1) clone vim-plug or Vundle for vim plugin magager
+" >>>>> curl -fLo ~/.vim/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 " >>>>> git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
 "
 " 2) add your vim config here and copy it
 " >>>>> cp .vimrc ~/
 "
 " 3) open your vim and run command for plugin install
+" >>>>> :PlugInstall
 " >>>>> :PluginInstall
 
 
 
 " ==========vim plugin manager========== {{{
-" ==================使用Vundle管理插件========================
-set nocompatible        " be iMproved, required
-filetype off            " required
-
-" polyglot插件语法包冲突解决方案
-" let g:polyglot_disabled = ['markdown']          "禁用个人插件语法
-" let g:polyglot_disabled = ['markdown.plugin']   "禁用polyglot中的语法
-" let g:polyglot_disabled = ['plantuml.plugin']   "禁用polyglot中的语法
-" let g:polyglot_disabled = ['sensible']          "关闭polyglot的default设置
-" let g:polyglot_disabled = ['ftdetect']          "禁用polyglot中的文件探测
-
-" set the runtime path to include Vundle and initialize
-set rtp+=~/.vim/bundle/Vundle.vim
-call vundle#begin()
-" alternatively, pass a path where Vundle should install plugins
-" call vundle#begin('$VIM/vimfiles/bundle')
-" let Vundle manage Vundle, required
-Plugin 'VundleVim/Vundle.vim'               "插件管理
-Plugin 'tpope/vim-surround'                 "可使块surroud, 如给word -> {word}
-Plugin 'tpope/vim-unimpaired'               "缓冲区、参数、quickfix、位置、标签列表的遍历快捷键
-Plugin 'tpope/vim-commentary'               "代码注释gc
-Plugin 'tpope/vim-bundler'                  "gf跳转path的设置相关, 以及tags, 好像没啥效果，待研究
-Plugin 'iamcco/mathjax-support-for-mkdp'    "markdown数学公式
-Plugin 'iamcco/markdown-preview.nvim'       "markdown预览
-Plugin 'aklt/plantuml-syntax'               "plantuml语法高亮
-Plugin 'weirongxu/plantuml-previewer.vim'   "plantuml预览, need sudo apt-get install graphviz
-Plugin 'tyru/open-browser.vim'              "浏览器预览渲染图, plantuml用
-Plugin 'octol/vim-cpp-enhanced-highlight'   "cpp语法高亮
-Plugin 'voldikss/vim-translator'            "vim翻译工具
-Plugin 'tikhomirov/vim-glsl'                "opengl着色器语言语法高亮
-Plugin 'skywind3000/asyncrun.vim'           "异步命令执行
-" Plugin 'scrooloose/vim-slumlord'            "plantuml预览, 使用ASCII码在vim内部预览，效果很差
-" Plugin 'sheerun/vim-polyglot'               "语法包，包含大量语法如c++、cmake、glsl、markdown、plantuml... 太过重量级，内部会修改很多配置
+" ==================使用vim-plug管理插件========================
+" any issues see github!!!
+call plug#begin()
+" The default plugin directory will be as follows:
+"   - Vim (Linux/macOS): '~/.vim/plugged'
+"   - Vim (Windows): '~/vimfiles/plugged'
+"   - Neovim (Linux/macOS/Windows): stdpath('data') . '/plugged'
+" You can specify a custom plugin directory by passing it as the argument
+"   - e.g. `call plug#begin('~/.vim/plugged')`
+"   - Avoid using standard Vim directory names like 'plugin'
+Plug 'tpope/vim-surround'                         "可使块surroud, 如给word -> {word}
+Plug 'tpope/vim-unimpaired'                       "缓冲区、参数、quickfix、位置、标签列表的遍历快捷键
+Plug 'tpope/vim-commentary'                       "代码注释gc
+Plug 'neoclide/coc.nvim', {'branch': 'release'}   "LSP client
+Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app && npx --yes yarn install' }
+Plug 'aklt/plantuml-syntax'                       "plantuml语法高亮
+Plug 'weirongxu/plantuml-previewer.vim'           "plantuml预览, need sudo apt-get install graphviz
+Plug 'tyru/open-browser.vim'                      "浏览器预览渲染图, plantuml用
+Plug 'voldikss/vim-translator'                    "vim翻译工具
+Plug 'tikhomirov/vim-glsl'                        "opengl着色器语言语法高亮
 " All of your Plugins must be added before the following line
-call vundle#end()            " required
+call plug#end()            " required
+" ==================使用vim-plug管理插件========================
 
-filetype plugin indent on    " required
-" To ignore plugin indent changes, instead use:
-" filetype plugin on
-"
-" Brief help
-" :PluginList       - lists configured plugins
-" :PluginInstall    - installs plugins; append `!` to update or just :PluginUpdate
-" :PluginSearch foo - searches for foo; append `!` to refresh local cache
-" :PluginClean      - confirms removal of unused plugins; append `!` to auto-approve removal
-"
-" see :h vundle for more details or wiki for FAQ
-" Put your non-Plugin stuff after this line
-" ==================使用Vundle管理插件========================
+
+" " ==================使用Vundle管理插件========================
+" set nocompatible        " be iMproved, required
+" filetype off            " required
+
+" " polyglot插件语法包冲突解决方案
+" " let g:polyglot_disabled = ['markdown']          "禁用个人插件语法
+" " let g:polyglot_disabled = ['markdown.plugin']   "禁用polyglot中的语法
+" " let g:polyglot_disabled = ['plantuml.plugin']   "禁用polyglot中的语法
+" " let g:polyglot_disabled = ['sensible']          "关闭polyglot的default设置
+" " let g:polyglot_disabled = ['ftdetect']          "禁用polyglot中的文件探测
+
+" " set the runtime path to include Vundle and initialize
+" set rtp+=~/.vim/bundle/Vundle.vim
+" call vundle#begin()
+" " alternatively, pass a path where Vundle should install plugins
+" " call vundle#begin('$VIM/vimfiles/bundle')
+" " let Vundle manage Vundle, required
+" "
+" Plugin 'VundleVim/Vundle.vim'                       "插件管理
+" Plugin 'tpope/vim-surround'                         "可使块surroud, 如给word -> {word}
+" Plugin 'tpope/vim-unimpaired'                       "缓冲区、参数、quickfix、位置、标签列表的遍历快捷键
+" Plugin 'tpope/vim-commentary'                       "代码注释gc
+" Plugin 'iamcco/mathjax-support-for-mkdp'            "markdown数学公式
+" Plugin 'iamcco/markdown-preview.nvim'               "markdown预览
+" Plugin 'aklt/plantuml-syntax'                       "plantuml语法高亮
+" Plugin 'weirongxu/plantuml-previewer.vim'           "plantuml预览, need sudo apt-get install graphviz
+" Plugin 'tyru/open-browser.vim'                      "浏览器预览渲染图, plantuml用
+" Plugin 'voldikss/vim-translator'                    "vim翻译工具
+" Plugin 'tikhomirov/vim-glsl'                        "opengl着色器语言语法高亮
+" Plugin 'octol/vim-cpp-enhanced-highlight'           "cpp语法高亮
+" " Plugin 'neoclide/coc.nvim'                          "LSP client, 使用Vundle.vim加载有些问题
+" "
+" " Plugin 'tpope/vim-bundler'                          "gf跳转path的设置相关, 以及tags, 好像没啥效果，待研究
+" " Plugin 'skywind3000/asyncrun.vim'                   "异步命令执行, 高版本vim有terminal命令，更好
+" " Plugin 'scrooloose/vim-slumlord'                    "plantuml预览, 使用ASCII码在vim内部预览，效果很差
+" " Plugin 'sheerun/vim-polyglot'                       "语法包，包含大量语法如c++、cmake、glsl、markdown、plantuml... 太过重量级，内部会修改很多配置
+" " All of your Plugins must be added before the following line
+" call vundle#end()            " required
+
+" filetype plugin indent on    " required
+" " To ignore plugin indent changes, instead use:
+" " filetype plugin on
+" "
+" " Brief help
+" " :PluginList       - lists configured plugins
+" " :PluginInstall    - installs plugins; append `!` to update or just :PluginUpdate
+" " :PluginSearch foo - searches for foo; append `!` to refresh local cache
+" " :PluginClean      - confirms removal of unused plugins; append `!` to auto-approve removal
+" "
+" " see :h vundle for more details or wiki for FAQ
+" " Put your non-Plugin stuff after this line
+" " ==================使用Vundle管理插件========================
 " }}}
+
 
 " ==========global variables========== {{{
 " translator variable
@@ -188,6 +219,115 @@ nnoremap <space> viw
 
 " map Y to yank text from cursor to the end of line
 nnoremap Y y$
+" }}}
+
+" ==========coc settings========== {{{
+" coc.nvim config in .vimrc
+" semanticTokens: 语义高亮
+" suggest.autoTrigger: 禁止补全窗口自动弹出
+let g:coc_user_config = {
+\ 'semanticTokens.enable': v:true,
+\ 'suggest.autoTrigger': 'none',
+\ }
+
+" Some servers have issues with backup files, see #649
+" set nobackup
+" set nowritebackup
+" Having longer updatetime (default is 4000 ms = 4s) leads to noticeable
+" delays and poor user experience
+" 当停止输入一段时间后，Vim 会触发一些“需要等待空闲”的事件/动作
+set updatetime=300
+" Always show the signcolumn, otherwise it would shift the text each time
+" diagnostics appear/become resolved
+" 在窗口左边、行号左侧/附近的一小列，用来显示各种“标记”（sign）
+set signcolumn=yes
+
+" Use tab for trigger completion with characters ahead and navigate
+" NOTE: There's always complete item selected by default, you may want to enable
+" no select by `"suggest.noselect": true` in your configuration file
+" NOTE: Use command ':verbose imap <tab>' to make sure tab is not mapped by
+" other plugin before putting this into your config
+" <TAB> 选择下一项补全
+" <S-TAB> 选择上一个补全
+inoremap <silent><expr> <TAB>
+      \ coc#pum#visible() ? coc#pum#next(1) :
+      \ CheckBackspace() ? "\<Tab>" :
+      \ coc#refresh()
+inoremap <expr><S-TAB> coc#pum#visible() ? coc#pum#prev(1) : "\<C-h>"
+
+" Make <CR> to accept selected completion item or notify coc.nvim to format
+" <C-g>u breaks current undo, please make your own choice
+" 补全弹窗弹出时回车变为选中，否则执行"\<C-g>u\<CR>\<c-r>=coc#on_enter()\<CR>
+" \<C-g>u 作用：让这次回车后的内容和回车前的内容不要被归到同一个“撤销块”里, 这样按u撤销时可以撤销更小的块
+" \<c-r>=coc#on_enter()\<CR>则可以正常执行回车时调用coc的钩子执行其他操作
+inoremap <silent><expr> <CR> coc#pum#visible() ? coc#pum#confirm()
+                              \: "\<C-g>u\<CR>\<c-r>=coc#on_enter()\<CR>"
+" 简单版本
+" inoremap <silent><expr> <CR> coc#pum#visible() ? coc#pum#confirm() : "\<CR>"
+
+function! CheckBackspace() abort
+  let col = col('.') - 1
+  return !col || getline('.')[col - 1]  =~# '\s'
+endfunction
+
+" Use <c-space> to trigger completion
+" 手动弹出补全菜单
+if has('nvim')
+  inoremap <silent><expr> <c-space> coc#refresh()
+else
+  inoremap <silent><expr> <c-@> coc#refresh()
+  inoremap <silent><expr> <C-l> coc#refresh()
+endif
+
+" Use `[g` and `]g` to navigate diagnostics
+" Use `:CocDiagnostics` to get all diagnostics of current buffer in location list
+" 错误诊断跳转快捷键
+nmap <silent><nowait> [g <Plug>(coc-diagnostic-prev)
+nmap <silent><nowait> ]g <Plug>(coc-diagnostic-next)
+
+" GoTo code navigation
+" 代码跳转快捷键
+nmap <silent><nowait> gD <Plug>(coc-definition)
+nmap <silent><nowait> gY <Plug>(coc-type-definition)
+nmap <silent><nowait> gI <Plug>(coc-implementation)
+nmap <silent><nowait> gR <Plug>(coc-references)
+
+" Use K to show documentation in preview window
+" 普通模式下的 K 重新定义为：优先用 coc.nvim/LSP 显示光标所在符号的文档（hover 提示）；
+" 如果当前文件类型没有 hover 能力，就退回到 Vim 默认的 K 行为
+nnoremap <silent> K :call ShowDocumentation()<CR>
+
+function! ShowDocumentation()
+  if CocAction('hasProvider', 'hover')
+    call CocActionAsync('doHover')
+  else
+    call feedkeys('K', 'in')
+  endif
+endfunction
+
+" Highlight the symbol and its references when holding the cursor
+" 当光标停在某个位置不动一小段时间时，让 coc.nvim 去高亮当前符号及其引用（类似 VSCode 里点一下变量，会把同名变量/引用都标出来）
+" autocmd CursorHold * silent call CocActionAsync('highlight')
+
+" Formatting selected code
+" xmap <leader>F  <Plug>(coc-format-selected)
+" nmap <leader>F  <Plug>(coc-format-selected)
+xnoremap <silent> <leader>F <Plug>(coc-format-selected)
+nnoremap <silent> <leader>F <Plug>(coc-format-selected)
+
+" Applying code actions to the selected code block
+" Example: `<leader>aap` for current paragraph
+" 代码建议快捷键
+xmap <leader>a  <Plug>(coc-codeaction-selected)
+nmap <leader>a  <Plug>(coc-codeaction-selected)
+
+" Remap keys for applying code actions at the cursor position
+nmap <leader>ac  <Plug>(coc-codeaction-cursor)
+" Remap keys for apply code actions affect whole buffer
+nmap <leader>as  <Plug>(coc-codeaction-source)
+" Apply the most preferred quickfix action to fix diagnostic on the current line
+nmap <leader>qf  <Plug>(coc-fix-current)
+
 " }}}
 
 " ==========fold setting========== {{{
