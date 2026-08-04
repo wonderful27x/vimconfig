@@ -268,10 +268,9 @@ nmap <leader>ac  <Plug>(coc-codeaction-cursor)
 nmap <leader>as  <Plug>(coc-codeaction-source)
 " Apply the most preferred quickfix action to fix diagnostic on the current line
 nmap <leader>qf  <Plug>(coc-fix-current)
-
 " }}}
 
-" ==========fold setting========== {{{
+" ==========fold settings========== {{{
 " no fold when open file
 set foldlevelstart=99
 
@@ -302,7 +301,7 @@ function! s:FoldColumnToggle()
 endfunction
 " }}}
 
-" ==========tab setting========== {{{
+" ==========tab settings========== {{{
 set tabstop=4           " tab/制表符 四个空格
 set shiftwidth=4        " >> << 四个空格
 set expandtab           " tab/制表符 展开为四个空格
@@ -310,7 +309,7 @@ set softtabstop=4       " 连续4个空格视为一个tab/制表符
 " retab命令可以按照上面设置的规则格式化代码
 " }}}
 
-" ==========file encode setting========== {{{
+" ==========file encode settings========== {{{
 set fileformat=unix             "unix 文件格式，\n为行结束符，实际测试无效，创建文件时与系统一致!!! 可以打开文件后手动设置生效
 set fileformats=unix,dos,mac    "设置vim支持的系统文件格式
 set nobomb                      "utf-8标准格式，bomb微软用的多
@@ -323,7 +322,7 @@ set fileencodings=utf-8,gbk,ucs-bom,default,latin1
 " termencoding: vim工作终端的编码方式
 " }}}
 
-" ==========statusline setting========== {{{
+" ==========statusline settings========== {{{
 " set statusline
 " set statusline=%f   "path to the file
 " set statusline+=%=  "switch to the right side
@@ -333,7 +332,7 @@ set fileencodings=utf-8,gbk,ucs-bom,default,latin1
 " set statusline+=%y  "file type
 " }}}
 
-" ==========abbreviations setting========== {{{
+" ==========abbreviations settings========== {{{
 " 缩略句abbreviations类似map, 插入模式下输入x@可以快速替换为对应邮箱
 " 不用担心所有x@都被替换，因为有iskeyword保护
 iabbrev @e wonderful27x@126.com
@@ -342,7 +341,7 @@ iabbrev @w wonderful27x@outlook.com
 iabbrev @y wangdef@xxxxxxx.com
 " }}}
 
-" ==========forbiden key setting========== {{{
+" ==========forbiden key settings========== {{{
 " 插入模式和命令行模式禁用退格删除键，防止不良习惯
 inoremap <backspace> <nop>
 cnoremap <backspace> <nop>
@@ -367,7 +366,7 @@ augroup markdown_group
 augroup END
 " }}}
 
-" ==========visual search for */# setting========== {{{
+" ==========visual search for */# settings========== {{{
 " 可视模式按*/#对选中文本进行查询
 " 注意符号:, 这是一条命令行映射，而命令行或插入模式下<C-u>代表清除至行首
 xnoremap * :<C-u>call <SID>VSetSearch('/')<CR>/<C-R>=@/<CR><CR>
@@ -471,7 +470,6 @@ function! s:GrepOperator(type, recursion)
     " restore the unnamed register after use
     let @@ = saved_unnamed_register
 endfunction
-
 " }}}
 
 " ==========convenient map for file finding========== {{{
@@ -490,7 +488,7 @@ vnoremap <leader><leader>t :Translate!
 " vnoremap <leader><leader>t :TranslateW!
 " }}}
 
-" ==========cursor shape and color setting========== {{{
+" ==========cursor shape and color settings========== {{{
 " Set cursor shape and color
 " before . setting shape, after . setting color
 " 1 -> blinking block  闪烁的方块
@@ -511,7 +509,7 @@ if &term =~ "xterm"
 endif
 " }}}
 
-" ==========toggle setting========== {{{
+" ==========toggle settings========== {{{
 " toggle nrformats, 数值进制敏感性设置
 " set nrformats=
 nnoremap <F8> :call <SID>NumberFormatsToggle()<CR>
@@ -567,10 +565,9 @@ nmap ]] %][%
 " 这与"下一个"的行为似乎有些矛盾，一方面是由于我们自己的实现造成的，但是只要把它理解为
 " “跳转到下一个或当前函数的开始“就可以了，并且]]也是最常使用的，"跳转到下一个或当前函数的开始"
 " 这一行为真的很棒，要想跳转到结束可以使用%
-
 " }}}
 
-"==========window setting========== {{{
+"==========window settings========== {{{
 " set window size to 0 but not close
 nnoremap <leader>x :<c-u>vertical resize 0<CR>
 nnoremap <leader><leader>x :<c-u>resize 0<CR>
