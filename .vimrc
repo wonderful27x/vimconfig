@@ -4,19 +4,15 @@
 " -----------
 " 1) clone vim-plug or Vundle for vim plugin magager
 " >>>>> curl -fLo ~/.vim/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-" >>>>> git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
 "
 " 2) add your vim config here and copy it
 " >>>>> cp .vimrc ~/
 "
 " 3) open your vim and run command for plugin install
 " >>>>> :PlugInstall
-" >>>>> :PluginInstall
-
 
 
 " ==========vim plugin manager========== {{{
-" ==================使用vim-plug管理插件========================
 " any issues see github!!!
 call plug#begin()
 " The default plugin directory will be as follows:
@@ -38,61 +34,6 @@ Plug 'voldikss/vim-translator'                    "vim翻译工具
 Plug 'tikhomirov/vim-glsl'                        "opengl着色器语言语法高亮
 " All of your Plugins must be added before the following line
 call plug#end()            " required
-" ==================使用vim-plug管理插件========================
-
-
-" " ==================使用Vundle管理插件========================
-" set nocompatible        " be iMproved, required
-" filetype off            " required
-
-" " polyglot插件语法包冲突解决方案
-" " let g:polyglot_disabled = ['markdown']          "禁用个人插件语法
-" " let g:polyglot_disabled = ['markdown.plugin']   "禁用polyglot中的语法
-" " let g:polyglot_disabled = ['plantuml.plugin']   "禁用polyglot中的语法
-" " let g:polyglot_disabled = ['sensible']          "关闭polyglot的default设置
-" " let g:polyglot_disabled = ['ftdetect']          "禁用polyglot中的文件探测
-
-" " set the runtime path to include Vundle and initialize
-" set rtp+=~/.vim/bundle/Vundle.vim
-" call vundle#begin()
-" " alternatively, pass a path where Vundle should install plugins
-" " call vundle#begin('$VIM/vimfiles/bundle')
-" " let Vundle manage Vundle, required
-" "
-" Plugin 'VundleVim/Vundle.vim'                       "插件管理
-" Plugin 'tpope/vim-surround'                         "可使块surroud, 如给word -> {word}
-" Plugin 'tpope/vim-unimpaired'                       "缓冲区、参数、quickfix、位置、标签列表的遍历快捷键
-" Plugin 'tpope/vim-commentary'                       "代码注释gc
-" Plugin 'iamcco/mathjax-support-for-mkdp'            "markdown数学公式
-" Plugin 'iamcco/markdown-preview.nvim'               "markdown预览
-" Plugin 'aklt/plantuml-syntax'                       "plantuml语法高亮
-" Plugin 'weirongxu/plantuml-previewer.vim'           "plantuml预览, need sudo apt-get install graphviz
-" Plugin 'tyru/open-browser.vim'                      "浏览器预览渲染图, plantuml用
-" Plugin 'voldikss/vim-translator'                    "vim翻译工具
-" Plugin 'tikhomirov/vim-glsl'                        "opengl着色器语言语法高亮
-" Plugin 'octol/vim-cpp-enhanced-highlight'           "cpp语法高亮
-" " Plugin 'neoclide/coc.nvim'                          "LSP client, 使用Vundle.vim加载有些问题
-" "
-" " Plugin 'tpope/vim-bundler'                          "gf跳转path的设置相关, 以及tags, 好像没啥效果，待研究
-" " Plugin 'skywind3000/asyncrun.vim'                   "异步命令执行, 高版本vim有terminal命令，更好
-" " Plugin 'scrooloose/vim-slumlord'                    "plantuml预览, 使用ASCII码在vim内部预览，效果很差
-" " Plugin 'sheerun/vim-polyglot'                       "语法包，包含大量语法如c++、cmake、glsl、markdown、plantuml... 太过重量级，内部会修改很多配置
-" " All of your Plugins must be added before the following line
-" call vundle#end()            " required
-
-" filetype plugin indent on    " required
-" " To ignore plugin indent changes, instead use:
-" " filetype plugin on
-" "
-" " Brief help
-" " :PluginList       - lists configured plugins
-" " :PluginInstall    - installs plugins; append `!` to update or just :PluginUpdate
-" " :PluginSearch foo - searches for foo; append `!` to refresh local cache
-" " :PluginClean      - confirms removal of unused plugins; append `!` to auto-approve removal
-" "
-" " see :h vundle for more details or wiki for FAQ
-" " Put your non-Plugin stuff after this line
-" " ==================使用Vundle管理插件========================
 " }}}
 
 
