@@ -26,12 +26,12 @@ Plug 'tpope/vim-surround'                         "可使块surroud, 如给word 
 Plug 'tpope/vim-unimpaired'                       "缓冲区、参数、quickfix、位置、标签列表的遍历快捷键
 Plug 'tpope/vim-commentary'                       "代码注释gc
 Plug 'neoclide/coc.nvim', {'branch': 'release'}   "LSP client
+Plug 'tikhomirov/vim-glsl'                        "opengl着色器语言语法高亮
+Plug 'voldikss/vim-translator'                    "vim翻译工具
 Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app && npx --yes yarn install' }
 Plug 'aklt/plantuml-syntax'                       "plantuml语法高亮
 Plug 'weirongxu/plantuml-previewer.vim'           "plantuml预览, need sudo apt-get install graphviz
 Plug 'tyru/open-browser.vim'                      "浏览器预览渲染图, plantuml用
-Plug 'voldikss/vim-translator'                    "vim翻译工具
-Plug 'tikhomirov/vim-glsl'                        "opengl着色器语言语法高亮
 " All of your Plugins must be added before the following line
 call plug#end()            " required
 " }}}
@@ -165,11 +165,17 @@ nnoremap Y y$
 " ==========coc settings========== {{{
 " coc.nvim config in .vimrc
 " semanticTokens: 语义高亮
+" inlayHint: 虚拟文本，形参名
 " suggest.autoTrigger: 禁止补全窗口自动弹出
 let g:coc_user_config = {
 \ 'semanticTokens.enable': v:true,
+\ 'inlayHint.enable': v:true,
+\ 'inlayHint.display': v:false,
 \ 'suggest.autoTrigger': 'none',
 \ }
+
+" 禁止启动，用CocStart手动开启
+let g:coc_start_at_startup = 0
 
 " Some servers have issues with backup files, see #649
 " set nobackup
@@ -181,7 +187,7 @@ set updatetime=300
 " Always show the signcolumn, otherwise it would shift the text each time
 " diagnostics appear/become resolved
 " 在窗口左边、行号左侧/附近的一小列，用来显示各种“标记”（sign）
-set signcolumn=yes
+" set signcolumn=yes
 
 " Use tab for trigger completion with characters ahead and navigate
 " NOTE: There's always complete item selected by default, you may want to enable
@@ -219,6 +225,9 @@ else
   inoremap <silent><expr> <c-@> coc#refresh()
   inoremap <silent><expr> <C-l> coc#refresh()
 endif
+
+" 虚拟文本显示开关
+nnoremap <silent> <leader>ih :CocCommand document.toggleInlayHint<CR>
 
 " Use `[g` and `]g` to navigate diagnostics
 " Use `:CocDiagnostics` to get all diagnostics of current buffer in location list
