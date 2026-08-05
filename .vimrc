@@ -28,6 +28,7 @@ Plug 'tpope/vim-commentary'                       "代码注释gc
 Plug 'neoclide/coc.nvim', {'branch': 'release'}   "LSP client
 Plug 'tikhomirov/vim-glsl'                        "opengl着色器语言语法高亮
 Plug 'voldikss/vim-translator'                    "vim翻译工具
+Plug 'mhinz/vim-signify'                          "git工具
 Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app && npx --yes yarn install' }
 Plug 'aklt/plantuml-syntax'                       "plantuml语法高亮
 Plug 'weirongxu/plantuml-previewer.vim'           "plantuml预览, need sudo apt-get install graphviz
@@ -160,6 +161,11 @@ nnoremap <space> viw
 
 " map Y to yank text from cursor to the end of line
 nnoremap Y y$
+" }}}
+
+" ==========signify settings========== {{{
+" 默认禁用, 使用:SignifyEnable手动开启
+let g:signify_disable_by_default = 1
 " }}}
 
 " ==========coc settings========== {{{
