@@ -669,7 +669,7 @@ Plug 'tpope/vim-surround'                         "可使块surroud, 如给word 
 Plug 'tpope/vim-unimpaired'                       "缓冲区、参数、quickfix、位置、标签列表的遍历快捷键
 Plug 'tpope/vim-commentary'                       "代码注释gc
 " ------------------------------------------------------------
-" Plug 'octol/vim-cpp-enhanced-highlight'           "cpp语法高亮
+Plug 'octol/vim-cpp-enhanced-highlight'           "cpp语法高亮
 Plug 'tikhomirov/vim-glsl'                        "opengl着色器语言语法高亮
 Plug 'plasticboy/vim-markdown'                    "markdown语法高亮
 Plug 'aklt/plantuml-syntax'                       "plantuml语法高亮
@@ -695,6 +695,16 @@ call plug#end()            " required
 
 
 " 插件特性设置: >>>
+
+" ==========vim-cpp-enhanced-highlight settings========== {{{
+let g:cpp_class_scope_highlight = 1
+let g:cpp_member_variable_highlight = 1
+let g:cpp_class_decl_highlight = 1
+let g:cpp_posix_standard = 1
+let g:cpp_experimental_simple_template_highlight = 1
+let g:cpp_concepts_highlight = 1
+let g:cpp_no_function_highlight = 0                     " Disable highlighting of user defined functions
+" }}}
 
 " ==========vim-signify settings========== {{{
 " 默认禁用, 使用:SignifyEnable手动开启
@@ -758,8 +768,8 @@ augroup lsp_install
     autocmd User lsp_buffer_enabled call s:on_lsp_buffer_enabled()
 augroup END
 
-" 语义高亮
-let g:lsp_semantic_enabled = 1
+" 语义高亮, 速度有些慢
+let g:lsp_semantic_enabled = 0
 let g:lsp_semantic_delay = 500
 
 " 禁止光标停留自动高亮
