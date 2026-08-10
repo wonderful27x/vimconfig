@@ -686,7 +686,6 @@ Plug 'prabirshrestha/asyncomplete-lsp.vim'        "lsp自动补全
 " ------------------------------------------------------------
 " Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app && npx --yes yarn install' }
 " ------------------------------------------------------------
-" Plug 'aklt/plantuml-syntax'                       "plantuml语法高亮
 " Plug 'weirongxu/plantuml-previewer.vim'           "plantuml预览, need sudo apt-get install graphviz
 " Plug 'tyru/open-browser.vim'                      "浏览器预览渲染图, plantuml用
 " All of your Plugins must be added before the following line
@@ -701,7 +700,7 @@ let g:cpp_class_scope_highlight = 1
 let g:cpp_member_variable_highlight = 1
 let g:cpp_class_decl_highlight = 1
 let g:cpp_posix_standard = 1
-let g:cpp_experimental_simple_template_highlight = 1
+let g:cpp_experimental_simple_template_highlight = 0    " 性能太差
 let g:cpp_concepts_highlight = 1
 let g:cpp_no_function_highlight = 0                     " Disable highlighting of user defined functions
 " }}}
