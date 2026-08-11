@@ -665,6 +665,8 @@ call plug#begin()
 " You can specify a custom plugin directory by passing it as the argument
 "   - e.g. `call plug#begin('~/.vim/plugged')`
 "   - Avoid using standard Vim directory names like 'plugin'
+Plug 'rhysd/vim-healthcheck'                      "plugin helth check
+" ------------------------------------------------------------
 Plug 'tpope/vim-surround'                         "可使块surroud, 如给word -> {word}
 Plug 'tpope/vim-unimpaired'                       "缓冲区、参数、quickfix、位置、标签列表的遍历快捷键
 Plug 'tpope/vim-commentary'                       "代码注释gc
@@ -825,6 +827,11 @@ let g:lsp_diagnostics_signs_delay = 500                     " 延迟符号显示
 " 关闭错误诊断虚拟文本
 let g:lsp_diagnostics_virtual_text_enabled = 0
 let g:lsp_diagnostics_virtual_text_insert_mode_enabled = 0
+
+" lsp log
+" let g:lsp_log_verbose = 1
+" let g:lsp_log_file = expand('~/logs/vim-lsp.log')
+" let g:asyncomplete_log_file = expand('~/logs/asyncomplete.log')
 " }}}
 
 " " ==========coc settings========== {{{
