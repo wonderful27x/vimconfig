@@ -749,15 +749,18 @@ function! s:on_lsp_buffer_enabled() abort
     if exists('+tagfunc') | setlocal tagfunc=lsp#tagfunc | endif
     nnoremap <buffer> gD <plug>(lsp-definition)
     nnoremap <buffer> gY <plug>(lsp-type-definition)
-    nnoremap <buffer> gs <plug>(lsp-document-symbol-search)
-    nnoremap <buffer> gS <plug>(lsp-workspace-symbol-search)
     nnoremap <buffer> gR <plug>(lsp-references)
     nnoremap <buffer> gI <plug>(lsp-implementation)
-    nnoremap <buffer> <leader>rn <plug>(lsp-rename)
-    nnoremap <buffer> <leader>a <plug>(lsp-code-action-float)
+    nnoremap <buffer> gH <plug>(lsp-type-hierarchy)
+    nnoremap <buffer> gs <plug>(lsp-document-symbol-search)
+    nnoremap <buffer> gS <plug>(lsp-workspace-symbol-search)
+    " ----------------------------------------------
     nnoremap <buffer> [g <plug>(lsp-previous-diagnostic)
     nnoremap <buffer> ]g <plug>(lsp-next-diagnostic)
-    nnoremap <buffer> K <plug>(lsp-hover)
+    nnoremap <buffer> K <plug>(lsp-hover-float)
+    " ----------------------------------------------
+    nnoremap <buffer> <leader>rn <plug>(lsp-rename)
+    nnoremap <buffer> <leader>a <plug>(lsp-code-action-float)
     " nnoremap <buffer> <expr><c-d> lsp#scroll(+4)
     " nnoremap <buffer> <expr><c-u> lsp#scroll(-4)
     " refer to doc to add more commands
@@ -778,6 +781,9 @@ let g:lsp_document_highlight_enabled = 0
 
 " 禁止补全弹窗自动弹出
 let g:asyncomplete_auto_popup = 0
+
+" 禁止函数签名提示自动弹出在输入模式下
+let g:lsp_signature_help_enabled = 0
 
 " allow modifying the completeopt variable, or it will
 " be overridden all the time
