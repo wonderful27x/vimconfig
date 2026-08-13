@@ -157,11 +157,9 @@ augroup END
 " cpp fold setting
 augroup filetype_cpp
     autocmd!
-    autocmd FileType cpp setlocal foldmethod=syntax
-    autocmd FileType c setlocal foldmethod=syntax
-    " 低版本的vim可能造成无法忍受的卡顿!!! 请替换为下面的方式，但折叠功能会大打折扣
-    " autocmd FileType cpp setlocal foldmethod=indent
-    " autocmd FileType c setlocal foldmethod=indent
+    autocmd FileType c,cpp setlocal foldmethod=manual "手动折叠，性能最好
+    " autocmd FileType c,cpp setlocal foldmethod=indent "缩进折叠
+    " autocmd FileType c,cpp setlocal foldmethod=syntax "一些版本的vim可能造成无法忍受的卡顿!!!
 augroup END
 
 " toggle foldcolumn
@@ -207,12 +205,9 @@ set fileencodings=utf-8,gbk,ucs-bom,default,latin1
 " }}}
 
 " ==========abbreviations settings========== {{{
-" 缩略句abbreviations类似map, 插入模式下输入x@可以快速替换为对应邮箱
-" 不用担心所有x@都被替换，因为有iskeyword保护
-iabbrev @e wonderful27x@126.com
-iabbrev @g wonderful27x@gmail.com
-iabbrev @w wonderful27x@outlook.com
-iabbrev @y wangdef@xxxxxxx.com
+" 缩略句abbreviations类似map, 插入模式下输入@g<space>可以快速替换为对应邮箱
+" 不用担心所有@g都被替换，因为有iskeyword保护
+" iabbrev @g xxxxxx@gmail.com
 " }}}
 
 " ==========forbiden key settings========== {{{
