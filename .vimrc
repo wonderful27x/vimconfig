@@ -149,13 +149,13 @@ set completeopt-=preview
 set foldlevelstart=99
 
 " vim fold setting
-augroup filetype_vim
+augroup fold_filetype_vim
     autocmd!
     autocmd FileType vim setlocal foldmethod=marker
 augroup END
 
 " cpp fold setting
-augroup filetype_cpp
+augroup fold_filetype_cpp
     autocmd!
     autocmd FileType c,cpp setlocal foldmethod=manual "手动折叠，性能最好
     " autocmd FileType c,cpp setlocal foldmethod=indent "缩进折叠
@@ -164,7 +164,7 @@ augroup END
 
 " toggle foldcolumn
 nnoremap <leader>d :call <SID>FoldColumnToggle()<CR>
-function! s:FoldColumnToggle()
+function! s:FoldColumnToggle() abort
     if &foldcolumn
         setlocal foldcolumn=0
     else
@@ -240,7 +240,7 @@ augroup END
 " 注意符号:, 这是一条命令行映射，而命令行或插入模式下<C-u>代表清除至行首
 xnoremap * :<C-u>call <SID>VSetSearch('/')<CR>/<C-R>=@/<CR><CR>
 xnoremap # :<C-u>call <SID>VSetSearch('?')<CR>?<C-R>=@/<CR><CR>
-    function! s:VSetSearch(cmdtype)
+function! s:VSetSearch(cmdtype) abort
     let temp = @s
     norm! gv"sy
     let @/ = '\V' . substitute(escape(@s, a:cmdtype.'\'), '\n', '\\n', 'g')
@@ -294,7 +294,7 @@ function! s:GrepOperatorNR(type)
 endfunction
 
 " s: use namespace s
-function! s:GrepOperator(type, recursion)
+function! s:GrepOperator(type, recursion) abort
     " save the unnamed register before use
     let saved_unnamed_register = @@
 
@@ -386,7 +386,7 @@ nnoremap <leader>N :setlocal number!<CR>
 " TODO bug: when use command 'copen' g:quickfix_l_is_open cannot be updated
 " learn what is wincmd w、winnr()
 nnoremap <leader>w :call <SID>QuickfixToggle()<CR>
-function! s:QuickfixToggle()
+function! s:QuickfixToggle() abort
     if g:quickfix_l_is_open
         cclose
         let g:quickfix_l_is_open = 0
@@ -472,21 +472,21 @@ nnoremap <silent> l l: <c-u>call <SID>BinaryClear("true")<CR>
 nnoremap <silent> h h: <c-u>call <SID>BinaryClear("true")<CR>
 noremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
 
-function! s:ResetV()
+function! s:ResetV() abort
     let g:v_beg = line('w0')
     let g:v_end = line('w$') + 1
     let g:v_mid = g:v_beg + (g:v_end - g:v_beg) / 2
     let g:v_last_p = 0
 endfunction
 
-function! s:ResetH()
+function! s:ResetH() abort
     let g:h_beg = 1
     let g:h_end = col('$')
     let g:h_mid = g:h_beg + (g:h_end - g:h_beg) / 2
     let g:h_last_p = 0
 endfunction
 
-function! s:BinaryClear(quiet)
+function! s:BinaryClear(quiet) abort
     call <SID>ResetV()
     call <SID>ResetH()
     if a:quiet !=? 'true'
@@ -498,7 +498,7 @@ function! s:VisualMark()
     silent execute "normal! mw`vv`w"
 endfunction
 
-function! s:BinaryPositionV(direction, type)
+function! s:BinaryPositionV(direction, type) abort
     let v_p = line('w0')
     if v_p != g:v_last_p
        call <SID>ResetV()
@@ -528,7 +528,7 @@ function! s:BinaryPositionV(direction, type)
    echom "call BinaryPositionV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
 endfunction
 
-function! s:BinaryPositionH(direction, type)
+function! s:BinaryPositionH(direction, type) abort
     let h_p = line('.')
     if h_p != g:h_last_p
         call <SID>ResetH()
@@ -561,7 +561,7 @@ endfunction
 
 " ==========tool functions========== {{{
 " remove left zero: 050 -> 50
-function! RemoveLeftZero(number)
+function! RemoveLeftZero(number) abort
     " echom 'input: ' . a:number
     let length = strlen(a:number)
     if length == 0
@@ -582,7 +582,7 @@ function! RemoveLeftZero(number)
 endfunction
 
 " time to millisecond, input format: 23:03:55.998 or 03:55.998
-function! TimeToMillisecond(time)
+function! TimeToMillisecond(time) abort
     " echom 'input: ' . a:time
     let length = len(a:time)
     if length == 0
@@ -648,7 +648,7 @@ let @o = 'gnmmo"ty$:let @t = @t . "\n":let @z = @z . @t`ml'
 
 " ==========hex show========== {{{
 nnoremap <silent> <F6> :call <SID>HexShowToggle()<CR>
-function! s:HexShowToggle()
+function! s:HexShowToggle() abort
     let g:hex_show = !g:hex_show
     if g:hex_show
         silent execute "%!xxd"
@@ -764,6 +764,7 @@ function! s:on_lsp_buffer_enabled() abort
     nnoremap <buffer> [g <plug>(lsp-previous-diagnostic)
     nnoremap <buffer> ]g <plug>(lsp-next-diagnostic)
     nnoremap <buffer> K <plug>(lsp-hover-float)
+    nnoremap <buffer> gK <plug>(lsp-hover-preview)
     " ----------------------------------------------
     nnoremap <buffer> <leader>rn <plug>(lsp-rename)
     nnoremap <buffer> <leader>a <plug>(lsp-code-action-float)
@@ -840,7 +841,7 @@ let g:lsp_diagnostics_signs_delay = 500                     " 延迟符号显示
 let g:lsp_diagnostics_virtual_text_enabled = 0
 let g:lsp_diagnostics_virtual_text_insert_mode_enabled = 0
 
-" 使用<C-j>/<C-k>上下滚动popu window
+" 使用<C-j>/<C-k>上下滚动popup window
 nnoremap <silent><expr> <C-j>
       \ empty(popup_list())
       \ ? "\<Plug>(N_BinaryPositionDown)"
@@ -942,7 +943,7 @@ nnoremap <silent><expr> <C-k>
 " " 如果当前文件类型没有 hover 能力，就退回到 Vim 默认的 K 行为
 " nnoremap <silent> K :call ShowDocumentation()<CR>
 
-" function! ShowDocumentation()
+" function! ShowDocumentation() abort
 "   if CocAction('hasProvider', 'hover')
 "     call CocActionAsync('doHover')
 "   else
