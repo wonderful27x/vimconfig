@@ -430,6 +430,8 @@ nnoremap <S-Right> :<c-u>vertical resize +1<CR>
 " The binary position is especially useful when edit with which is not English,
 " beacuse it will be difficult to use f to find where you want to go
 
+let g:c_jkhl_binary_called = 0
+
 let g:v_beg = 0
 let g:v_mid = 0
 let g:v_end = 0
@@ -462,10 +464,10 @@ vnoremap <C-k> <Plug>(V_BinaryPositionUp)
 vnoremap <C-h> <Plug>(V_BinaryPositionLeft)
 vnoremap <C-l> <Plug>(V_BinaryPositionRight)
 
-nnoremap <silent> j j: <c-u>call <SID>BinaryClear("true")<CR>
-nnoremap <silent> k k: <c-u>call <SID>BinaryClear("true")<CR>
-nnoremap <silent> l l: <c-u>call <SID>BinaryClear("true")<CR>
-nnoremap <silent> h h: <c-u>call <SID>BinaryClear("true")<CR>
+nnoremap <silent> j j: <c-u>call <SID>BinaryClearFast()<CR>
+nnoremap <silent> k k: <c-u>call <SID>BinaryClearFast()<CR>
+nnoremap <silent> l l: <c-u>call <SID>BinaryClearFast()<CR>
+nnoremap <silent> h h: <c-u>call <SID>BinaryClearFast()<CR>
 noremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
 
 function! s:ResetV() abort
@@ -482,9 +484,19 @@ function! s:ResetH() abort
     let g:h_last_p = 0
 endfunction
 
+function! s:BinaryClearFast() abort
+    if g:c_jkhl_binary_called == 0
+        return
+    endif
+    call <SID>ResetV()
+    call <SID>ResetH()
+    let g:c_jkhl_binary_called = 0
+endfunction
+
 function! s:BinaryClear(quiet) abort
     call <SID>ResetV()
     call <SID>ResetH()
+    let g:c_jkhl_binary_called = 0
     if a:quiet !=? 'true'
         echom "Binary position has been cleared!"
     endif
@@ -495,6 +507,8 @@ function! s:VisualMark()
 endfunction
 
 function! s:BinaryPositionV(direction, type) abort
+    let g:c_jkhl_binary_called += 1
+
     let v_p = line('w0')
     if v_p != g:v_last_p
        call <SID>ResetV()
@@ -525,6 +539,8 @@ function! s:BinaryPositionV(direction, type) abort
 endfunction
 
 function! s:BinaryPositionH(direction, type) abort
+    let g:c_jkhl_binary_called += 1
+
     let h_p = line('.')
     if h_p != g:h_last_p
         call <SID>ResetH()
