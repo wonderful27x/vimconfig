@@ -24,22 +24,6 @@ set scrolloff=0
 
 
 
-" ==========global variables========== {{{
-let g:quickfix_l_is_open = 0
-
-let g:hex_show = 0
-
-let g:v_beg = 0
-let g:v_mid = 0
-let g:v_end = 0
-let g:v_last_p = 0
-
-let g:h_beg = 0
-let g:h_mid = 0
-let g:h_end = 0
-let g:h_last_p = 0
-" }}}
-
 " ==========normal settings========== {{{
 " 让配置变更立即生效, 使用快捷键运行source感觉更好
 " autocmd BufWritePost $MYVIMRC source $MYVIMRC
@@ -382,6 +366,7 @@ endif
 " toggle number
 nnoremap <leader>N :setlocal number!<CR>
 
+let g:quickfix_l_is_open = 0
 " toggle open/close quickfix window
 " TODO bug: when use command 'copen' g:quickfix_l_is_open cannot be updated
 " learn what is wincmd w、winnr()
@@ -444,6 +429,17 @@ nnoremap <S-Right> :<c-u>vertical resize +1<CR>
 " If you miss the target call <leader>c to clear the position and try again
 " The binary position is especially useful when edit with which is not English,
 " beacuse it will be difficult to use f to find where you want to go
+
+let g:v_beg = 0
+let g:v_mid = 0
+let g:v_end = 0
+let g:v_last_p = 0
+
+let g:h_beg = 0
+let g:h_mid = 0
+let g:h_end = 0
+let g:h_last_p = 0
+
 " 映射成<Plug>方便别的地方用
 nnoremap <Plug>(N_BinaryPositionDown)   :<c-u>call <SID>BinaryPositionV("down", "null")<CR>
 nnoremap <Plug>(N_BinaryPositionUp)     :<c-u>call <SID>BinaryPositionV("up", "null")<CR>
@@ -647,6 +643,7 @@ let @o = 'gnmmo"ty$:let @t = @t . "\n":let @z = @z . @t`ml'
 " }}}
 
 " ==========hex show========== {{{
+let g:hex_show = 0
 nnoremap <silent> <F6> :call <SID>HexShowToggle()<CR>
 function! s:HexShowToggle() abort
     let g:hex_show = !g:hex_show
