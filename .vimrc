@@ -442,28 +442,17 @@ let g:h_mid = 0
 let g:h_end = 0
 let g:h_last_p = 0
 
-" 映射成<Plug>方便别的地方用
-nnoremap <Plug>(N_BinaryPositionDown)   :<c-u>call <SID>BinaryPositionV("down", "null")<CR>
-nnoremap <Plug>(N_BinaryPositionUp)     :<c-u>call <SID>BinaryPositionV("up", "null")<CR>
-nnoremap <Plug>(N_BinaryPositionLeft)   :<c-u>call <SID>BinaryPositionH("left", "null")<CR>
-nnoremap <Plug>(N_BinaryPositionRight)  :<c-u>call <SID>BinaryPositionH("right", "null")<CR>
+nnoremap <C-j> :<c-u>call <SID>BinaryPositionV("down", "null")<CR>
+nnoremap <C-k> :<c-u>call <SID>BinaryPositionV("up", "null")<CR>
+nnoremap <C-h> :<c-u>call <SID>BinaryPositionH("left", "null")<CR>
+nnoremap <C-l> :<c-u>call <SID>BinaryPositionH("right", "null")<CR>
 " -------------------------------------------------
-nnoremap <C-j> <Plug>(N_BinaryPositionDown)
-nnoremap <C-k> <Plug>(N_BinaryPositionUp)
-nnoremap <C-h> <Plug>(N_BinaryPositionLeft)
-nnoremap <C-l> <Plug>(N_BinaryPositionRight)
-
 nnoremap v vmv
-vnoremap <Plug>(V_BinaryPositionDown)   :<c-u>call <SID>BinaryPositionV("down", "visual")<CR>
-vnoremap <Plug>(V_BinaryPositionUp)     :<c-u>call <SID>BinaryPositionV("up", "visual")<CR>
-vnoremap <Plug>(V_BinaryPositionLeft)   :<c-u>call <SID>BinaryPositionH("left", "visual")<CR>
-vnoremap <Plug>(V_BinaryPositionRight)  :<c-u>call <SID>BinaryPositionH("right", "visual")<CR>
+vnoremap <C-j> :<c-u>call <SID>BinaryPositionV("down", "visual")<CR>
+vnoremap <C-k> :<c-u>call <SID>BinaryPositionV("up", "visual")<CR>
+vnoremap <C-h> :<c-u>call <SID>BinaryPositionH("left", "visual")<CR>
+vnoremap <C-l> :<c-u>call <SID>BinaryPositionH("right", "visual")<CR>
 " ------------------------------------------
-vnoremap <C-j> <Plug>(V_BinaryPositionDown)
-vnoremap <C-k> <Plug>(V_BinaryPositionUp)
-vnoremap <C-h> <Plug>(V_BinaryPositionLeft)
-vnoremap <C-l> <Plug>(V_BinaryPositionRight)
-
 nnoremap <silent> j j: <c-u>call <SID>BinaryClearFast()<CR>
 nnoremap <silent> k k: <c-u>call <SID>BinaryClearFast()<CR>
 nnoremap <silent> l l: <c-u>call <SID>BinaryClearFast()<CR>
@@ -855,14 +844,23 @@ let g:lsp_diagnostics_virtual_text_enabled = 0
 let g:lsp_diagnostics_virtual_text_insert_mode_enabled = 0
 
 " 使用<C-j>/<C-k>上下滚动popup window
-nnoremap <silent><expr> <C-j>
-      \ empty(popup_list())
-      \ ? "\<Plug>(N_BinaryPositionDown)"
-      \ : lsp#scroll(+4)
-nnoremap <silent><expr> <C-k>
-      \ empty(popup_list())
-      \ ? "\<Plug>(N_BinaryPositionUp)"
-      \ : lsp#scroll(-4)
+nnoremap <silent> <C-j> :<C-u>call SmartCJ()<CR>
+nnoremap <silent> <C-k> :<C-u>call SmartCK()<CR>
+function! SmartCJ() abort
+    if exists('*popup_list') && !empty(popup_list())
+        call lsp#scroll(+4)
+    else
+        call <SID>BinaryPositionV("down", "null")
+    endif
+endfunction
+" ------------------------------------------------
+function! SmartCK() abort
+    if exists('*popup_list') && !empty(popup_list())
+        call lsp#scroll(-4)
+    else
+        call <SID>BinaryPositionV("up", "null")
+    endif
+endfunction
 
 " lsp log
 " let g:lsp_log_verbose = 1
