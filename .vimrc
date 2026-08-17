@@ -442,16 +442,27 @@ let g:h_mid = 0
 let g:h_end = 0
 let g:h_last_p = 0
 
-nnoremap <C-j> :<c-u>call <SID>BinaryPositionV("down", "null")<CR>
-nnoremap <C-k> :<c-u>call <SID>BinaryPositionV("up", "null")<CR>
-nnoremap <C-h> :<c-u>call <SID>BinaryPositionH("left", "null")<CR>
-nnoremap <C-l> :<c-u>call <SID>BinaryPositionH("right", "null")<CR>
+" 映射成<Plug>方便别的地方用
+nnoremap <Plug>(N_BinaryPositionDown)   :<c-u>call <SID>BinaryPositionV("down", "null")<CR>
+nnoremap <Plug>(N_BinaryPositionUp)     :<c-u>call <SID>BinaryPositionV("up", "null")<CR>
+nnoremap <Plug>(N_BinaryPositionLeft)   :<c-u>call <SID>BinaryPositionH("left", "null")<CR>
+nnoremap <Plug>(N_BinaryPositionRight)  :<c-u>call <SID>BinaryPositionH("right", "null")<CR>
+" -------------------------------------------------
+vnoremap <Plug>(V_BinaryPositionDown)   :<c-u>call <SID>BinaryPositionV("down", "visual")<CR>
+vnoremap <Plug>(V_BinaryPositionUp)     :<c-u>call <SID>BinaryPositionV("up", "visual")<CR>
+vnoremap <Plug>(V_BinaryPositionLeft)   :<c-u>call <SID>BinaryPositionH("left", "visual")<CR>
+vnoremap <Plug>(V_BinaryPositionRight)  :<c-u>call <SID>BinaryPositionH("right", "visual")<CR>
+" ------------------------------------------
+nmap <C-j> <Plug>(N_BinaryPositionDown)
+nmap <C-k> <Plug>(N_BinaryPositionUp)
+nmap <C-h> <Plug>(N_BinaryPositionLeft)
+nmap <C-l> <Plug>(N_BinaryPositionRight)
 " -------------------------------------------------
 nnoremap v vmv
-vnoremap <C-j> :<c-u>call <SID>BinaryPositionV("down", "visual")<CR>
-vnoremap <C-k> :<c-u>call <SID>BinaryPositionV("up", "visual")<CR>
-vnoremap <C-h> :<c-u>call <SID>BinaryPositionH("left", "visual")<CR>
-vnoremap <C-l> :<c-u>call <SID>BinaryPositionH("right", "visual")<CR>
+vmap <C-j> <Plug>(V_BinaryPositionDown)
+vmap <C-k> <Plug>(V_BinaryPositionUp)
+vmap <C-h> <Plug>(V_BinaryPositionLeft)
+vmap <C-l> <Plug>(V_BinaryPositionRight)
 " ------------------------------------------
 nnoremap <silent> j j: <c-u>call <SID>BinaryClearFast()<CR>
 nnoremap <silent> k k: <c-u>call <SID>BinaryClearFast()<CR>
@@ -755,23 +766,21 @@ function! s:on_lsp_buffer_enabled() abort
     setlocal omnifunc=lsp#complete
     " setlocal signcolumn=yes
     if exists('+tagfunc') | setlocal tagfunc=lsp#tagfunc | endif
-    nnoremap <buffer> gD <plug>(lsp-definition)
-    nnoremap <buffer> gY <plug>(lsp-type-definition)
-    nnoremap <buffer> gR <plug>(lsp-references)
-    nnoremap <buffer> gI <plug>(lsp-implementation)
-    nnoremap <buffer> gH <plug>(lsp-type-hierarchy)
-    nnoremap <buffer> gs <plug>(lsp-document-symbol-search)
-    nnoremap <buffer> gS <plug>(lsp-workspace-symbol-search)
+    nmap <buffer> gD <plug>(lsp-definition)
+    nmap <buffer> gY <plug>(lsp-type-definition)
+    nmap <buffer> gR <plug>(lsp-references)
+    nmap <buffer> gI <plug>(lsp-implementation)
+    nmap <buffer> gH <plug>(lsp-type-hierarchy)
+    nmap <buffer> gs <plug>(lsp-document-symbol-search)
+    nmap <buffer> gS <plug>(lsp-workspace-symbol-search)
     " ----------------------------------------------
-    nnoremap <buffer> [g <plug>(lsp-previous-diagnostic)
-    nnoremap <buffer> ]g <plug>(lsp-next-diagnostic)
-    nnoremap <buffer> K <plug>(lsp-hover-float)
-    nnoremap <buffer> gK <plug>(lsp-hover-preview)
+    nmap <buffer> [g <plug>(lsp-previous-diagnostic)
+    nmap <buffer> ]g <plug>(lsp-next-diagnostic)
+    nmap <buffer> K <plug>(lsp-hover-float)
+    nmap <buffer> gK <plug>(lsp-hover-preview)
     " ----------------------------------------------
-    nnoremap <buffer> <leader>rn <plug>(lsp-rename)
-    nnoremap <buffer> <leader>a <plug>(lsp-code-action-float)
-    " nnoremap <buffer> <expr><c-d> lsp#scroll(+4)
-    " nnoremap <buffer> <expr><c-u> lsp#scroll(-4)
+    nmap <buffer> <leader>rn <plug>(lsp-rename)
+    nmap <buffer> <leader>a <plug>(lsp-code-action-float)
     " refer to doc to add more commands
 endfunction
 
@@ -844,23 +853,21 @@ let g:lsp_diagnostics_virtual_text_enabled = 0
 let g:lsp_diagnostics_virtual_text_insert_mode_enabled = 0
 
 " 使用<C-j>/<C-k>上下滚动popup window
-nnoremap <silent> <C-j> :<C-u>call SmartCJ()<CR>
-nnoremap <silent> <C-k> :<C-u>call SmartCK()<CR>
-function! SmartCJ() abort
-    if exists('*popup_list') && !empty(popup_list())
-        call lsp#scroll(+4)
-    else
-        call <SID>BinaryPositionV("down", "null")
-    endif
-endfunction
-" ------------------------------------------------
-function! SmartCK() abort
-    if exists('*popup_list') && !empty(popup_list())
-        call lsp#scroll(-4)
-    else
-        call <SID>BinaryPositionV("up", "null")
-    endif
-endfunction
+let g:CJ_cmd_nmap = maparg('<C-j>', 'n')
+let g:CK_cmd_nmap = maparg('<C-k>', 'n')
+if exists('*popup_list') && g:CJ_cmd_nmap =~# '^<Plug>' && g:CK_cmd_nmap =~# '^<Plug>'
+    " 如果 maparg 返回的是 <Plug>(...)，把它变成可执行的特殊键形式："\<Plug>(...)"
+    let g:CJ_cmd_nmap = "\<Plug>" . g:CJ_cmd_nmap[6:]
+    let g:CK_cmd_nmap = "\<Plug>" . g:CK_cmd_nmap[6:]
+    nnoremap <silent><expr> <C-j>
+        \ empty(popup_list())
+        \ ? g:CJ_cmd_nmap
+        \ : lsp#scroll(+4)
+    nnoremap <silent><expr> <C-k>
+        \ empty(popup_list())
+        \ ? g:CK_cmd_nmap
+        \ : lsp#scroll(-4)
+endif
 
 " lsp log
 " let g:lsp_log_verbose = 1
