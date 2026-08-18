@@ -18,8 +18,8 @@ source $VIMRUNTIME/defaults.vim
 
 " ==========override defaults.vim========== {{{
 set ttimeout		" time out for key codes
-set ttimeoutlen=30	" wait up to 100ms after Esc for special key
-set scrolloff=0
+set ttimeoutlen=30	" wait up to ms after Esc for special key
+set scrolloff=0     " 上下滚动时光标距离边界的偏移
 " }}}
 
 
@@ -57,6 +57,9 @@ nnoremap <silent> <leader><C-l> :<C-u>nohlsearch<CR><C-l>
 " let mapleader=";"
 " 设置快捷键将选中文本复制到系统剪切板
 vnoremap <Leader>y "+y
+nnoremap <Leader>y "+yiw
+nnoremap <Leader>Y "+y$
+nnoremap <Leader><Leader>y "+yy
 " 设置快捷键将系统剪切板内容粘贴至vim
 nnoremap <Leader>p "+p
 " 设置快捷键打开vimrc
@@ -65,15 +68,24 @@ nnoremap <Leader>ev :vsplit $MYVIMRC<CR>:<c-u>resize 9999<CR>:<c-u>vertical resi
 nnoremap <Leader>sv :source $MYVIMRC<CR>:<C-u>nohlsearch<CR>:echo "run source vimrc ok!"<CR>
 
 " 插入模式下转换光标前单词/字符串大小写
-" inoremap <C-y> <esc>m0bviw~`0a
-" inoremap <C-f> <esc>m0BviW~`0a
-" 改进版本，考虑命名空间god::VIM,
+" inoremap <C-y> <esc>viw~gi
+" inoremap <C-f> <esc>viW~gi
+" 考虑命名空间god::VIM,
 " 现在想在中间加一个命名空间变成god::EDITOR::VIM
 " 于是编辑成这样god::editorVIM,
 " 光标在editor的末尾，<C-y>将其转换为大写，可是VIM也被转换了
+" 改进版本:
+" inoremap <C-y> <esc>vgew~gi
+" inoremap <C-f> <esc>vgEW~gi
 " 但是这又引入了另一个bug, 当光标位于单词首字母时，只有光标下的字母会被转换
-inoremap <C-y> <esc>mzvgew~`za
-inoremap <C-f> <esc>mzvgEW~`za
+" 改进版本2:
+" inoremap <C-y> <esc>vb~gi
+" inoremap <C-f> <esc>vB~gi
+" 这个版本也有问题，输入: abc y, <C-y>变成: ABC Y,
+" 而且上两个版本在文本第一行首字母的转换也有问题
+" 终极版本: (先插入一个零时字符*再删除）
+inoremap <C-y> *<esc>vb~f*s
+inoremap <C-f> *<esc>vB~gi<backspace>
 
 " multi map for esc, But i dont iwe it
 " inoremap jk <esc>
@@ -101,11 +113,6 @@ nnoremap <C-u> Hzz
 " %% 映射为 %:h, 即当前活动缓冲区文件路径（去掉文件名）
 cnoremap <expr> %% getcmdtype() == ':' ? expand('%:h').'/' : '%%'
 
-" f7 执行!ctags -R
-nnoremap <F7> :!ctags -R<CR>
-" 每次保存文件时自动调用ctags -R, 这种方式不好，它会使得保存变慢，并且不需要tags的项目在保存时也会生成
-" autocmd BufWritePost * call system("ctags -R")
-
 " &映射为&&, 即重复上次替换命令带flag
 nnoremap & :&&<CR>
 xnoremap & :&&<CR>
@@ -125,6 +132,11 @@ set completeopt=menuone,noselect,noinsert,preview,popup
 set completeopt-=noselect
 set completeopt-=noinsert
 set completeopt-=preview
+
+" f7 执行!ctags -R
+nnoremap <F7> :!ctags -R<CR>
+" 每次保存文件时自动调用ctags -R, 这种方式不好，它会使得保存变慢，并且不需要tags的项目在保存时也会生成
+" autocmd BufWritePost * call system("ctags -R")
 " }}}
 
 
