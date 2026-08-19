@@ -82,10 +82,59 @@ nnoremap <Leader>sv :source $MYVIMRC<CR>:<C-u>nohlsearch<CR>:echo "run source vi
 " inoremap <C-y> <esc>vb~gi
 " inoremap <C-f> <esc>vB~gi
 " 这个版本也有问题，输入: abc y, <C-y>变成: ABC Y,
-" 而且上两个版本在文本第一行首字母的转换也有问题
+" 而且上两个版本在文本第一行首单词的转换也有问题
 " 终极版本: (先插入一个零时字符*再删除）
-inoremap <C-y> *<esc>vb~f*s
-inoremap <C-f> *<esc>vB~gi<backspace>
+" inoremap <C-y> *<esc>vb~f*s
+" inoremap <C-f> *<esc>vB~gi<backspace>
+" 上面的版本也有问题，那就是会打断.的记录，导致后续执行.命令不能获得完整表达
+" 终终极版本: (1.先获取和转换单词 2.用<C-h>删除要转换的单词 " 3.重新插入转换的单词 全程没有离开插入模式，.能完美重放)
+inoremap <C-y> <C-r>=<SID>ToggleCase("word")<CR><C-r>=<SID>DeleteToggleWord()<CR><C-r>=<SID>InsertToggleWord()<CR>
+inoremap <C-f> <C-r>=<SID>ToggleCase("WORD")<CR><C-r>=<SID>DeleteToggleWord()<CR><C-r>=<SID>InsertToggleWord()<CR>
+
+let g:toggle_case_word = ''
+
+" 插入转换单词
+function! s:InsertToggleWord() abort
+     return g:toggle_case_word
+endfunction
+
+" 删除转换处单词
+function! s:DeleteToggleWord() abort
+     let len = strlen(g:toggle_case_word)
+     return repeat("\<C-h>", len)
+endfunction
+
+" 光标前单词大小写转换
+function! s:ToggleCase(mode) abort
+    let g:toggle_case_word = ''
+
+    let line = getline('.')
+    let pos = col('.') - 1
+    let start = pos
+
+    " '\k': iskeyword
+    " '\S': non-whitespace
+    let key = a:mode ==# 'WORD' ? '\S' : '\k'
+    while start > 0 && line[start-1] =~ key
+        let start -= 1
+    endwhile
+
+    if start == pos
+        return ""
+    endif
+
+    let word = line[start : pos-1]
+
+    for char in split(word, '\zs')
+        if char =~ '\u'
+            let g:toggle_case_word .= tolower(char)
+        else
+            let g:toggle_case_word .= toupper(char)
+        endif
+    endfor
+
+    return ""
+endfunction
 
 " multi map for esc, But i dont iwe it
 " inoremap jk <esc>
