@@ -5,7 +5,7 @@
 " 1) clone vim-plug or Vundle for vim plugin magager
 " >>>>> curl -fLo ~/.vim/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 "
-" 2) add your vim config here and copy it
+" 2) add your vim settings here and copy it
 " >>>>> cp .vimrc ~/
 "
 " 3) open your vim and run command for plugin install
@@ -24,27 +24,78 @@ set scrolloff=0     " 上下滚动时光标距离边界的偏移
 
 
 
-" ==========normal settings========== {{{
-" 让配置变更立即生效, 使用快捷键运行source感觉更好
-" autocmd BufWritePost $MYVIMRC source $MYVIMRC
-
+" ==========core settings========== {{{
 " 启动时自动加载matchit插件，用于%配对标签间跳转, 如html标签，但是(),{}等是默认支持的
 runtime macros/matchit.vim
 
-" colorscheme morning   " 设置配色方案
+set history=200         "设置命令回朔历史为200条，默认为50
+
+set ignorecase          "开启大小写不敏感，作用于查找和补全
+set smartcase           "开启智能大小写敏感，输入大写则匹配大写，否则使用ignorecase
+
+set number              " 显示行号
+set incsearch           " 查找是预览第一处匹配
+set hlsearch            " 高亮查找匹配项
+
+" tab settings
+set tabstop=4           " tab/制表符 四个空格
+set shiftwidth=4        " >> << 四个空格
+set expandtab           " tab/制表符 展开为四个空格
+set softtabstop=4       " 连续4个空格视为一个tab/制表符
+" retab命令可以按照上面设置的规则格式化代码
+
+" ==========file encode settings========== {{{
+set fileformat=unix             "unix 文件格式，\n为行结束符，实际测试无效，创建文件时与系统一致!!! 可以打开文件后手动设置生效
+set fileformats=unix,dos,mac    "设置vim支持的系统文件格式
+set nobomb                      "utf-8标准格式，bomb微软用的多
+set encoding=utf-8              "vim 内部使用的字符编码方式，包括缓冲区、菜单文本、消息文本等
+set fileencoding=utf-8          "vim 当前编辑的文件字符编码方式，保存和新建都是这种编码格式
+set fileencodings=utf-8,gbk,ucs-bom,default,latin1
+" termencoding: vim工作终端的编码方式
+" vim启动时按照列表进行探测，并将fileencoding设置为此编码方式，
+" 这很好理解，即打开文件和保存文件默认情况下应该保持编码方式不变
+" 可以理解为设置vim支持的文件编码格式，类似fileformats
+" }}}
 
 " tab 命令补全模式, 此模式tab会显示补全列表
 set wildmenu
 set wildmode=full
 
-set ignorecase          "开启大小写不敏感，作用于查找和补全
-set smartcase           "开启智能大小写敏感，输入大写则匹配大写，否则使用ignorecase
+" 设置补全行为
+" menuone: 只有一个选项也弹出
+" noinsert: 不自动插入第一项
+" noselect: 不自动选中第一项
+" preview: 弹出预览窗口显示更多信息
+set completeopt=menuone,noselect,noinsert,preview,popup
+set completeopt-=noselect
+set completeopt-=noinsert
+set completeopt-=preview
 
-set history=200         "设置命令回朔历史为200条，默认为50
+" 插入模式和命令行模式禁用退格删除键，防止不良习惯
+inoremap <backspace> <nop>
+cnoremap <backspace> <nop>
 
-set number              " 显示行号
-set incsearch           " 查找是预览第一处匹配
-set hlsearch            " 高亮查找匹配项
+" %% 映射为 %:h, 即当前活动缓冲区文件路径（去掉文件名）
+cnoremap <expr> %% getcmdtype() == ':' ? expand('%:h').'/' : '%%'
+
+" &映射为&&, 即重复上次替换命令带flag
+nnoremap & :&&<CR>
+xnoremap & :&&<CR>
+
+" 重映射<C-d>为光标指向屏幕最后一行然后执行zz, 即将屏幕最后一行显示在屏幕中间,也可理解为向下翻动半页
+nnoremap <C-d> Lzz
+" 重映射<C-u>为光标指向屏幕最后一行然后执行zz, 即将屏幕最后一行显示在屏幕中间,也可理解为向上翻动半页
+nnoremap <C-u> Hzz
+
+" space进入可视模式并选中单词
+nnoremap <space> viw
+
+" visual search for */# settings
+" 可视模式按*/#对选中文本进行查询
+" 注意符号:, 这是一条命令行映射，而命令行或插入模式下<C-u>代表清除至行首
+xnoremap * :<C-u>call <SID>VSetSearch('/')<CR>/<C-R>=@/<CR><CR>
+xnoremap # :<C-u>call <SID>VSetSearch('?')<CR>?<C-R>=@/<CR><CR>
+
 " :nohlearch 命令暂时关闭高亮模式，直到执行新的或重复的查找命令
 " <C-l>原是清屏重绘快捷键，将其和nohlearch一起作用
 " nnoremap <silent> <C-l> :<C-u>nohlsearch<CR><C-l>
@@ -52,6 +103,9 @@ set hlsearch            " 高亮查找匹配项
 " 并重映射<leader><C-l>为清屏，因为我们想将<C-l>用于其他功能
 nnoremap <silent> <C-p> :<C-u>nohlsearch<CR>
 nnoremap <silent> <leader><C-l> :<C-u>nohlsearch<CR><C-l>
+
+" map Y to yank text from cursor to the end of line
+nnoremap Y y$
 
 " 定义快捷键前缀<Leader>, todo: 有冲突
 " let mapleader=";"
@@ -62,11 +116,75 @@ nnoremap <Leader>Y "+y$
 nnoremap <Leader><Leader>y "+yy
 " 设置快捷键将系统剪切板内容粘贴至vim
 nnoremap <Leader>p "+p
+
+" 让配置变更立即生效, 使用快捷键运行source感觉更好
+" autocmd BufWritePost $MYVIMRC source $MYVIMRC
 " 设置快捷键打开vimrc
 nnoremap <Leader>ev :vsplit $MYVIMRC<CR>:<c-u>resize 9999<CR>:<c-u>vertical resize 9999<CR>:echo "edit vimrc ..."<CR>
 " 设置快捷键应用vimrc
 nnoremap <Leader>sv :source $MYVIMRC<CR>:<C-u>nohlsearch<CR>:echo "run source vimrc ok!"<CR>
 
+" colorscheme morning   " 设置配色方案
+
+" ==========cursor shape and color settings========== {{{
+" Set cursor shape and color
+" before . setting shape, after . setting color
+" 1 -> blinking block  闪烁的方块
+" 2 -> solid block  不闪烁的方块
+" 3 -> blinking underscore  闪烁的下划线
+" 4 -> solid underscore  不闪烁的下划线
+" 5 -> blinking vertical bar  闪烁的竖线
+" 6 -> solid vertical bar  不闪烁的竖线
+if &term =~ "xterm"
+    let &t_SI = "\<Esc>[1 q"    "start INSERT mode
+    let &t_SR = "\<Esc>[1 q"    "start REPLACE mode
+    let &t_EI = "\<Esc>[2 q"    "end insert or replace mode
+    let &t_VS = "\<Esc>[2 q"    "NORMAL mode
+    " let &t_SI = "\<Esc>[1 q" . "\<Esc>]12;rgb:CD/B3/8B\x7"
+    " let &t_SR = "\<Esc>[1 q" . "\<Esc>]12;rgb:CD/B3/8B\x7"
+    " let &t_EI = "\<Esc>[2 q" . "\<Esc>]12;rgb:CD/B3/8B\x7"
+    " let &t_VS = "\<Esc>[2 q" . "\<Esc>]12;rgb:CD/B3/8B\x7"
+endif
+" }}}
+
+" ==========section movements========== {{{
+" If your '{' or '}' are not in the first column, and you would like to use "[["
+" and "]]" anyway, try these mappings: bug!
+" map [[ ?{<CR>w99[{
+" map ][ /}<CR>b99]}
+" map ]] j0[[%/{<CR>
+" map [] k$][%?}<CR>
+" bug fix in my way
+nmap [[ []%
+nmap ]] %][%
+" the same as below
+" nmap <silent> ]] :<c-u>execute "normal! %"<CR>][:<c-u>silent execute "normal! %"<CR>
+"
+" 解释: 段路跳转[[、]]、[]、][，以c++为例进行讲解，符号{为函数的开始,符号}为函数的结束
+" [[: 跳转到上一个函数的开始
+" ]]: 跳转到下一个或当前函数的开始
+" []: 跳转到上一个函数的结束
+" ][: 跳转到下一个函数的结束
+" 其中]]的行为是最特殊的，假设当前光标在函数体内部，]]反而会使光标向上移动到当前函数的开始{,
+" 这与"下一个"的行为似乎有些矛盾，一方面是由于我们自己的实现造成的，但是只要把它理解为
+" “跳转到下一个或当前函数的开始“就可以了，并且]]也是最常使用的，"跳转到下一个或当前函数的开始"
+" 这一行为真的很棒，要想跳转到结束可以使用%
+" }}}
+
+"==========window settings========== {{{
+" set window size to 0 but not close
+nnoremap <leader>x :<c-u>vertical resize 0<CR>
+nnoremap <leader><leader>x :<c-u>resize 0<CR>
+" max window size
+nnoremap <leader>o :<c-u>resize 9999<CR>:<c-u>vertical resize 9999<CR>:echo "max window size"<CR>
+" add/reduce window size
+nnoremap <S-Up> :<c-u>resize -1<CR>
+nnoremap <S-Down> :<c-u>resize +1<CR>
+nnoremap <S-Left> :<c-u>vertical resize -1<CR>
+nnoremap <S-Right> :<c-u>vertical resize +1<CR>
+" }}}
+
+" ==========toggle case========== {{{
 " 插入模式下转换光标前单词/字符串大小写
 " inoremap <C-y> <esc>viw~gi
 " inoremap <C-f> <esc>viW~gi
@@ -88,11 +206,73 @@ nnoremap <Leader>sv :source $MYVIMRC<CR>:<C-u>nohlsearch<CR>:echo "run source vi
 " inoremap <C-f> *<esc>vB~gi<backspace>
 " 上面的版本也有问题，那就是会打断.的记录，导致后续执行.命令不能获得完整表达
 " 终终极版本: (1.先获取和转换单词 2.用<C-h>删除要转换的单词 " 3.重新插入转换的单词 全程没有离开插入模式，.能完美重放)
+let g:toggle_case_word = ''
 inoremap <C-y> <C-r>=<SID>ToggleCase("word")<CR><C-r>=<SID>DeleteToggleWord()<CR><C-r>=<SID>InsertToggleWord()<CR>
 inoremap <C-f> <C-r>=<SID>ToggleCase("WORD")<CR><C-r>=<SID>DeleteToggleWord()<CR><C-r>=<SID>InsertToggleWord()<CR>
+" }}}
 
-let g:toggle_case_word = ''
+" ==========binary cursor location========== {{{
+" This is the most powerful cursor moving action created by wonderful!!!
+" As its name shows the cursor moving acts in binary search mode
+" <C-j> <C-k> binary move the cursor in vertical direction
+" <C-h> <C-k> binary move the cursor in horizontal direction
+" The cursor will always be in middle when first moving
+" If you miss the target call <leader>c or just move with [h j k l] to clear the location and try again
+" The binary location is especially useful when edit with which is not English,
+" beacuse it will be difficult to use f to find where you want to go
 
+let g:c_jkhl_binary_called = 0
+
+let g:v_beg = 0
+let g:v_mid = 0
+let g:v_end = 0
+let g:v_last_p = 0
+
+let g:h_beg = 0
+let g:h_mid = 0
+let g:h_end = 0
+let g:h_last_p = 0
+
+" 映射成<Plug>方便别的地方用
+nnoremap <Plug>(N_BinaryLocationDown)   :<c-u>call <SID>BinaryLocationV("down", "null")<CR>
+nnoremap <Plug>(N_BinaryLocationUp)     :<c-u>call <SID>BinaryLocationV("up", "null")<CR>
+nnoremap <Plug>(N_BinaryLocationLeft)   :<c-u>call <SID>BinaryLocationH("left", "null")<CR>
+nnoremap <Plug>(N_BinaryLocationRight)  :<c-u>call <SID>BinaryLocationH("right", "null")<CR>
+" -------------------------------------------------
+vnoremap <Plug>(V_BinaryLocationDown)   :<c-u>call <SID>BinaryLocationV("down", "visual")<CR>
+vnoremap <Plug>(V_BinaryLocationUp)     :<c-u>call <SID>BinaryLocationV("up", "visual")<CR>
+vnoremap <Plug>(V_BinaryLocationLeft)   :<c-u>call <SID>BinaryLocationH("left", "visual")<CR>
+vnoremap <Plug>(V_BinaryLocationRight)  :<c-u>call <SID>BinaryLocationH("right", "visual")<CR>
+" ------------------------------------------
+nmap <C-j> <Plug>(N_BinaryLocationDown)
+nmap <C-k> <Plug>(N_BinaryLocationUp)
+nmap <C-h> <Plug>(N_BinaryLocationLeft)
+nmap <C-l> <Plug>(N_BinaryLocationRight)
+" -------------------------------------------------
+nnoremap v vmv
+vmap <C-j> <Plug>(V_BinaryLocationDown)
+vmap <C-k> <Plug>(V_BinaryLocationUp)
+vmap <C-h> <Plug>(V_BinaryLocationLeft)
+vmap <C-l> <Plug>(V_BinaryLocationRight)
+" ------------------------------------------
+nnoremap <silent> j j: <c-u>call <SID>BinaryClearFast()<CR>
+nnoremap <silent> k k: <c-u>call <SID>BinaryClearFast()<CR>
+nnoremap <silent> l l: <c-u>call <SID>BinaryClearFast()<CR>
+nnoremap <silent> h h: <c-u>call <SID>BinaryClearFast()<CR>
+noremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
+" }}}
+
+" ================functions================ {{{
+" ==========functions for visual search for */# settings========== {{{
+function! s:VSetSearch(cmdtype) abort
+    let temp = @s
+    norm! gv"sy
+    let @/ = '\V' . substitute(escape(@s, a:cmdtype.'\'), '\n', '\\n', 'g')
+    let @s = temp
+endfunction
+" }}}
+
+" ==========functions for toggle case========== {{{
 " 插入转换单词
 function! s:InsertToggleWord() abort
      return g:toggle_case_word
@@ -135,59 +315,119 @@ function! s:ToggleCase(mode) abort
 
     return ""
 endfunction
+" }}}
 
-" multi map for esc, But i dont iwe it
-" inoremap jk <esc>
+" ==========functions for binary cursor location========== {{{
+function! s:ResetV() abort
+    let g:v_beg = line('w0')
+    let g:v_end = line('w$') + 1
+    let g:v_mid = g:v_beg + (g:v_end - g:v_beg) / 2
+    let g:v_last_p = 0
+endfunction
 
-" 设置快捷键当前缓冲区关键字补全，当普通关键字太多时使用，
-" 又因为当前缓冲区关键字补全默认<C-x><C-n>太麻烦，所以进行自定义
-" 下面同理, todo: <C-m>有冲突
-" inoremap <C-m><C-n> <C-x><C-n> "当前缓冲区关键字
-" inoremap <C-m><C-i> <C-x><C-i> "include文件关键字
-" inoremap <C-m><C-]> <C-x><C-]> "标签文件关键字
-" inoremap <C-m><C-k> <C-x><C-k> "字典查找
-" inoremap <C-m><C-l> <C-x><C-l> "整行补全
-" inoremap <C-m><C-f> <C-x><C-f> "文件名补全
-" inoremap <C-m><C-o> <C-x><C-o> "智能补全
+function! s:ResetH() abort
+    let g:h_beg = 1
+    let g:h_end = col('$')
+    let g:h_mid = g:h_beg + (g:h_end - g:h_beg) / 2
+    let g:h_last_p = 0
+endfunction
 
-" 重映射<C-d>为光标指向屏幕最后一行然后执行zz, 即将屏幕最后一行显示在屏幕中间,也可理解为向下翻动半页
-nnoremap <C-d> Lzz
-" 重映射<C-u>为光标指向屏幕最后一行然后执行zz, 即将屏幕最后一行显示在屏幕中间,也可理解为向上翻动半页
-nnoremap <C-u> Hzz
-" 映射<C-j>为光标指向屏幕最后一行然后执行zz, 即将屏幕最后一行显示在屏幕中间, 也可理解为向下翻动半页
-" nnoremap <C-j> Lzz
-" 映射<C-k>为光标指向屏幕最后一行然后执行zz, 即将屏幕最后一行显示在屏幕中间, 也可理解为向上翻动半页
-" nnoremap <C-k> Hzz
+function! s:BinaryClearFast() abort
+    if g:c_jkhl_binary_called == 0
+        return
+    endif
+    call <SID>ResetV()
+    call <SID>ResetH()
+    let g:c_jkhl_binary_called = 0
+endfunction
 
-" %% 映射为 %:h, 即当前活动缓冲区文件路径（去掉文件名）
-cnoremap <expr> %% getcmdtype() == ':' ? expand('%:h').'/' : '%%'
+function! s:BinaryClear(quiet) abort
+    call <SID>ResetV()
+    call <SID>ResetH()
+    let g:c_jkhl_binary_called = 0
+    if a:quiet !=? 'true'
+        echom "Binary location has been cleared!"
+    endif
+endfunction
 
-" &映射为&&, 即重复上次替换命令带flag
-nnoremap & :&&<CR>
-xnoremap & :&&<CR>
+function! s:VisualMark()
+    silent execute "normal! mw`vv`w"
+endfunction
 
-" space进入可视模式并选中单词
-nnoremap <space> viw
+function! s:BinaryLocationV(direction, type) abort
+    let g:c_jkhl_binary_called += 1
 
-" map Y to yank text from cursor to the end of line
-nnoremap Y y$
+    let v_p = line('w0')
+    if v_p != g:v_last_p
+       call <SID>ResetV()
+       call cursor(g:v_mid, 0)
+       let g:v_last_p = v_p
+       if a:type ==? 'visual'
+           call <SID>VisualMark()
+       endif
+       echom "call BinaryLocationV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
+       return
+   endif
 
-" 设置补全行为
-" menuone: 只有一个选项也弹出
-" noinsert: 不自动插入第一项
-" noselect: 不自动选中第一项
-" preview: 弹出预览窗口显示更多信息
-set completeopt=menuone,noselect,noinsert,preview,popup
-set completeopt-=noselect
-set completeopt-=noinsert
-set completeopt-=preview
+   if a:direction ==? 'down'
+       let g:v_beg = g:v_mid
+   elseif a:direction ==? 'up'
+       let g:v_end = g:v_mid
+   endif
 
+   let g:v_mid = g:v_beg + (g:v_end - g:v_beg) / 2
+
+   call cursor(g:v_mid, 0)
+
+   if a:type ==? 'visual'
+       call <SID>VisualMark()
+   endif
+
+   echom "call BinaryLocationV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
+endfunction
+
+function! s:BinaryLocationH(direction, type) abort
+    let g:c_jkhl_binary_called += 1
+
+    let h_p = line('.')
+    if h_p != g:h_last_p
+        call <SID>ResetH()
+        call cursor(0, g:h_mid)
+        let g:h_last_p = h_p
+        if a:type ==? 'visual'
+           call <SID>VisualMark()
+        endif
+        echom "call BinaryLocationH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
+        return
+    endif
+
+    if a:direction ==? 'left'
+        let g:h_end = g:h_mid
+    elseif a:direction ==? 'right'
+        let g:h_beg = g:h_mid
+    endif
+
+    let g:h_mid = g:h_beg + (g:h_end - g:h_beg) / 2
+
+    call cursor(0, g:h_mid)
+
+    if a:type ==? 'visual'
+       call <SID>VisualMark()
+    endif
+
+    echom "call BinaryLocationH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
+endfunction
+" }}}
+" }}}
+" }}}
+
+" ==========nocore settings========== {{{
+" ==========FN========== {{{
 " f7 执行!ctags -R
 nnoremap <F7> :!ctags -R<CR>
 " 每次保存文件时自动调用ctags -R, 这种方式不好，它会使得保存变慢，并且不需要tags的项目在保存时也会生成
 " autocmd BufWritePost * call system("ctags -R")
 " }}}
-
 
 " ==========fold settings========== {{{
 " no fold when open file
@@ -218,27 +458,6 @@ function! s:FoldColumnToggle() abort
 endfunction
 " }}}
 
-" ==========tab settings========== {{{
-set tabstop=4           " tab/制表符 四个空格
-set shiftwidth=4        " >> << 四个空格
-set expandtab           " tab/制表符 展开为四个空格
-set softtabstop=4       " 连续4个空格视为一个tab/制表符
-" retab命令可以按照上面设置的规则格式化代码
-" }}}
-
-" ==========file encode settings========== {{{
-set fileformat=unix             "unix 文件格式，\n为行结束符，实际测试无效，创建文件时与系统一致!!! 可以打开文件后手动设置生效
-set fileformats=unix,dos,mac    "设置vim支持的系统文件格式
-set nobomb                      "utf-8标准格式，bomb微软用的多
-set encoding=utf-8              "vim 内部使用的字符编码方式，包括缓冲区、菜单文本、消息文本等
-set fileencoding=utf-8          "vim 当前编辑的文件字符编码方式，保存和新建都是这种编码格式
-" vim启动时按照列表进行探测，并将fileencoding设置为此编码方式，
-" 这很好理解，即打开文件和保存文件默认情况下应该保持编码方式不变
-" 可以理解为设置vim支持的文件编码格式，类似fileformats
-set fileencodings=utf-8,gbk,ucs-bom,default,latin1
-" termencoding: vim工作终端的编码方式
-" }}}
-
 " ==========statusline settings========== {{{
 " set statusline
 " set statusline=%f   "path to the file
@@ -253,12 +472,6 @@ set fileencodings=utf-8,gbk,ucs-bom,default,latin1
 " 缩略句abbreviations类似map, 插入模式下输入@g<space>可以快速替换为对应邮箱
 " 不用担心所有@g都被替换，因为有iskeyword保护
 " iabbrev @g xxxxxx@gmail.com
-" }}}
-
-" ==========forbiden key settings========== {{{
-" 插入模式和命令行模式禁用退格删除键，防止不良习惯
-inoremap <backspace> <nop>
-cnoremap <backspace> <nop>
 " }}}
 
 " ==========more operator-pending mappings for markdown========== {{{
@@ -280,17 +493,45 @@ augroup markdown_group
 augroup END
 " }}}
 
-" ==========visual search for */# settings========== {{{
-" 可视模式按*/#对选中文本进行查询
-" 注意符号:, 这是一条命令行映射，而命令行或插入模式下<C-u>代表清除至行首
-xnoremap * :<C-u>call <SID>VSetSearch('/')<CR>/<C-R>=@/<CR><CR>
-xnoremap # :<C-u>call <SID>VSetSearch('?')<CR>?<C-R>=@/<CR><CR>
-function! s:VSetSearch(cmdtype) abort
-    let temp = @s
-    norm! gv"sy
-    let @/ = '\V' . substitute(escape(@s, a:cmdtype.'\'), '\n', '\\n', 'g')
-    let @s = temp
+" ==========toggle settings========== {{{
+" toggle number
+nnoremap <leader>N :setlocal number!<CR>
+
+let g:quickfix_l_is_open = 0
+" toggle open/close quickfix window
+" TODO bug: when use command 'copen' g:quickfix_l_is_open cannot be updated
+" learn what is wincmd w、winnr()
+nnoremap <leader>w :call <SID>QuickfixToggle()<CR>
+function! s:QuickfixToggle() abort
+    if g:quickfix_l_is_open
+        cclose
+        let g:quickfix_l_is_open = 0
+    else
+        copen
+        silent execute "normal! \<C-w>J"
+        let g:quickfix_l_is_open = 1
+    endif
 endfunction
+" }}}
+
+" ==========hex show========== {{{
+let g:hex_show = 0
+nnoremap <silent> <F6> :call <SID>HexShowToggle()<CR>
+function! s:HexShowToggle() abort
+    let g:hex_show = !g:hex_show
+    if g:hex_show
+        silent execute "%!xxd"
+        echo "hex show"
+    else
+        silent execute "%!xxd -r"
+        echo "restore from hex"
+    endif
+endfunction
+" }}}
+
+" ==========convenient map for file finding========== {{{
+nnoremap <leader>f :find ./**/
+nnoremap <leader><leader>f :find ./**/<C-r><C-w>
 " }}}
 
 " ==========convenient map for grep searching========== {{{
@@ -386,294 +627,6 @@ function! s:GrepOperator(type, recursion) abort
 endfunction
 " }}}
 
-" ==========convenient map for file finding========== {{{
-nnoremap <leader>f :find ./**/
-nnoremap <leader><leader>f :find ./**/<C-r><C-w>
-" }}}
-
-" ==========convenient map for translating========== {{{
-nnoremap <leader>t :Translate <C-r><C-w>
-nnoremap <leader><leader>t :Translate! 
-vnoremap <leader>t :Translate
-vnoremap <leader><leader>t :Translate!
-" nnoremap <leader>t :TranslateW <C-r><C-w>
-" nnoremap <leader><leader>t :TranslateW! 
-" vnoremap <leader>t :TranslateW
-" vnoremap <leader><leader>t :TranslateW!
-" }}}
-
-" ==========cursor shape and color settings========== {{{
-" Set cursor shape and color
-" before . setting shape, after . setting color
-" 1 -> blinking block  闪烁的方块
-" 2 -> solid block  不闪烁的方块
-" 3 -> blinking underscore  闪烁的下划线
-" 4 -> solid underscore  不闪烁的下划线
-" 5 -> blinking vertical bar  闪烁的竖线
-" 6 -> solid vertical bar  不闪烁的竖线
-if &term =~ "xterm"
-    let &t_SI = "\<Esc>[1 q"    "start INSERT mode
-    let &t_SR = "\<Esc>[1 q"    "start REPLACE mode
-    let &t_EI = "\<Esc>[2 q"    "end insert or replace mode
-    let &t_VS = "\<Esc>[2 q"    "NORMAL mode
-    " let &t_SI = "\<Esc>[1 q" . "\<Esc>]12;rgb:CD/B3/8B\x7"
-    " let &t_SR = "\<Esc>[1 q" . "\<Esc>]12;rgb:CD/B3/8B\x7"
-    " let &t_EI = "\<Esc>[2 q" . "\<Esc>]12;rgb:CD/B3/8B\x7"
-    " let &t_VS = "\<Esc>[2 q" . "\<Esc>]12;rgb:CD/B3/8B\x7"
-endif
-" }}}
-
-" ==========toggle settings========== {{{
-" toggle number
-nnoremap <leader>N :setlocal number!<CR>
-
-let g:quickfix_l_is_open = 0
-" toggle open/close quickfix window
-" TODO bug: when use command 'copen' g:quickfix_l_is_open cannot be updated
-" learn what is wincmd w、winnr()
-nnoremap <leader>w :call <SID>QuickfixToggle()<CR>
-function! s:QuickfixToggle() abort
-    if g:quickfix_l_is_open
-        cclose
-        let g:quickfix_l_is_open = 0
-    else
-        copen
-        silent execute "normal! \<C-w>J"
-        let g:quickfix_l_is_open = 1
-    endif
-endfunction
-" }}}
-
-" ==========section movements========== {{{
-" If your '{' or '}' are not in the first column, and you would like to use "[["
-" and "]]" anyway, try these mappings: bug!
-" map [[ ?{<CR>w99[{
-" map ][ /}<CR>b99]}
-" map ]] j0[[%/{<CR>
-" map [] k$][%?}<CR>
-" bug fix in my way
-nmap [[ []%
-nmap ]] %][%
-" the same as below
-" nmap <silent> ]] :<c-u>execute "normal! %"<CR>][:<c-u>silent execute "normal! %"<CR>
-"
-" 解释: 段路跳转[[、]]、[]、][，以c++为例进行讲解，符号{为函数的开始,符号}为函数的结束
-" [[: 跳转到上一个函数的开始
-" ]]: 跳转到下一个或当前函数的开始
-" []: 跳转到上一个函数的结束
-" ][: 跳转到下一个函数的结束
-" 其中]]的行为是最特殊的，假设当前光标在函数体内部，]]反而会使光标向上移动到当前函数的开始{,
-" 这与"下一个"的行为似乎有些矛盾，一方面是由于我们自己的实现造成的，但是只要把它理解为
-" “跳转到下一个或当前函数的开始“就可以了，并且]]也是最常使用的，"跳转到下一个或当前函数的开始"
-" 这一行为真的很棒，要想跳转到结束可以使用%
-" }}}
-
-"==========window settings========== {{{
-" set window size to 0 but not close
-nnoremap <leader>x :<c-u>vertical resize 0<CR>
-nnoremap <leader><leader>x :<c-u>resize 0<CR>
-" max window size
-nnoremap <leader>o :<c-u>resize 9999<CR>:<c-u>vertical resize 9999<CR>:echo "max window size"<CR>
-" add/reduce window size
-nnoremap <S-Up> :<c-u>resize -1<CR>
-nnoremap <S-Down> :<c-u>resize +1<CR>
-nnoremap <S-Left> :<c-u>vertical resize -1<CR>
-nnoremap <S-Right> :<c-u>vertical resize +1<CR>
-" }}}
-
-" ==========binary position========== {{{
-" This is the most powerful cursor moving action created by wonderful!!!
-" As its name shows the cursor moving acts in binary mode
-" <C-j> <C-k> binary move the cursor in vertical direction
-" <C-h> <C-k> binary move the cursor in horizontal direction
-" The cursor will always be in middle when first moving
-" If you miss the target call <leader>c to clear the position and try again
-" The binary position is especially useful when edit with which is not English,
-" beacuse it will be difficult to use f to find where you want to go
-
-let g:c_jkhl_binary_called = 0
-
-let g:v_beg = 0
-let g:v_mid = 0
-let g:v_end = 0
-let g:v_last_p = 0
-
-let g:h_beg = 0
-let g:h_mid = 0
-let g:h_end = 0
-let g:h_last_p = 0
-
-" 映射成<Plug>方便别的地方用
-nnoremap <Plug>(N_BinaryPositionDown)   :<c-u>call <SID>BinaryPositionV("down", "null")<CR>
-nnoremap <Plug>(N_BinaryPositionUp)     :<c-u>call <SID>BinaryPositionV("up", "null")<CR>
-nnoremap <Plug>(N_BinaryPositionLeft)   :<c-u>call <SID>BinaryPositionH("left", "null")<CR>
-nnoremap <Plug>(N_BinaryPositionRight)  :<c-u>call <SID>BinaryPositionH("right", "null")<CR>
-" -------------------------------------------------
-vnoremap <Plug>(V_BinaryPositionDown)   :<c-u>call <SID>BinaryPositionV("down", "visual")<CR>
-vnoremap <Plug>(V_BinaryPositionUp)     :<c-u>call <SID>BinaryPositionV("up", "visual")<CR>
-vnoremap <Plug>(V_BinaryPositionLeft)   :<c-u>call <SID>BinaryPositionH("left", "visual")<CR>
-vnoremap <Plug>(V_BinaryPositionRight)  :<c-u>call <SID>BinaryPositionH("right", "visual")<CR>
-" ------------------------------------------
-nmap <C-j> <Plug>(N_BinaryPositionDown)
-nmap <C-k> <Plug>(N_BinaryPositionUp)
-nmap <C-h> <Plug>(N_BinaryPositionLeft)
-nmap <C-l> <Plug>(N_BinaryPositionRight)
-" -------------------------------------------------
-nnoremap v vmv
-vmap <C-j> <Plug>(V_BinaryPositionDown)
-vmap <C-k> <Plug>(V_BinaryPositionUp)
-vmap <C-h> <Plug>(V_BinaryPositionLeft)
-vmap <C-l> <Plug>(V_BinaryPositionRight)
-" ------------------------------------------
-nnoremap <silent> j j: <c-u>call <SID>BinaryClearFast()<CR>
-nnoremap <silent> k k: <c-u>call <SID>BinaryClearFast()<CR>
-nnoremap <silent> l l: <c-u>call <SID>BinaryClearFast()<CR>
-nnoremap <silent> h h: <c-u>call <SID>BinaryClearFast()<CR>
-noremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
-
-function! s:ResetV() abort
-    let g:v_beg = line('w0')
-    let g:v_end = line('w$') + 1
-    let g:v_mid = g:v_beg + (g:v_end - g:v_beg) / 2
-    let g:v_last_p = 0
-endfunction
-
-function! s:ResetH() abort
-    let g:h_beg = 1
-    let g:h_end = col('$')
-    let g:h_mid = g:h_beg + (g:h_end - g:h_beg) / 2
-    let g:h_last_p = 0
-endfunction
-
-function! s:BinaryClearFast() abort
-    if g:c_jkhl_binary_called == 0
-        return
-    endif
-    call <SID>ResetV()
-    call <SID>ResetH()
-    let g:c_jkhl_binary_called = 0
-endfunction
-
-function! s:BinaryClear(quiet) abort
-    call <SID>ResetV()
-    call <SID>ResetH()
-    let g:c_jkhl_binary_called = 0
-    if a:quiet !=? 'true'
-        echom "Binary position has been cleared!"
-    endif
-endfunction
-
-function! s:VisualMark()
-    silent execute "normal! mw`vv`w"
-endfunction
-
-function! s:BinaryPositionV(direction, type) abort
-    let g:c_jkhl_binary_called += 1
-
-    let v_p = line('w0')
-    if v_p != g:v_last_p
-       call <SID>ResetV()
-       call cursor(g:v_mid, 0)
-       let g:v_last_p = v_p
-       if a:type ==? 'visual'
-           call <SID>VisualMark()
-       endif
-       echom "call BinaryPositionV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
-       return
-   endif
-
-   if a:direction ==? 'down'
-       let g:v_beg = g:v_mid
-   elseif a:direction ==? 'up'
-       let g:v_end = g:v_mid
-   endif
-
-   let g:v_mid = g:v_beg + (g:v_end - g:v_beg) / 2
-
-   call cursor(g:v_mid, 0)
-
-   if a:type ==? 'visual'
-       call <SID>VisualMark()
-   endif
-
-   echom "call BinaryPositionV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
-endfunction
-
-function! s:BinaryPositionH(direction, type) abort
-    let g:c_jkhl_binary_called += 1
-
-    let h_p = line('.')
-    if h_p != g:h_last_p
-        call <SID>ResetH()
-        call cursor(0, g:h_mid)
-        let g:h_last_p = h_p
-        if a:type ==? 'visual'
-           call <SID>VisualMark()
-        endif
-        echom "call BinaryPositionH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
-        return
-    endif
-
-    if a:direction ==? 'left'
-        let g:h_end = g:h_mid
-    elseif a:direction ==? 'right'
-        let g:h_beg = g:h_mid
-    endif
-
-    let g:h_mid = g:h_beg + (g:h_end - g:h_beg) / 2
-
-    call cursor(0, g:h_mid)
-
-    if a:type ==? 'visual'
-       call <SID>VisualMark()
-    endif
-
-    echom "call BinaryPositionH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
-endfunction
-" }}}
-
-" ==========tool functions========== {{{
-" remove left zero: 050 -> 50
-function! RemoveLeftZero(number) abort
-    " echom 'input: ' . a:number
-    let length = strlen(a:number)
-    if length == 0
-        return '0'
-    endif
-    let i = 0
-    for n in split(a:number, '\zs')
-        if n != '0'
-            break
-        endif
-        let i += 1
-    endfor
-    if i == length
-        return a:number
-    else
-        return a:number[i:length-1]
-    endif
-endfunction
-
-" time to millisecond, input format: 23:03:55.998 or 03:55.998
-function! TimeToMillisecond(time) abort
-    " echom 'input: ' . a:time
-    let length = len(a:time)
-    if length == 0
-        return 0
-    endif
-    let time_list = split(a:time, '\.')
-    let front_time_list = split(time_list[0], ":")
-    if len(front_time_list) == 2
-        return RemoveLeftZero(front_time_list[0]) * 60 * 1000 + RemoveLeftZero(front_time_list[1]) * 1000 + RemoveLeftZero(time_list[1])
-    elseif len(front_time_list) == 3
-        return RemoveLeftZero(front_time_list[0]) * 60 * 60 * 1000 + RemoveLeftZero(front_time_list[1]) * 60 * 1000 + RemoveLeftZero(front_time_list[2]) * 1000 + RemoveLeftZero(time_list[1])
-    else
-        echo 'error time format!'
-        return 0
-    endif
-endfunction
-" }}}
-
 " ==========register macro record========== {{{
 " 非常有用的宏保存到寄存器中，在开发时方便使用，就像工具箱一样
 " [经典寄存器内容追加]，用于统计查找模式后的数据，比如有如下log日志：
@@ -717,24 +670,54 @@ let @y = ':global//yank Z'
 " 数据将保存到寄存器z中，在一个缓冲区粘贴出来':put z'
 let @o = 'gnmmo"ty$:let @t = @t . "\n":let @z = @z . @t`ml'
 " 提示：运行宏之前应该先清空寄存器z -> qzq
-" }}}
 
-" ==========hex show========== {{{
-let g:hex_show = 0
-nnoremap <silent> <F6> :call <SID>HexShowToggle()<CR>
-function! s:HexShowToggle() abort
-    let g:hex_show = !g:hex_show
-    if g:hex_show
-        silent execute "%!xxd"
-        echo "hex show"
+" ==========tool functions========== {{{
+" remove left zero: 050 -> 50
+function! RemoveLeftZero(number) abort
+    " echom 'input: ' . a:number
+    let length = strlen(a:number)
+    if length == 0
+        return '0'
+    endif
+    let i = 0
+    for n in split(a:number, '\zs')
+        if n != '0'
+            break
+        endif
+        let i += 1
+    endfor
+    if i == length
+        return a:number
     else
-        silent execute "%!xxd -r"
-        echo "restore from hex"
+        return a:number[i:length-1]
+    endif
+endfunction
+
+" time to millisecond, input format: 23:03:55.998 or 03:55.998
+function! TimeToMillisecond(time) abort
+    " echom 'input: ' . a:time
+    let length = len(a:time)
+    if length == 0
+        return 0
+    endif
+    let time_list = split(a:time, '\.')
+    let front_time_list = split(time_list[0], ":")
+    if len(front_time_list) == 2
+        return RemoveLeftZero(front_time_list[0]) * 60 * 1000 + RemoveLeftZero(front_time_list[1]) * 1000 + RemoveLeftZero(time_list[1])
+    elseif len(front_time_list) == 3
+        return RemoveLeftZero(front_time_list[0]) * 60 * 60 * 1000 + RemoveLeftZero(front_time_list[1]) * 60 * 1000 + RemoveLeftZero(front_time_list[2]) * 1000 + RemoveLeftZero(time_list[1])
+    else
+        echo 'error time format!'
+        return 0
     endif
 endfunction
 " }}}
+" }}}
+" }}}
 
 
+
+" ==========plugin settings========== {{{
 " ==========vim plugin manager========== {{{
 " any issues see github!!!
 call plug#begin()
@@ -793,6 +776,15 @@ let g:signify_disable_by_default = 1
 " translator variable
 " let g:translator_proxy_url = 'socks5://127.0.0.1:1080'
 let g:translator_default_engines = ['bing', 'haici']
+" convenient map for translating
+nnoremap <leader>t :Translate <C-r><C-w>
+nnoremap <leader><leader>t :Translate! 
+vnoremap <leader>t :Translate
+vnoremap <leader><leader>t :Translate!
+" nnoremap <leader>t :TranslateW <C-r><C-w>
+" nnoremap <leader><leader>t :TranslateW! 
+" vnoremap <leader>t :TranslateW
+" vnoremap <leader><leader>t :TranslateW!
 " }}}
 
 " ==========vim-lsp settings========== {{{
@@ -931,4 +923,5 @@ endif
 " let g:lsp_log_verbose = 1
 " let g:lsp_log_file = expand('~/logs/vim-lsp.log')
 " let g:asyncomplete_log_file = expand('~/logs/asyncomplete.log')
+" }}}
 " }}}
