@@ -13,7 +13,7 @@ Hello, welcome to the god of editor VIM !**
 `:PlugInstall`
 
 #### LSP
-语言服务协议LSP默认使用[vim-lsp][2]支持，如需替换为[coc][3]请将注释打开
+语言服务协议LSP默认使用[vim-lsp][2]支持
 > note: vim-lsp语义高亮默认是关闭的，如需开启请将`g:lsp_semantic_enabled = 1`
 
 #### Best way to learn vim
@@ -22,4 +22,3 @@ Hello, welcome to the god of editor VIM !**
 
 [1]: <https://github.com/junegunn/vim-plug>
 [2]: <https://github.com/prabirshrestha/vim-lsp>
-[3]: <https://github.com/neoclide/coc.nvim>

@@ -764,13 +764,10 @@ Plug 'mattn/vim-lsp-settings'                     "LSP语言服务配置
 Plug 'prabirshrestha/asyncomplete.vim'            "lsp自动补全
 Plug 'prabirshrestha/asyncomplete-lsp.vim'        "lsp自动补全
 " ------------------------------------------------------------
-" Plug 'neoclide/coc.nvim', {'branch': 'release'}   "LSP
-" ------------------------------------------------------------
 " Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app && npx --yes yarn install' }
 " ------------------------------------------------------------
 " Plug 'weirongxu/plantuml-previewer.vim'           "plantuml预览, need sudo apt-get install graphviz
 " Plug 'tyru/open-browser.vim'                      "浏览器预览渲染图, plantuml用
-" All of your Plugins must be added before the following line
 call plug#end()            " required
 " }}}
 
@@ -935,121 +932,3 @@ endif
 " let g:lsp_log_file = expand('~/logs/vim-lsp.log')
 " let g:asyncomplete_log_file = expand('~/logs/asyncomplete.log')
 " }}}
-
-" " ==========coc settings========== {{{
-" " coc.nvim config in .vimrc
-" " semanticTokens: 语义高亮
-" " inlayHint: 虚拟文本，形参名
-" " suggest.autoTrigger: 禁止补全窗口自动弹出
-" " noselect:true: 弹窗弹出时不自动选中第一项
-" let g:coc_user_config = {
-" \ 'semanticTokens.enable': v:true,
-" \ 'inlayHint.enable': v:true,
-" \ 'inlayHint.display': v:false,
-" \ 'suggest.autoTrigger': 'none',
-" \ 'suggest.noselect': v:true,
-" \ }
-
-" " 禁止启动，用CocStart手动开启
-" let g:coc_start_at_startup = 0
-
-" " Some servers have issues with backup files, see #649
-" " set nobackup
-" " set nowritebackup
-" " Having longer updatetime (default is 4000 ms = 4s) leads to noticeable
-" " delays and poor user experience
-" " 当停止输入一段时间后，Vim 会触发一些“需要等待空闲”的事件/动作
-" set updatetime=300
-" " Always show the signcolumn, otherwise it would shift the text each time
-" " diagnostics appear/become resolved
-" " 在窗口左边、行号左侧/附近的一小列，用来显示各种“标记”（sign）
-" " set signcolumn=yes
-
-" " Use tab for trigger completion with characters ahead and navigate
-" " NOTE: There's always complete item selected by default, you may want to enable
-" " no select by `"suggest.noselect": true` in your configuration file
-" " NOTE: Use command ':verbose imap <tab>' to make sure tab is not mapped by
-" " other plugin before putting this into your config
-" " <TAB> 选择下一项补全
-" " <S-TAB> 选择上一个补全
-" inoremap <silent><expr> <TAB>
-"       \ coc#pum#visible() ? coc#pum#next(1) :
-"       \ CheckBackspace() ? "\<Tab>" :
-"       \ coc#refresh()
-" inoremap <expr><S-TAB> coc#pum#visible() ? coc#pum#prev(1) : "\<C-h>"
-
-" " Make <CR> to accept selected completion item or notify coc.nvim to format
-" " <C-g>u breaks current undo, please make your own choice
-" " 补全弹窗弹出时回车变为选中，否则执行"\<C-g>u\<CR>\<c-r>=coc#on_enter()\<CR>
-" " \<C-g>u 作用：让这次回车后的内容和回车前的内容不要被归到同一个“撤销块”里, 这样按u撤销时可以撤销更小的块
-" " \<c-r>=coc#on_enter()\<CR>则可以正常执行回车时调用coc的钩子执行其他操作
-" inoremap <silent><expr> <CR> coc#pum#visible() ? coc#pum#confirm()
-"                               \: "\<C-g>u\<CR>\<c-r>=coc#on_enter()\<CR>"
-" " 简单版本
-" " inoremap <silent><expr> <CR> coc#pum#visible() ? coc#pum#confirm() : "\<CR>"
-
-" function! CheckBackspace() abort
-"   let col = col('.') - 1
-"   return !col || getline('.')[col - 1]  =~# '\s'
-" endfunction
-
-" " Use <c-space> to trigger completion
-" " 手动弹出补全菜单, 用<C-i>就可以了
-" " if has('nvim')
-" "   inoremap <silent><expr> <c-space> coc#refresh()
-" " else
-" "   inoremap <silent><expr> <c-@> coc#refresh()
-" " endif
-
-" " 虚拟文本显示开关
-" nnoremap <silent> <leader>ih :CocCommand document.toggleInlayHint<CR>
-
-" " Use `[g` and `]g` to navigate diagnostics
-" " Use `:CocDiagnostics` to get all diagnostics of current buffer in location list
-" " 错误诊断跳转快捷键
-" nmap <silent><nowait> [g <Plug>(coc-diagnostic-prev)
-" nmap <silent><nowait> ]g <Plug>(coc-diagnostic-next)
-
-" " GoTo code navigation
-" " 代码跳转快捷键
-" nmap <silent><nowait> gD <Plug>(coc-definition)
-" nmap <silent><nowait> gY <Plug>(coc-type-definition)
-" nmap <silent><nowait> gI <Plug>(coc-implementation)
-" nmap <silent><nowait> gR <Plug>(coc-references)
-
-" " Use K to show documentation in preview window
-" " 普通模式下的 K 重新定义为：优先用 coc.nvim/LSP 显示光标所在符号的文档（hover 提示）；
-" " 如果当前文件类型没有 hover 能力，就退回到 Vim 默认的 K 行为
-" nnoremap <silent> K :call ShowDocumentation()<CR>
-
-" function! ShowDocumentation() abort
-"   if CocAction('hasProvider', 'hover')
-"     call CocActionAsync('doHover')
-"   else
-"     call feedkeys('K', 'in')
-"   endif
-" endfunction
-
-" " Highlight the symbol and its references when holding the cursor
-" " 当光标停在某个位置不动一小段时间时，让 coc.nvim 去高亮当前符号及其引用（类似 VSCode 里点一下变量，会把同名变量/引用都标出来）
-" " autocmd CursorHold * silent call CocActionAsync('highlight')
-
-" " Formatting selected code
-" " xmap <leader>F  <Plug>(coc-format-selected)
-" " nmap <leader>F  <Plug>(coc-format-selected)
-" xnoremap <silent> <leader>F <Plug>(coc-format-selected)
-" nnoremap <silent> <leader>F <Plug>(coc-format-selected)
-
-" " Applying code actions to the selected code block
-" " Example: `<leader>aap` for current paragraph
-" " 代码建议快捷键
-" xmap <leader>a  <Plug>(coc-codeaction-selected)
-" nmap <leader>a  <Plug>(coc-codeaction-selected)
-
-" " Remap keys for applying code actions at the cursor position
-" nmap <leader>ac  <Plug>(coc-codeaction-cursor)
-" " Remap keys for apply code actions affect whole buffer
-" nmap <leader>as  <Plug>(coc-codeaction-source)
-" " Apply the most preferred quickfix action to fix diagnostic on the current line
-" nmap <leader>qf  <Plug>(coc-fix-current)
-" " }}}
