@@ -545,17 +545,17 @@ nnoremap <leader>sw :vimgrep /<C-r><C-w>/gj % \| botright cwindow<S-Left><S-Left
 nnoremap <leader><leader>sw :vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<S-Left><S-Left><S-Left><S-Left><Left><Left><Left><Left><Left><Left>
 
 " command completement of grep
-nnoremap <leader>sa :vimgrep /<C-r><C-w>/gj **/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhh
-nnoremap <leader>sc :vimgrep /<C-r><C-w>/gj **/*.{c,cc,cpp} \| botright cwindow<C-f>BBBBhhhh
-nnoremap <leader>sh :vimgrep /<C-r><C-w>/gj **/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhh
-nnoremap <leader>s% :vimgrep /<C-r><C-w>/gj % \| botright cwindow<C-f>BBBBhhhh
-nnoremap <leader>ss :vimgrep /<C-r><C-w>/gj **/* \| botright cwindow<C-f>BBBh
+nnoremap <leader>sa :silent! vimgrep /<C-r><C-w>/gj **/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader>sc :silent! vimgrep /<C-r><C-w>/gj **/*.{c,cc,cpp} \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader>sh :silent! vimgrep /<C-r><C-w>/gj **/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader>s% :silent! vimgrep /<C-r><C-w>/gj % \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader>ss :silent! vimgrep /<C-r><C-w>/gj **/* \| botright cwindow<C-f>BBBh
 " -----------------------------------------------------------------------------------------------------------
-nnoremap <leader><leader>sa :vimgrep /\<<C-r><C-w>\>/gj **/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
-nnoremap <leader><leader>sc :vimgrep /\<<C-r><C-w>\>/gj **/*.{c,cc,cpp} \| botright cwindow<C-f>BBBBhhhhhh
-nnoremap <leader><leader>sh :vimgrep /\<<C-r><C-w>\>/gj **/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
-nnoremap <leader><leader>s% :vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<C-f>BBBBhhhhhh
-nnoremap <leader><leader>ss :vimgrep /\<<C-r><C-w>\>/gj **/* \| botright cwindow<C-f>BBBh
+nnoremap <leader><leader>sa :silent! vimgrep /\<<C-r><C-w>\>/gj **/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader><leader>sc :silent! vimgrep /\<<C-r><C-w>\>/gj **/*.{c,cc,cpp} \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader><leader>sh :silent! vimgrep /\<<C-r><C-w>\>/gj **/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader><leader>s% :silent! vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader><leader>ss :silent! vimgrep /\<<C-r><C-w>\>/gj **/* \| botright cwindow<C-f>BBBh
 
 " g@: call the function set by the 'operatorfunc'
 " <SID>: use for function namespace
