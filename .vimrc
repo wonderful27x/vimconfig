@@ -497,19 +497,20 @@ augroup END
 " toggle number
 nnoremap <leader>N :setlocal number!<CR>
 
-let g:quickfix_l_is_open = 0
 " toggle open/close quickfix window
-" TODO bug: when use command 'copen' g:quickfix_l_is_open cannot be updated
 " learn what is wincmd w、winnr()
-nnoremap <leader>w :call <SID>QuickfixToggle()<CR>
-function! s:QuickfixToggle() abort
-    if g:quickfix_l_is_open
+" TODO bug: when use command 'copen' g:quickfix_is_open cannot be updated
+nnoremap <leader>q :call QuickfixToggle()<cr>
+let g:quickfix_is_open = 0
+function! QuickfixToggle()
+    if g:quickfix_is_open
         cclose
-        let g:quickfix_l_is_open = 0
+        let g:quickfix_is_open = 0
+        execute g:quickfix_return_to_window . "wincmd w"
     else
-        copen
-        silent execute "normal! \<C-w>J"
-        let g:quickfix_l_is_open = 1
+        let g:quickfix_return_to_window = winnr()
+        botright copen
+        let g:quickfix_is_open = 1
     endif
 endfunction
 " }}}
@@ -535,27 +536,26 @@ nnoremap <leader><leader>f :find ./**/<C-r><C-w>
 " }}}
 
 " ==========convenient map for grep searching========== {{{
-" traverse quickfix window history
-nnoremap <leader>q :colder<CR>
-nnoremap <leader>Q :cnewer<CR>
-" better use than <leader>Q
-nnoremap <leader><leader>q :cnewer<CR>
-
 " command completement of search
-nnoremap <leader>sw /<C-r><C-w>
-nnoremap <leader><leader>sw /\<<C-r><C-w>\><Left><Left>
+" g: 一行如果有多个匹配所有
+" j: 不跳转到第一个匹配
+" botright cwindow: 如果结果不为空最底部打开quickfix window
+" <S-Left>/<Left>: 用于修改光标位置
+nnoremap <leader>sw :vimgrep /<C-r><C-w>/gj % \| botright cwindow<S-Left><S-Left><S-Left><S-Left><Left><Left><Left><Left>
+nnoremap <leader><leader>sw :vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<S-Left><S-Left><S-Left><S-Left><Left><Left><Left><Left><Left><Left>
 
 " command completement of grep
-nnoremap <leader>sa :vimgrep // ./**/*.cpp ./**/*.cc ./**/*.c ./**/*.h ./**/*.hpp<C-f>:call cursor(0,11)<CR>
-nnoremap <leader>sc :vimgrep // ./**/*.cpp ./**/*.cc ./**/*.c<C-f>:call cursor(0,11)<CR>
-nnoremap <leader>sh :vimgrep // ./**/*.h ./**/*.hpp<C-f>:call cursor(0,11)<CR>
-nnoremap <leader>s% :vimgrep // %<C-f>:call cursor(0,11)<CR>
-nnoremap <leader>ss :vimgrep // ./**/*<C-f>:call cursor(0,11)<CR>
-nnoremap <leader><leader>sa :vimgrep /\<\>/ ./**/*.cpp ./**/*.cc ./**/*.c ./**/*.h ./**/*.hpp<C-f>:call cursor(0,13)<CR>
-nnoremap <leader><leader>sc :vimgrep /\<\>/ ./**/*.cpp ./**/*.cc ./**/*.c<C-f>:call cursor(0,13)<CR>
-nnoremap <leader><leader>sh :vimgrep /\<\>/ ./**/*.h ./**/*.hpp<C-f>:call cursor(0,13)<CR>
-nnoremap <leader><leader>s% :vimgrep /\<\>/ %<C-f>:call cursor(0,13)<CR>
-nnoremap <leader><leader>ss :vimgrep /\<\>/ ./**/*<C-f>:call cursor(0,13)<CR>
+nnoremap <leader>sa :vimgrep /<C-r><C-w>/gj **/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader>sc :vimgrep /<C-r><C-w>/gj **/*.{c,cc,cpp} \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader>sh :vimgrep /<C-r><C-w>/gj **/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader>s% :vimgrep /<C-r><C-w>/gj % \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader>ss :vimgrep /<C-r><C-w>/gj **/* \| botright cwindow<C-f>BBBh
+" -----------------------------------------------------------------------------------------------------------
+nnoremap <leader><leader>sa :vimgrep /\<<C-r><C-w>\>/gj **/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader><leader>sc :vimgrep /\<<C-r><C-w>\>/gj **/*.{c,cc,cpp} \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader><leader>sh :vimgrep /\<<C-r><C-w>\>/gj **/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader><leader>s% :vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader><leader>ss :vimgrep /\<<C-r><C-w>\>/gj **/* \| botright cwindow<C-f>BBBh
 
 " g@: call the function set by the 'operatorfunc'
 " <SID>: use for function namespace
@@ -563,13 +563,13 @@ nnoremap <leader><leader>ss :vimgrep /\<\>/ ./**/*<C-f>:call cursor(0,13)<CR>
 " visualmode(): vim inside function to get the last visual mode type: v, V, <C-v>
 " the two map below are for nomal mode, visual mode
 " how to use: <localleader>giw, viw<localleader>g ...
-nnoremap <leader>g :set operatorfunc=<SID>GrepOperatorR<CR>g@
-vnoremap <leader>g :<c-u>call <SID>GrepOperator(visualmode(), 1)<CR>
-nnoremap <leader>G :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-vnoremap <leader>G :<c-u>call <SID>GrepOperator(visualmode(), 0)<CR>
+nnoremap <leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
+vnoremap <leader>g :<c-u>call <SID>GrepOperator(visualmode(), 0)<CR>
+nnoremap <leader>G :set operatorfunc=<SID>GrepOperatorR<CR>g@
+vnoremap <leader>G :<c-u>call <SID>GrepOperator(visualmode(), 1)<CR>
 " better use than <leader>G
-nnoremap <leader><leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-vnoremap <leader><leader>g :<c-u>call <SID>GrepOperator(visualmode(), 0)<CR>
+nnoremap <leader><leader>g :set operatorfunc=<SID>GrepOperatorR<CR>g@
+vnoremap <leader><leader>g :<c-u>call <SID>GrepOperator(visualmode(), 1)<CR>
 
 function! s:GrepOperatorR(type)
     call s:GrepOperator(a:type, 1)
@@ -603,24 +603,21 @@ function! s:GrepOperator(type, recursion) abort
     " :copen<CR>: open the quickfix window
     " silent: do not display the message when running command
     " shellescape: to deal whit kind like words <that's> which contain single quote in grep
-    if(&l:filetype ==# 'cpp' || &l:filetype ==# 'c')
-        if a:recursion
-            silent execute "grep! -R " . shellescape(@@) . " --include=*.{c,cc,cpp,h,hpp} ."
-        else
-            silent execute "grep! " . shellescape(@@) . " %"
-        endif
+    if (&l:filetype ==# 'cpp' || &l:filetype ==# 'c')
+        let l:inc = '--include=*.c --include=*.cc --include=*.cpp --include=*.h --include=*.hpp '
     else
-        if a:recursion
-            silent execute "grep! -R " . shellescape(@@) . " ."
-        else
-            silent execute "grep! " . shellescape(@@) . " %"
-        endif
+        let l:inc = ''
     endif
+
+    if a:recursion
+        silent execute 'grep! -R ' . l:inc . shellescape(@@) . ' .'
+    else
+        silent execute 'grep! '    . l:inc . shellescape(@@) . ' %'
+    endif
+
     " open the quickfix list window
-    silent execute "copen"
-    silent execute "normal! \<C-w>J"
+    botright copen
     silent execute "normal! \<C-l>"
-    let g:quickfix_l_is_open = 1
 
     " restore the unnamed register after use
     let @@ = saved_unnamed_register
