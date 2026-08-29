@@ -541,21 +541,19 @@ nnoremap <leader><leader>f :find ./**/<C-r><C-w>
 " j: 不跳转到第一个匹配
 " botright cwindow: 如果结果不为空最底部打开quickfix window
 " <S-Left>/<Left>: 用于修改光标位置
-nnoremap <leader>sw :vimgrep /<C-r><C-w>/gj % \| botright cwindow<S-Left><S-Left><S-Left><S-Left><Left><Left><Left><Left>
-nnoremap <leader><leader>sw :vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<S-Left><S-Left><S-Left><S-Left><Left><Left><Left><Left><Left><Left>
+nnoremap <leader>sw :vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<S-Left><S-Left><S-Left><S-Left><Left><Left><Left><Left><Left><Left>
+nnoremap <leader><leader>sw :vimgrep /<C-r><C-w>/gj % \| botright cwindow<S-Left><S-Left><S-Left><S-Left><Left><Left><Left><Left>
 
 " command completement of grep
-nnoremap <leader>sa :silent! vimgrep /<C-r><C-w>/gj **/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhh
-nnoremap <leader>sc :silent! vimgrep /<C-r><C-w>/gj **/*.{c,cc,cpp} \| botright cwindow<C-f>BBBBhhhh
-nnoremap <leader>sh :silent! vimgrep /<C-r><C-w>/gj **/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhh
-nnoremap <leader>s% :silent! vimgrep /<C-r><C-w>/gj % \| botright cwindow<C-f>BBBBhhhh
-nnoremap <leader>ss :silent! vimgrep /<C-r><C-w>/gj **/* \| botright cwindow<C-f>BBBh
+nnoremap <leader>sc :silent! vimgrep /\<<C-r><C-w>\>/gj **/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader>sh :silent! vimgrep /\<<C-r><C-w>\>/gj **/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader>s% :silent! vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader>ss :silent! vimgrep /\<<C-r><C-w>\>/gj **/* \| botright cwindow<C-f>BBBh
 " -----------------------------------------------------------------------------------------------------------
-nnoremap <leader><leader>sa :silent! vimgrep /\<<C-r><C-w>\>/gj **/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
-nnoremap <leader><leader>sc :silent! vimgrep /\<<C-r><C-w>\>/gj **/*.{c,cc,cpp} \| botright cwindow<C-f>BBBBhhhhhh
-nnoremap <leader><leader>sh :silent! vimgrep /\<<C-r><C-w>\>/gj **/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
-nnoremap <leader><leader>s% :silent! vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<C-f>BBBBhhhhhh
-nnoremap <leader><leader>ss :silent! vimgrep /\<<C-r><C-w>\>/gj **/* \| botright cwindow<C-f>BBBh
+nnoremap <leader><leader>sc :silent! vimgrep /<C-r><C-w>/gj **/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader><leader>sh :silent! vimgrep /<C-r><C-w>/gj **/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader><leader>s% :silent! vimgrep /<C-r><C-w>/gj % \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader><leader>ss :silent! vimgrep /<C-r><C-w>/gj **/* \| botright cwindow<C-f>BBBh
 
 " g@: call the function set by the 'operatorfunc'
 " <SID>: use for function namespace
@@ -563,13 +561,13 @@ nnoremap <leader><leader>ss :silent! vimgrep /\<<C-r><C-w>\>/gj **/* \| botright
 " visualmode(): vim inside function to get the last visual mode type: v, V, <C-v>
 " the two map below are for nomal mode, visual mode
 " how to use: <localleader>giw, viw<localleader>g ...
-nnoremap <leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-vnoremap <leader>g :<c-u>call <SID>GrepOperator(visualmode(), 0)<CR>
-nnoremap <leader>G :set operatorfunc=<SID>GrepOperatorR<CR>g@
-vnoremap <leader>G :<c-u>call <SID>GrepOperator(visualmode(), 1)<CR>
+nnoremap <leader>g :set operatorfunc=<SID>GrepOperatorR<CR>g@
+vnoremap <leader>g :<c-u>call <SID>GrepOperator(visualmode(), 1)<CR>
+nnoremap <leader>G :set operatorfunc=<SID>GrepOperatorNR<CR>g@
+vnoremap <leader>G :<c-u>call <SID>GrepOperator(visualmode(), 0)<CR>
 " better use than <leader>G
-nnoremap <leader><leader>g :set operatorfunc=<SID>GrepOperatorR<CR>g@
-vnoremap <leader><leader>g :<c-u>call <SID>GrepOperator(visualmode(), 1)<CR>
+nnoremap <leader><leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
+vnoremap <leader><leader>g :<c-u>call <SID>GrepOperator(visualmode(), 0)<CR>
 
 function! s:GrepOperatorR(type)
     call s:GrepOperator(a:type, 1)
