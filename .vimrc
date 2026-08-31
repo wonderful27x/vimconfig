@@ -45,13 +45,12 @@ set softtabstop=4       " 连续4个空格视为一个tab/制表符
 " retab命令可以按照上面设置的规则格式化代码
 
 " ==========file encode settings========== {{{
-set fileformat=unix             "unix 文件格式，\n为行结束符，实际测试无效，创建文件时与系统一致!!! 可以打开文件后手动设置生效
-set fileformats=unix,dos,mac    "设置vim支持的系统文件格式
+set fileformat=unix             "当前缓冲区用哪种换行符，写入时一致
+set fileformats=unix,dos,mac    "读文件时“尝试识别”的行尾格式列表（探测顺序），并据此设置fileformat
 set nobomb                      "utf-8标准格式，bomb微软用的多
 set encoding=utf-8              "vim 内部使用的字符编码方式，包括缓冲区、菜单文本、消息文本等
 set fileencoding=utf-8          "vim 当前编辑的文件字符编码方式，保存和新建都是这种编码格式
-set fileencodings=utf-8,gbk,ucs-bom,default,latin1
-" termencoding: vim工作终端的编码方式
+set fileencodings=ucs-bom,utf-8,gb18030,gbk,default,latin1
 " vim启动时按照列表进行探测，并将fileencoding设置为此编码方式，
 " 这很好理解，即打开文件和保存文件默认情况下应该保持编码方式不变
 " 可以理解为设置vim支持的文件编码格式，类似fileformats
@@ -145,30 +144,6 @@ if &term =~ "xterm"
     " let &t_EI = "\<Esc>[2 q" . "\<Esc>]12;rgb:CD/B3/8B\x7"
     " let &t_VS = "\<Esc>[2 q" . "\<Esc>]12;rgb:CD/B3/8B\x7"
 endif
-" }}}
-
-" ==========section movements========== {{{
-" If your '{' or '}' are not in the first column, and you would like to use "[["
-" and "]]" anyway, try these mappings: bug!
-" map [[ ?{<CR>w99[{
-" map ][ /}<CR>b99]}
-" map ]] j0[[%/{<CR>
-" map [] k$][%?}<CR>
-" bug fix in my way
-nmap [[ []%
-nmap ]] %][%
-" the same as below
-" nmap <silent> ]] :<c-u>execute "normal! %"<CR>][:<c-u>silent execute "normal! %"<CR>
-"
-" 解释: 段路跳转[[、]]、[]、][，以c++为例进行讲解，符号{为函数的开始,符号}为函数的结束
-" [[: 跳转到上一个函数的开始
-" ]]: 跳转到下一个或当前函数的开始
-" []: 跳转到上一个函数的结束
-" ][: 跳转到下一个函数的结束
-" 其中]]的行为是最特殊的，假设当前光标在函数体内部，]]反而会使光标向上移动到当前函数的开始{,
-" 这与"下一个"的行为似乎有些矛盾，一方面是由于我们自己的实现造成的，但是只要把它理解为
-" “跳转到下一个或当前函数的开始“就可以了，并且]]也是最常使用的，"跳转到下一个或当前函数的开始"
-" 这一行为真的很棒，要想跳转到结束可以使用%
 " }}}
 
 "==========window settings========== {{{
@@ -545,15 +520,15 @@ nnoremap <leader>sw :vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<S-Left><S-
 nnoremap <leader><leader>sw :vimgrep /<C-r><C-w>/gj % \| botright cwindow<S-Left><S-Left><S-Left><S-Left><Left><Left><Left><Left>
 
 " command completement of grep
-nnoremap <leader>sc :silent! vimgrep /\<<C-r><C-w>\>/gj **/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
-nnoremap <leader>sh :silent! vimgrep /\<<C-r><C-w>\>/gj **/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader>sc :silent! vimgrep /\<<C-r><C-w>\>/gj ./**/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader>sh :silent! vimgrep /\<<C-r><C-w>\>/gj ./**/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
 nnoremap <leader>s% :silent! vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<C-f>BBBBhhhhhh
-nnoremap <leader>ss :silent! vimgrep /\<<C-r><C-w>\>/gj **/* \| botright cwindow<C-f>BBBh
+nnoremap <leader>ss :silent! vimgrep /\<<C-r><C-w>\>/gj ./**/* \| botright cwindow<C-f>BBBh
 " -----------------------------------------------------------------------------------------------------------
-nnoremap <leader><leader>sc :silent! vimgrep /<C-r><C-w>/gj **/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhh
-nnoremap <leader><leader>sh :silent! vimgrep /<C-r><C-w>/gj **/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader><leader>sc :silent! vimgrep /<C-r><C-w>/gj ./**/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader><leader>sh :silent! vimgrep /<C-r><C-w>/gj ./**/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhh
 nnoremap <leader><leader>s% :silent! vimgrep /<C-r><C-w>/gj % \| botright cwindow<C-f>BBBBhhhh
-nnoremap <leader><leader>ss :silent! vimgrep /<C-r><C-w>/gj **/* \| botright cwindow<C-f>BBBh
+nnoremap <leader><leader>ss :silent! vimgrep /<C-r><C-w>/gj ./**/* \| botright cwindow<C-f>BBBh
 
 " g@: call the function set by the 'operatorfunc'
 " <SID>: use for function namespace
