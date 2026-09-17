@@ -85,6 +85,8 @@ xnoremap & :&&<CR>
 nnoremap <C-d> Lzz
 " 重映射<C-u>为光标指向屏幕最后一行然后执行zz, 即将屏幕最后一行显示在屏幕中间,也可理解为向上翻动半页
 nnoremap <C-u> Hzz
+" 重映射<C-l>插入模式下光标右移一位
+inoremap <C-l> <Right>
 
 " space进入可视模式并选中单词
 nnoremap <space> viw
@@ -230,10 +232,15 @@ vmap <C-k> <Plug>(V_BinaryLocationUp)
 vmap <C-h> <Plug>(V_BinaryLocationLeft)
 vmap <C-l> <Plug>(V_BinaryLocationRight)
 " ------------------------------------------
-nnoremap <silent> j j: <c-u>call <SID>BinaryClearFast()<CR>
-nnoremap <silent> k k: <c-u>call <SID>BinaryClearFast()<CR>
-nnoremap <silent> l l: <c-u>call <SID>BinaryClearFast()<CR>
-nnoremap <silent> h h: <c-u>call <SID>BinaryClearFast()<CR>
+" nnoremap <silent> j j:<c-u>call <SID>BinaryClearFast()<CR>
+" nnoremap <silent> k k:<c-u>call <SID>BinaryClearFast()<CR>
+" nnoremap <silent> l l:<c-u>call <SID>BinaryClearFast()<CR>
+" nnoremap <silent> h h:<c-u>call <SID>BinaryClearFast()<CR>
+" 上面的方法在<C-o>的情况下会触发bug!!!
+nnoremap <silent> j <Cmd>call <SID>J_Down()<CR>
+nnoremap <silent> k <Cmd>call <SID>K_Up()<CR>
+nnoremap <silent> l <Cmd>call <SID>L_Right()<CR>
+nnoremap <silent> h <Cmd>call <SID>H_Left()<CR>
 noremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
 " }}}
 
@@ -250,13 +257,13 @@ endfunction
 " ==========functions for toggle case========== {{{
 " 插入转换单词
 function! s:InsertToggleWord() abort
-     return g:toggle_case_word
+    return g:toggle_case_word
 endfunction
 
 " 删除转换处单词
 function! s:DeleteToggleWord() abort
-     let len = strlen(g:toggle_case_word)
-     return repeat("\<C-h>", len)
+    let len = strlen(g:toggle_case_word)
+    return repeat("\<C-h>", len)
 endfunction
 
 " 光标前单词大小写转换
@@ -293,6 +300,50 @@ endfunction
 " }}}
 
 " ==========functions for binary cursor location========== {{{
+augroup InsertFlag
+    autocmd!
+    autocmd InsertEnter * let b:from_insert = 1
+    autocmd InsertLeave * unlet! b:from_insert
+augroup END
+
+function! s:J_Down() abort
+    " 如果是从插入模式里来的（包括 <C-o> 临时 normal），只移动
+    if exists('b:from_insert')
+        normal! j
+        return
+    endif
+    " 真正 normal 模式按 j：先清理再移动
+    call s:BinaryClearFast()
+    normal! j
+endfunction
+
+function! s:K_Up() abort
+    if exists('b:from_insert')
+        normal! k
+        return
+    endif
+    call s:BinaryClearFast()
+    normal! k
+endfunction
+
+function! s:L_Right() abort
+    if exists('b:from_insert')
+        normal! l
+        return
+    endif
+    call s:BinaryClearFast()
+    normal! l
+endfunction
+
+function! s:H_Left() abort
+    if exists('b:from_insert')
+        normal! h
+        return
+    endif
+    call s:BinaryClearFast()
+    normal! h
+endfunction
+
 function! s:ResetV() abort
     let g:v_beg = line('w0')
     let g:v_end = line('w$') + 1
