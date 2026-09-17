@@ -862,7 +862,7 @@ augroup lsp_install
 augroup END
 
 " 语义高亮, 速度有些慢
-let g:lsp_semantic_enabled = 0
+let g:lsp_semantic_enabled = 1
 let g:lsp_semantic_delay = 500
 
 " 禁止光标停留自动高亮
