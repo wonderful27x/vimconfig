@@ -814,15 +814,12 @@ vnoremap <leader><leader>t :Translate!
 " }}}
 
 " ==========vim-lsp settings========== {{{
-" 我们使用vim-lsp-settings插件来配置服务, 下面是手动配置示例
-" if executable('pylsp')
-"     " pip install python-lsp-server
-"     au User lsp_setup call lsp#register_server({
-"         \ 'name': 'pylsp',
-"         \ 'cmd': {server_info->['pylsp']},
-"         \ 'allowlist': ['python'],
-"         \ })
-" endif
+" 设置c++查找路径，若WSL下无法识别std，请打开该设置
+" let g:lsp_settings = {
+" \   'clangd': {
+" \   'args': ['--query-driver=/usr/bin/c++*'],
+" \   }
+" \}
 
 " set updatetime=300
 
