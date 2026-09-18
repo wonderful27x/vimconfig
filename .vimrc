@@ -81,10 +81,10 @@ cnoremap <expr> %% getcmdtype() == ':' ? expand('%:h').'/' : '%%'
 nnoremap & :&&<CR>
 xnoremap & :&&<CR>
 
-" 重映射<C-d>为光标指向屏幕最后一行然后执行zz, 即将屏幕最后一行显示在屏幕中间,也可理解为向下翻动半页
-nnoremap <C-d> Lzz
-" 重映射<C-u>为光标指向屏幕最后一行然后执行zz, 即将屏幕最后一行显示在屏幕中间,也可理解为向上翻动半页
-nnoremap <C-u> Hzz
+" " 重映射<C-d>为光标指向屏幕最后一行然后执行zz, 即将屏幕最后一行显示在屏幕中间,也可理解为向下翻动半页
+" nnoremap <C-d> Lzz
+" " 重映射<C-u>为光标指向屏幕最后一行然后执行zz, 即将屏幕最后一行显示在屏幕中间,也可理解为向上翻动半页
+" nnoremap <C-u> Hzz
 " 重映射<C-l>插入模式下光标右移一位
 inoremap <C-l> <Right>
 
@@ -237,10 +237,15 @@ vmap <C-l> <Plug>(V_BinaryLocationRight)
 " nnoremap <silent> l l:<c-u>call <SID>BinaryClearFast()<CR>
 " nnoremap <silent> h h:<c-u>call <SID>BinaryClearFast()<CR>
 " 上面的方法在<C-o>的情况下会触发bug!!!
-nnoremap <silent> j <Cmd>call <SID>J_Down()<CR>
-nnoremap <silent> k <Cmd>call <SID>K_Up()<CR>
-nnoremap <silent> l <Cmd>call <SID>L_Right()<CR>
-nnoremap <silent> h <Cmd>call <SID>H_Left()<CR>
+" nnoremap <silent> j <Cmd>call <SID>J_Down()<CR>
+" nnoremap <silent> k <Cmd>call <SID>K_Up()<CR>
+" nnoremap <silent> l <Cmd>call <SID>L_Right()<CR>
+" nnoremap <silent> h <Cmd>call <SID>H_Left()<CR>
+" <Cmd>需要vim9支持
+nnoremap <silent> j :<c-u>call <SID>J_Down()<CR>
+nnoremap <silent> k :<c-u>call <SID>K_Up()<CR>
+nnoremap <silent> l :<c-u>call <SID>L_Right()<CR>
+nnoremap <silent> h :<c-u>call <SID>H_Left()<CR>
 noremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
 " }}}
 
