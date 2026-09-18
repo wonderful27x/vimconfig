@@ -846,6 +846,7 @@ function! s:on_lsp_buffer_enabled() abort
     nmap <buffer> gH <plug>(lsp-type-hierarchy)
     nmap <buffer> gs <plug>(lsp-document-symbol-search)
     nmap <buffer> gS <plug>(lsp-workspace-symbol-search)
+    nmap <buffer> gF <plug>(lsp-definition)
     " ----------------------------------------------
     nmap <buffer> [g <plug>(lsp-previous-diagnostic)
     nmap <buffer> ]g <plug>(lsp-next-diagnostic)
