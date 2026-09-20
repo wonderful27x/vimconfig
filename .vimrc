@@ -839,14 +839,15 @@ function! s:on_lsp_buffer_enabled() abort
     setlocal omnifunc=lsp#complete
     " setlocal signcolumn=yes
     if exists('+tagfunc') | setlocal tagfunc=lsp#tagfunc | endif
+    nmap <buffer> gF <plug>(lsp-definition)
     nmap <buffer> gD <plug>(lsp-definition)
-    nmap <buffer> gY <plug>(lsp-type-definition)
-    nmap <buffer> gR <plug>(lsp-references)
+    nmap <buffer> gT <plug>(lsp-type-definition)
     nmap <buffer> gI <plug>(lsp-implementation)
-    nmap <buffer> gH <plug>(lsp-type-hierarchy)
+    nmap <buffer> gR <plug>(lsp-references)
+    nmap <buffer> gC <plug>(lsp-call-hierarchy-incoming)
     nmap <buffer> gs <plug>(lsp-document-symbol-search)
     nmap <buffer> gS <plug>(lsp-workspace-symbol-search)
-    nmap <buffer> gF <plug>(lsp-definition)
+    nmap <buffer> gH <plug>(lsp-type-hierarchy)
     " ----------------------------------------------
     nmap <buffer> [g <plug>(lsp-previous-diagnostic)
     nmap <buffer> ]g <plug>(lsp-next-diagnostic)
