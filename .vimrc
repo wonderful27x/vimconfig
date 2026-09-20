@@ -871,6 +871,7 @@ let g:asyncomplete_auto_completeopt = 0
 " 设置手动开关命令
 command! LspEnable call s:LspEnable()
 command! LspDisable call s:LspDisable()
+command! LspRestart call s:LspDisable() | sleep 100m | call s:LspEnable()
 
 " 设置快捷键
 function! s:on_lsp_buffer_enabled() abort
