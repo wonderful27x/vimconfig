@@ -821,38 +821,54 @@ vnoremap <leader><leader>t :Translate!
 " \   }
 " \}
 
-" set updatetime=300
-
 " 启用原生LSP
 let g:lsp_use_native_client = 1
 
 " 启动时禁用lsp
 let g:lsp_auto_enable = 0
 
-" 清理语义高亮, lsp#disable时不会自动清理
-function! s:LspSemanticClear() abort
-  for t in prop_type_list()
-    if t =~ '^vim-lsp-semantic-'
-      call prop_remove({'type': t, 'all': 1}, 1, line('$'))
-    endif
-  endfor
-endfunction
+" 语义高亮, 速度有些慢
+let g:lsp_semantic_enabled = 1
+let g:lsp_semantic_delay = 500
 
-" 手动开关lsp
-let g:_lsp_saved_signcolumn = &signcolumn
-function! s:LspEnable() abort
-    let g:_lsp_saved_signcolumn = &signcolumn
-    call lsp#enable()
-    set signcolumn=yes
-endfunction
+" 禁止光标停留自动高亮
+let g:lsp_document_highlight_enabled = 0
 
-function! s:LspDisable() abort
-    call lsp#disable()
-    let &signcolumn = get(g:, '_lsp_saved_signcolumn', 'auto')
-    call s:LspSemanticClear()
-    execute "LspStopServer"
-endfunction
+" 禁止函数签名提示自动弹出在输入模式下
+let g:lsp_signature_help_enabled = 0
 
+" 补全额外信息显示
+let g:lsp_completion_documentation_enabled = 1
+
+" 诊断信息
+let g:lsp_diagnostics_enabled = 1                           " 启用诊断信息
+let g:lsp_diagnostics_echo_cursor = 1                       " 命令行中输出错误信息
+let g:lsp_diagnostics_echo_delay  = 0                       " 延迟显示
+let g:lsp_diagnostics_float_cursor = 0                      " 悬浮窗口显示诊断信息
+let g:lsp_diagnostics_float_delay = 500                     " 延迟显示
+let g:lsp_diagnostics_float_insert_mode_enabled = 0         " 插入模式关闭悬浮
+let g:lsp_diagnostics_highlights_enabled = 1                " 错误诊断高亮
+let g:lsp_diagnostics_highlights_delay = 500                " 延迟高亮
+let g:lsp_diagnostics_highlights_insert_mode_enabled = 1    " 插入模式高亮
+let g:lsp_diagnostics_signs_enabled = 1                     " 启用侧边栏符号
+let g:lsp_diagnostics_signs_insert_mode_enabled = 1         " 插入模式侧边符号显示
+let g:lsp_diagnostics_signs_delay = 500                     " 延迟符号显示
+" 设置符号样式
+" let g:lsp_diagnostics_signs_error = {'text': '✗', 'texthl': 'DiagnosticSignError'}
+" let g:lsp_diagnostics_signs_warning = {'text': '⚠', 'texthl': 'DiagnosticSignWarn'}
+" 关闭错误诊断虚拟文本
+let g:lsp_diagnostics_virtual_text_enabled = 0
+let g:lsp_diagnostics_virtual_text_insert_mode_enabled = 0
+
+" 禁止补全弹窗自动弹出
+let g:asyncomplete_auto_popup = 0
+
+" allow modifying the completeopt variable, or it will
+" be overridden all the time
+" 不自动设置补全行为
+let g:asyncomplete_auto_completeopt = 0
+
+" 设置手动开关命令
 command! LspEnable call s:LspEnable()
 command! LspDisable call s:LspDisable()
 
@@ -887,27 +903,6 @@ augroup lsp_install
     autocmd User lsp_buffer_enabled call s:on_lsp_buffer_enabled()
 augroup END
 
-" 语义高亮, 速度有些慢
-let g:lsp_semantic_enabled = 1
-let g:lsp_semantic_delay = 500
-
-" 禁止光标停留自动高亮
-let g:lsp_document_highlight_enabled = 0
-
-" 禁止补全弹窗自动弹出
-let g:asyncomplete_auto_popup = 0
-
-" 禁止函数签名提示自动弹出在输入模式下
-let g:lsp_signature_help_enabled = 0
-
-" allow modifying the completeopt variable, or it will
-" be overridden all the time
-" 不自动设置补全行为
-let g:asyncomplete_auto_completeopt = 0
-
-" 补全额外信息显示
-let g:lsp_completion_documentation_enabled = 1
-
 " 手动弹出，用<C-i>就可以了
 " imap <c-space> <Plug>(asyncomplete_force_refresh)
 " For Vim 8 (<c-@> corresponds to <c-space>):
@@ -929,26 +924,6 @@ inoremap <silent><expr> <TAB>
   \ asyncomplete#force_refresh()
 inoremap <expr><S-TAB> pumvisible() ? "\<C-p>" : "\<C-h>"
 
-" 诊断信息
-let g:lsp_diagnostics_enabled = 1                           " 启用诊断信息
-let g:lsp_diagnostics_echo_cursor = 1                       " 命令行中输出错误信息
-let g:lsp_diagnostics_echo_delay  = 0                       " 延迟显示
-let g:lsp_diagnostics_float_cursor = 0                      " 悬浮窗口显示诊断信息
-let g:lsp_diagnostics_float_delay = 500                     " 延迟显示
-let g:lsp_diagnostics_float_insert_mode_enabled = 0         " 插入模式关闭悬浮
-let g:lsp_diagnostics_highlights_enabled = 1                " 错误诊断高亮
-let g:lsp_diagnostics_highlights_delay = 500                " 延迟高亮
-let g:lsp_diagnostics_highlights_insert_mode_enabled = 1    " 插入模式高亮
-let g:lsp_diagnostics_signs_enabled = 1                     " 启用侧边栏符号
-let g:lsp_diagnostics_signs_insert_mode_enabled = 1         " 插入模式侧边符号显示
-let g:lsp_diagnostics_signs_delay = 500                     " 延迟符号显示
-" 设置符号样式
-" let g:lsp_diagnostics_signs_error = {'text': '✗', 'texthl': 'DiagnosticSignError'}
-" let g:lsp_diagnostics_signs_warning = {'text': '⚠', 'texthl': 'DiagnosticSignWarn'}
-" 关闭错误诊断虚拟文本
-let g:lsp_diagnostics_virtual_text_enabled = 0
-let g:lsp_diagnostics_virtual_text_insert_mode_enabled = 0
-
 " 使用<C-j>/<C-k>上下滚动popup window
 let g:CJ_cmd_nmap = maparg('<C-j>', 'n')
 let g:CK_cmd_nmap = maparg('<C-k>', 'n')
@@ -965,6 +940,29 @@ if exists('*popup_list') && g:CJ_cmd_nmap =~# '^<Plug>' && g:CK_cmd_nmap =~# '^<
         \ ? g:CK_cmd_nmap
         \ : lsp#scroll(-4)
 endif
+
+" 清理语义高亮, lsp#disable时不会自动清理
+function! s:LspSemanticClear() abort
+  for t in prop_type_list()
+    if t =~ '^vim-lsp-semantic-'
+      call prop_remove({'type': t, 'all': 1}, 1, line('$'))
+    endif
+  endfor
+endfunction
+
+let g:_lsp_saved_signcolumn = &signcolumn
+function! s:LspEnable() abort
+    let g:_lsp_saved_signcolumn = &signcolumn
+    call lsp#enable()
+    set signcolumn=yes
+endfunction
+
+function! s:LspDisable() abort
+    call lsp#disable()
+    let &signcolumn = get(g:, '_lsp_saved_signcolumn', 'auto')
+    call s:LspSemanticClear()
+    execute "LspStopServer"
+endfunction
 
 " lsp log
 " let g:lsp_log_verbose = 1
