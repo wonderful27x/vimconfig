@@ -829,10 +829,32 @@ let g:lsp_use_native_client = 1
 " 启动时禁用lsp
 let g:lsp_auto_enable = 0
 
+" 清理语义高亮, lsp#disable时不会自动清理
+function! s:LspSemanticClear() abort
+  for t in prop_type_list()
+    if t =~ '^vim-lsp-semantic-'
+      call prop_remove({'type': t, 'all': 1}, 1, line('$'))
+    endif
+  endfor
+endfunction
+
 " 手动开关lsp
 let g:_lsp_saved_signcolumn = &signcolumn
-command! LspEnable  let g:_lsp_saved_signcolumn = &signcolumn | call lsp#enable()  | set signcolumn=yes
-command! LspDisable call lsp#disable() | let &signcolumn = get(g:, '_lsp_saved_signcolumn', 'auto')
+function! s:LspEnable() abort
+    let g:_lsp_saved_signcolumn = &signcolumn
+    call lsp#enable()
+    set signcolumn=yes
+endfunction
+
+function! s:LspDisable() abort
+    call lsp#disable()
+    let &signcolumn = get(g:, '_lsp_saved_signcolumn', 'auto')
+    call s:LspSemanticClear()
+    execute "LspStopServer"
+endfunction
+
+command! LspEnable call s:LspEnable()
+command! LspDisable call s:LspDisable()
 
 " 设置快捷键
 function! s:on_lsp_buffer_enabled() abort
@@ -894,7 +916,7 @@ let g:lsp_completion_documentation_enabled = 1
 " 补全弹窗列表选择
 " inoremap <expr> <Tab>   pumvisible() ? "\<C-n>" : "\<Tab>"
 " inoremap <expr> <S-Tab> pumvisible() ? "\<C-p>" : "\<S-Tab>"
-inoremap <expr> <cr>    pumvisible() ? asyncomplete#close_popup() : "\<cr>"
+inoremap <expr> <cr> pumvisible() ? asyncomplete#close_popup() : "\<cr>"
 
 function! s:check_back_space() abort
     let col = col('.') - 1
