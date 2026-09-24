@@ -821,6 +821,35 @@ vnoremap <leader><leader>t :Translate!
 " \   }
 " \}
 
+" " PYTHON LSP
+" " 若无法忍受vim-lsp-settings插件在打开文件时的卡顿
+" " 手动配置LSP语言服务, 请注释: Plug 'mattn/vim-lsp-settings'
+" if executable('ty')
+"     " pip install ty
+"     au User lsp_setup call lsp#register_server({
+"         \ 'name': 'ty',
+"         \ 'cmd': {server_info->['ty', 'server']},
+"         \ 'allowlist': ['python'],
+"         \ })
+" endif
+
+" " C/C++ LSP
+" " 若WSL下无法识别std，加入下面这条命令
+" " \   '--query-driver=/usr/bin/c++*',
+" if executable('clangd')
+"     " sudo apt install clangd
+"     au User lsp_setup call lsp#register_server({
+"         \ 'name': 'clangd',
+"         \ 'cmd': {server_info->[
+"         \   'clangd',
+"         \   '--background-index',
+"         \   '--clang-tidy',
+"         \ ]},
+"         \ 'allowlist': ['c', 'cpp', 'cc'],
+"         \ })
+" endif
+
+
 " 启用原生LSP
 let g:lsp_use_native_client = 1
 
@@ -851,8 +880,8 @@ let g:lsp_diagnostics_highlights_enabled = 1                " 错误诊断高亮
 let g:lsp_diagnostics_highlights_delay = 500                " 延迟高亮
 let g:lsp_diagnostics_highlights_insert_mode_enabled = 1    " 插入模式高亮
 let g:lsp_diagnostics_signs_enabled = 1                     " 启用侧边栏符号
-let g:lsp_diagnostics_signs_insert_mode_enabled = 1         " 插入模式侧边符号显示
 let g:lsp_diagnostics_signs_delay = 500                     " 延迟符号显示
+let g:lsp_diagnostics_signs_insert_mode_enabled = 1         " 插入模式侧边符号显示
 " 设置符号样式
 " let g:lsp_diagnostics_signs_error = {'text': '✗', 'texthl': 'DiagnosticSignError'}
 " let g:lsp_diagnostics_signs_warning = {'text': '⚠', 'texthl': 'DiagnosticSignWarn'}
@@ -868,10 +897,20 @@ let g:asyncomplete_auto_popup = 0
 " 不自动设置补全行为
 let g:asyncomplete_auto_completeopt = 0
 
+" lsp log
+" let g:lsp_log_verbose = 1
+" let g:lsp_log_file = expand('~/logs/vim-lsp.log')
+" let g:asyncomplete_log_file = expand('~/logs/asyncomplete.log')
+
 " 设置手动开关命令
 command! LspEnable call s:LspEnable()
+command! LspEnableFast call s:LspEnableFast()
+command! LspEnableHeavy call s:LspEnableHeavy()
 command! LspDisable call s:LspDisable()
 command! LspRestart call s:LspDisable() | sleep 100m | call s:LspEnable()
+" -----------------------------------
+command! LspFast call s:LspFast()
+command! LspHeavy call s:LspHeavy()
 
 " 设置快捷键
 function! s:on_lsp_buffer_enabled() abort
@@ -965,9 +1004,42 @@ function! s:LspDisable() abort
     execute "LspStopServer"
 endfunction
 
-" lsp log
-" let g:lsp_log_verbose = 1
-" let g:lsp_log_file = expand('~/logs/vim-lsp.log')
-" let g:asyncomplete_log_file = expand('~/logs/asyncomplete.log')
+function! s:LspEnableFast() abort
+    call s:ConfigLspFast()
+    call s:LspEnable()
+endfunction
+
+function! s:LspEnableHeavy() abort
+    call s:ConfigLspHeavy()
+    call s:LspEnable()
+endfunction
+
+function! s:LspFast() abort
+    call s:ConfigLspFast()
+    execute "LspRestart"
+endfunction
+
+function! s:LspHeavy() abort
+    call s:ConfigLspHeavy()
+    execute "LspRestart"
+endfunction
+
+" 这个设置有bug，在重启服务后会变得特别慢
+" 如果想使用fast设置，启动时调用:LspEnableFast
+function! s:ConfigLspFast() abort
+    let g:lsp_semantic_enabled = 0                              " 语义高亮
+    let g:lsp_diagnostics_highlights_delay = 0                  " 诊断信息-延迟高亮
+    let g:lsp_diagnostics_highlights_insert_mode_enabled = 0    " 诊断信息-插入模式高亮
+    let g:lsp_diagnostics_signs_delay = 0                       " 诊断信息-延迟符号显示
+    let g:lsp_diagnostics_signs_insert_mode_enabled = 0         " 诊断信息-插入模式侧边符号显示
+endfunction
+
+function! s:ConfigLspHeavy() abort
+    let g:lsp_semantic_enabled = 1                              " 语义高亮
+    let g:lsp_diagnostics_highlights_delay = 500                " 诊断信息-延迟高亮
+    let g:lsp_diagnostics_highlights_insert_mode_enabled = 1    " 诊断信息-插入模式高亮
+    let g:lsp_diagnostics_signs_enabled = 1                     " 诊断信息-启用侧边栏符号
+    let g:lsp_diagnostics_signs_insert_mode_enabled = 1         " 诊断信息-插入模式侧边符号显示
+endfunction
 " }}}
 " }}}
