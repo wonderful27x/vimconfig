@@ -907,7 +907,7 @@ command! LspEnable call s:LspEnable()
 command! LspEnableFast call s:LspEnableFast()
 command! LspEnableHeavy call s:LspEnableHeavy()
 command! LspDisable call s:LspDisable()
-command! LspRestart call s:LspDisable() | sleep 100m | call s:LspEnable()
+command! LspRestart call s:LspRestartServer()
 " -----------------------------------
 command! LspFast call s:LspFast()
 command! LspHeavy call s:LspHeavy()
@@ -981,6 +981,19 @@ if exists('*popup_list') && g:CJ_cmd_nmap =~# '^<Plug>' && g:CK_cmd_nmap =~# '^<
         \ : lsp#scroll(-4)
 endif
 
+" 重启服务
+function! s:LspRestartServer() abort
+    if &modified
+        echo "No write since last change!"
+    else
+        LspStopServer
+        sleep 100m
+        let l:view = winsaveview()
+        edit
+        call winrestview(l:view)
+    endif
+endfunction
+
 " 清理语义高亮, lsp#disable时不会自动清理
 function! s:LspSemanticClear() abort
   for t in prop_type_list()
@@ -1001,7 +1014,7 @@ function! s:LspDisable() abort
     call lsp#disable()
     let &signcolumn = get(g:, '_lsp_saved_signcolumn', 'auto')
     call s:LspSemanticClear()
-    execute "LspStopServer"
+    LspStopServer
 endfunction
 
 function! s:LspEnableFast() abort
@@ -1016,12 +1029,12 @@ endfunction
 
 function! s:LspFast() abort
     call s:ConfigLspFast()
-    execute "LspRestart"
+    call s:LspRestartServer()
 endfunction
 
 function! s:LspHeavy() abort
     call s:ConfigLspHeavy()
-    execute "LspRestart"
+    call s:LspRestartServer()
 endfunction
 
 " 这个设置有bug，在重启服务后会变得特别慢
@@ -1038,7 +1051,7 @@ function! s:ConfigLspHeavy() abort
     let g:lsp_semantic_enabled = 1                              " 语义高亮
     let g:lsp_diagnostics_highlights_delay = 500                " 诊断信息-延迟高亮
     let g:lsp_diagnostics_highlights_insert_mode_enabled = 1    " 诊断信息-插入模式高亮
-    let g:lsp_diagnostics_signs_enabled = 1                     " 诊断信息-启用侧边栏符号
+    let g:lsp_diagnostics_signs_delay = 500                     " 诊断信息-延迟符号显示
     let g:lsp_diagnostics_signs_insert_mode_enabled = 1         " 诊断信息-插入模式侧边符号显示
 endfunction
 " }}}
