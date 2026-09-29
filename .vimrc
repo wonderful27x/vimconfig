@@ -616,13 +616,13 @@ nnoremap <leader><leader>ss :silent! vimgrep /<C-r><C-w>/gj ./**/* \| botright c
 " visualmode(): vim inside function to get the last visual mode type: v, V, <C-v>
 " the two map below are for nomal mode, visual mode
 " how to use: <localleader>giw, viw<localleader>g ...
-nnoremap <leader>g :set operatorfunc=<SID>GrepOperatorR<CR>g@
-vnoremap <leader>g :<c-u>call <SID>GrepOperator(visualmode(), 1)<CR>
-nnoremap <leader>G :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-vnoremap <leader>G :<c-u>call <SID>GrepOperator(visualmode(), 0)<CR>
+nnoremap <silent> <leader>g :set operatorfunc=<SID>GrepOperatorR<CR>g@
+vnoremap <silent> <leader>g :<c-u>call <SID>GrepOperator(visualmode(), 1)<CR>
+nnoremap <silent> <leader>G :set operatorfunc=<SID>GrepOperatorNR<CR>g@
+vnoremap <silent> <leader>G :<c-u>call <SID>GrepOperator(visualmode(), 0)<CR>
 " better use than <leader>G
-nnoremap <leader><leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-vnoremap <leader><leader>g :<c-u>call <SID>GrepOperator(visualmode(), 0)<CR>
+nnoremap <silent> <leader><leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
+vnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperator(visualmode(), 0)<CR>
 
 function! s:GrepOperatorR(type)
     call s:GrepOperator(a:type, 1)
@@ -632,50 +632,81 @@ function! s:GrepOperatorNR(type)
     call s:GrepOperator(a:type, 0)
 endfunction
 
-" s: use namespace s
-function! s:GrepOperator(type, recursion) abort
-    " save the unnamed register before use
-    let saved_unnamed_register = @@
+function! s:AfterGrep() abort
+    botright copen
+    silent execute "normal! \<C-l>"
+endfunction
 
-    " visual mode: characterwise
-    " copy the visual selected text to unnamed register
-    " ==#: case-sensitive
+command! GrepPost call s:AfterGrep()
+
+" wrap grep into a normal Ex command
+function! s:RunGrep(args) abort
+    execute 'silent grep! ' . a:args
+endfunction
+
+" -bar将|拆解为多个命令, 这样GnuGrep -R 'xxx' . | GrepPost就变成
+"  :GnuGrep -R 'xxx' .
+"  :GrepPost
+"  否则 | GrepPost接在后面变成GnuGrep的参数就会出问题
+command! -bar -nargs=* GnuGrep call s:RunGrep(<q-args>)
+
+" 增强版本的grep，预填基础信息允许用户修改, 尤其是填充exclude信息
+function! s:GrepOperator(type, recursion) abort
+    " save unnamed register
+    let l:saved_unnamed_register = @@
+
+    " yank selected text
     if a:type ==# 'v'
         normal! `<v`>y
-    " normal mode: characterwise motion
-    " copy the motion text(like iw/i[) to unnamed register
     elseif a:type ==# 'char'
         normal! `[v`]y
-    " others right return for the reson grep can not deal with
     else
         return
     endif
 
-    " execute the grep for searching
-    " !: do not go to the first result, just fill the quickfix list
-    " :copen<CR>: open the quickfix window
-    " silent: do not display the message when running command
-    " shellescape: to deal whit kind like words <that's> which contain single quote in grep
-    if (&l:filetype ==# 'cpp' || &l:filetype ==# 'c')
-        let l:inc = '--include=*.c --include=*.cc --include=*.cpp --include=*.h --include=*.hpp '
-    elseif (&l:filetype ==# 'python')
+    " include filters
+    if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
+        let l:inc =
+            \ '--include=*.c '
+            \ . '--include=*.cc '
+            \ . '--include=*.cpp '
+            \ . '--include=*.h '
+            \ . '--include=*.hpp '
+    elseif &l:filetype ==# 'python'
         let l:inc = '--include=*.py '
     else
         let l:inc = ''
     endif
 
+    " exclude dirs
+    let l:exc =
+        \ '--exclude-dir=.git '
+
+    " build grep command
     if a:recursion
-        silent execute 'grep! -R ' . l:inc . shellescape(@@) . ' .'
+        let l:grep_cmd =
+            \ 'GnuGrep -R '
+            \ . l:inc
+            \ . l:exc
+            \ . shellescape(@@)
+            \ . ' .'
     else
-        silent execute 'grep! '    . l:inc . shellescape(@@) . ' %'
+        let l:grep_cmd =
+            \ 'GnuGrep '
+            \ . shellescape(@@)
+            \ . ' %'
     endif
 
-    " open the quickfix list window
-    botright copen
-    silent execute "normal! \<C-l>"
+    " append post actions
+    let l:full_cmd =
+        \ l:grep_cmd
+        \ . ' | GrepPost'
 
-    " restore the unnamed register after use
-    let @@ = saved_unnamed_register
+    " open command-line window with editable command
+    call feedkeys(':' . l:full_cmd . "\<C-f>", 'n')
+
+    " restore unnamed register
+    let @@ = l:saved_unnamed_register
 endfunction
 " }}}
 
