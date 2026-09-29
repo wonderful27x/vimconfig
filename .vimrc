@@ -470,13 +470,23 @@ augroup fold_filetype_vim
     autocmd FileType vim setlocal foldmethod=marker
 augroup END
 
-" cpp fold setting
-augroup fold_filetype_cpp
-    autocmd!
-    autocmd FileType c,cpp setlocal foldmethod=manual "手动折叠，性能最好
-    " autocmd FileType c,cpp setlocal foldmethod=indent "缩进折叠
-    " autocmd FileType c,cpp setlocal foldmethod=syntax "一些版本的vim可能造成无法忍受的卡顿!!!
-augroup END
+" " cpp fold setting
+" augroup fold_filetype_cpp
+"     autocmd!
+"     autocmd FileType c,cpp setlocal foldmethod=manual "手动折叠，性能最好
+"     " autocmd FileType c,cpp setlocal foldmethod=indent "缩进折叠
+"     " autocmd FileType c,cpp setlocal foldmethod=syntax "一些版本的vim可能造成无法忍受的卡顿!!!
+" augroup END
+
+" syntax模式下计算并更新fold然后切回manual
+" 在需要时手动更新，这样既获得了syntax的折叠功能又兼顾了manual的速度
+function! s:BuildFolds() abort
+    setlocal foldmethod=syntax
+    normal! zx
+    setlocal foldmethod=manual
+endfunction
+
+command! BuildFolds call s:BuildFolds()
 
 " toggle foldcolumn
 nnoremap <leader>d :call <SID>FoldColumnToggle()<CR>
