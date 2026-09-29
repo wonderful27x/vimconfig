@@ -463,12 +463,12 @@ nnoremap <F7> :!ctags -R<CR>
 " ==========format settings========== {{{
 augroup doc_format
     autocmd!
-    autocmd FileType c,cpp,cc,h,hpp setlocal formatprg=clang-format\ --style=file
+    autocmd FileType c,cpp setlocal formatprg=clang-format\ --style=file
 augroup END
 
 command! Format call s:DocumentFormat()
 function! s:DocumentFormat() abort
-    if &filetype =~# '^\(c\|cpp\|cc\|h\|hpp\)$'
+    if (&l:filetype ==# 'cpp' || &l:filetype ==# 'c')
         silent %!clang-format
     endif
 endfunction
@@ -658,6 +658,8 @@ function! s:GrepOperator(type, recursion) abort
     " shellescape: to deal whit kind like words <that's> which contain single quote in grep
     if (&l:filetype ==# 'cpp' || &l:filetype ==# 'c')
         let l:inc = '--include=*.c --include=*.cc --include=*.cpp --include=*.h --include=*.hpp '
+    elseif (&l:filetype ==# 'python')
+        let l:inc = '--include=*.py '
     else
         let l:inc = ''
     endif
@@ -869,7 +871,7 @@ vnoremap <leader><leader>t :Translate!
 "         \   '--background-index',
 "         \   '--clang-tidy',
 "         \ ]},
-"         \ 'allowlist': ['c', 'cpp', 'cc'],
+"         \ 'allowlist': ['c', 'cpp'],
 "         \ })
 " endif
 
