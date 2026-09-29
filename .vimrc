@@ -460,6 +460,20 @@ nnoremap <F7> :!ctags -R<CR>
 " autocmd BufWritePost * call system("ctags -R")
 " }}}
 
+" ==========format settings========== {{{
+augroup doc_format
+    autocmd!
+    autocmd FileType c,cpp,cc,h,hpp setlocal formatprg=clang-format\ --style=file
+augroup END
+
+command! Format call s:DocumentFormat()
+function! s:DocumentFormat() abort
+    if &filetype =~# '^\(c\|cpp\|cc\|h\|hpp\)$'
+        silent %!clang-format
+    endif
+endfunction
+" }}}
+
 " ==========fold settings========== {{{
 " no fold when open file
 set foldlevelstart=99
