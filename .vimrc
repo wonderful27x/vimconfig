@@ -718,6 +718,8 @@ function! s:GrepDone(lines, errs, cmd) abort
 endfunction
 
 command! -nargs=+ AsyncGrep call s:AsyncGrep(<q-args>)
+command! -nargs=+ GnuGrep call s:AsyncGrep(<q-args>)
+command! -nargs=+ RipGrep call s:AsyncGrep(<q-args>)
 
 " 增强异步版本的grep，预填基础信息允许用户修改, 尤其是填充exclude信息
 function! s:GrepOperatorAsync(type, recursion) abort
@@ -775,14 +777,14 @@ function! s:BuildCmdGnuGrep(pattern, recursion) abort
     " build grep command
     if a:recursion
         let l:grep_cmd =
-            \ 'AsyncGrep -Rn '
+            \ 'GnuGrep -Rn '
             \ . l:inc
             \ . l:exc
             \ . a:pattern
             \ . ' .'
     else
         let l:grep_cmd =
-            \ 'AsyncGrep -Hn '
+            \ 'GnuGrep -Hn '
             \ . a:pattern
             \ . ' ' . expand('%:p')
     endif
@@ -812,14 +814,14 @@ function! s:BuildCmdRipGrep(pattern, recursion) abort
     " build grep command
     if a:recursion
         let l:grep_cmd =
-            \ 'AsyncGrep --vimgrep -H -n '
+            \ 'RipGrep --vimgrep -H -n '
             \ . l:inc
             \ . l:exc
             \ . a:pattern
             \ . ' .'
     else
         let l:grep_cmd =
-            \ 'AsyncGrep --vimgrep -H -n '
+            \ 'RipGrep --vimgrep -H -n '
             \ . a:pattern
             \ . ' ' . expand('%:p')
     endif
