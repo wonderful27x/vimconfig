@@ -633,6 +633,16 @@ function! SetGrep(name) abort
     endfor
     echo 'grep_tool = ' . g:grep_tool . ' | ' . 'grep_format = ' . g:grep_format
 endfunction
+
+function! s:GetGrepFmt(name) abort
+    for i in range(len(s:grep_tools))
+        let l:tool = s:grep_tools[i]
+        if l:tool ==# a:name
+            return s:grep_tools_format[i]
+        endif
+    endfor
+    return ''
+endfunction
 " --------------------------------------------------
 let s:grep_tools = ['rg', 'grep']
 let s:grep_tools_format = ['%f:%l:%c:%m', '%f:%l:%m']
@@ -647,12 +657,12 @@ call s:GrepDetect()
 " the two map below are for nomal mode, visual mode
 " how to use: <localleader>giw, viw<localleader>g ...
 nnoremap <silent> <leader>g :set operatorfunc=<SID>GrepOperatorR<CR>g@
-vnoremap <silent> <leader>g :<c-u>call <SID>GrepOperatorR(visualmode())
+vnoremap <silent> <leader>g :<c-u>call <SID>GrepOperatorR(visualmode())<CR>
 nnoremap <silent> <leader>G :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-vnoremap <silent> <leader>G :<c-u>call <SID>GrepOperatorNR(visualmode())
+vnoremap <silent> <leader>G :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
 " better use than <leader>G
 nnoremap <silent> <leader><leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-vnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperatorNR(visualmode())
+vnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
 
 function! s:GrepOperatorR(type)
     call s:GrepOperatorAsync(a:type, 1)
@@ -666,13 +676,10 @@ endfunction
 " 异步grep, 注意job_start执行的是外部命令
 " 而RunGrep中的execute 'silent grep! ' . a:args执行的是vim的包装命令
 function! s:AsyncGrep(args) abort
-    let l:cmd = [g:grep_tool]
-    " args可能出现'vim grep'这种情况，需要特殊处理
-    call extend(l:cmd, s:ParseArgs(a:args))
-
+    let l:cmd = s:ParseArgs(a:args)
     " echom string(l:cmd)
     let l:cmd_str = join(l:cmd, ' ')
-    echom l:cmd_str
+    " echom l:cmd_str
 
     let l:outs = []
     let l:errs = []
@@ -685,7 +692,7 @@ function! s:AsyncGrep(args) abort
             \ 'err_mode': 'nl',
             \ 'out_cb': {ch, msg -> !empty(msg) ? add(l:outs, msg) : 0},
             \ 'err_cb': {ch, msg -> !empty(msg) ? add(l:errs, msg) : 0},
-            \ 'exit_cb': {job, code -> s:GrepDone(copy(l:outs), copy(l:errs), copy(l:cmd_str))},
+            \ 'exit_cb': {job, code -> s:GrepDone(copy(l:outs), copy(l:errs), copy(l:cmd_str))}
             \ })
 endfunction
 
@@ -711,15 +718,13 @@ function! s:GrepDone(lines, errs, cmd) abort
     call setqflist([], ' ', {
                 \ 'title': a:cmd,
                 \ 'lines': l:lines,
-                \ 'efm': g:grep_format
+                \ 'efm': s:GetGrepFmt(split(a:cmd)[0])
                 \ })
     " 打开窗口
     botright copen
 endfunction
 
 command! -nargs=+ AsyncGrep call s:AsyncGrep(<q-args>)
-command! -nargs=+ GnuGrep call s:AsyncGrep(<q-args>)
-command! -nargs=+ RipGrep call s:AsyncGrep(<q-args>)
 
 " 增强异步版本的grep，预填基础信息允许用户修改, 尤其是填充exclude信息
 function! s:GrepOperatorAsync(type, recursion) abort
@@ -777,14 +782,14 @@ function! s:BuildCmdGnuGrep(pattern, recursion) abort
     " build grep command
     if a:recursion
         let l:grep_cmd =
-            \ 'GnuGrep -Rn '
+            \ 'AsyncGrep --tool=grep -Rn '
             \ . l:inc
             \ . l:exc
             \ . a:pattern
             \ . ' .'
     else
         let l:grep_cmd =
-            \ 'GnuGrep -Hn '
+            \ 'AsyncGrep --tool=grep -Hn '
             \ . a:pattern
             \ . ' ' . expand('%:p')
     endif
@@ -814,14 +819,14 @@ function! s:BuildCmdRipGrep(pattern, recursion) abort
     " build grep command
     if a:recursion
         let l:grep_cmd =
-            \ 'RipGrep --vimgrep -H -n '
+            \ 'AsyncGrep --tool=rg --vimgrep -H -n '
             \ . l:inc
             \ . l:exc
             \ . a:pattern
             \ . ' .'
     else
         let l:grep_cmd =
-            \ 'RipGrep --vimgrep -H -n '
+            \ 'AsyncGrep --tool=rg --vimgrep -H -n '
             \ . a:pattern
             \ . ' ' . expand('%:p')
     endif
@@ -830,9 +835,25 @@ function! s:BuildCmdRipGrep(pattern, recursion) abort
 endfunction
 
 function! s:ParseArgs(str) abort
-    let args = []
-    let s = a:str
+    " 必须以--tool=开头
+    if a:str !~ '^--tool='
+        echom "args miss --tool="
+        return ['unknow']
+    endif
 
+    " 解析--tool=
+    let tool = matchstr(a:str, '--tool=\zs\S\+')
+    if empty(s:GetGrepFmt(tool))
+        echom "unsupported tool: " . tool
+        return ['unknow']
+    endif
+
+    " 删除--tool=
+    let s = substitute(a:str, '--tool=', '', '')
+
+    let args = []
+
+    " args可能出现'vim grep'这种情况，需要特殊处理
     while !empty(s)
         let s = substitute(s, '^\s\+', '', '')
 
