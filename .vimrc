@@ -610,6 +610,36 @@ nnoremap <leader><leader>sh :silent! vimgrep /<C-r><C-w>/gj ./**/*.{h,hpp} \| bo
 nnoremap <leader><leader>s% :silent! vimgrep /<C-r><C-w>/gj % \| botright cwindow<C-f>BBBBhhhh
 nnoremap <leader><leader>ss :silent! vimgrep /<C-r><C-w>/gj ./**/* \| botright cwindow<C-f>BBBh
 
+
+function! s:GrepDetect() abort
+    for i in range(len(s:grep_tools))
+        let l:tool = s:grep_tools[i]
+        if executable(l:tool)
+            let g:grep_tool = l:tool
+            let g:grep_format = s:grep_tools_format[i]
+            return
+        endif
+    endfor
+endfunction
+
+function! SetGrep(name) abort
+    for i in range(len(s:grep_tools))
+        let l:tool = s:grep_tools[i]
+        if l:tool ==# a:name && executable(l:tool)
+            let g:grep_tool = l:tool
+            let g:grep_format = s:grep_tools_format[i]
+            break
+        endif
+    endfor
+    echo 'grep_tool = ' . g:grep_tool . ' | ' . 'grep_format = ' . g:grep_format
+endfunction
+" --------------------------------------------------
+let s:grep_tools = ['rg', 'grep']
+let s:grep_tools_format = ['%f:%l:%c:%m', '%f:%l:%m']
+let g:grep_tool = 'grep'
+let g:grep_format = '%f:%l:%m'
+call s:GrepDetect()
+
 " g@: call the function set by the 'operatorfunc'
 " <SID>: use for function namespace
 " <c-u>: clear the command line to the begin
@@ -625,126 +655,24 @@ nnoremap <silent> <leader><leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
 vnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperatorNR(visualmode())
 
 function! s:GrepOperatorR(type)
-    " call s:GrepOperator(a:type, 1)
     call s:GrepOperatorAsync(a:type, 1)
 endfunction
 
 function! s:GrepOperatorNR(type)
-    " call s:GrepOperator(a:type, 0)
     call s:GrepOperatorAsync(a:type, 0)
 endfunction
 
-" ==========同步grep========== {{{
-function! s:AfterGrep() abort
-    botright copen
-    silent execute "normal! \<C-l>"
-endfunction
-
-command! GrepPost call s:AfterGrep()
-
-" wrap grep into a normal Ex command
-function! s:RunGrep(args) abort
-    execute 'silent grep! ' . a:args
-endfunction
-
-" -bar将|拆解为多个命令, 这样GnuGrep -R 'xxx' . | GrepPost就变成
-"  :GnuGrep -R 'xxx' .
-"  :GrepPost
-"  否则 | GrepPost接在后面变成GnuGrep的参数就会出问题
-command! -bar -nargs=* GnuGrep call s:RunGrep(<q-args>)
-
-" 增强版本的grep，预填基础信息允许用户修改, 尤其是填充exclude信息
-function! s:GrepOperator(type, recursion) abort
-    " save unnamed register
-    let l:saved_unnamed_register = @@
-
-    " yank selected text
-    if a:type ==# 'v'
-        normal! `<v`>y
-    elseif a:type ==# 'char'
-        normal! `[v`]y
-    else
-        return
-    endif
-
-    " include filters
-    if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
-        let l:inc =
-            \ '--include=*.c '
-            \ . '--include=*.cc '
-            \ . '--include=*.cpp '
-            \ . '--include=*.h '
-            \ . '--include=*.hpp '
-    elseif &l:filetype ==# 'python'
-        let l:inc = '--include=*.py '
-    else
-        let l:inc = ''
-    endif
-
-    " exclude dirs
-    let l:exc =
-        \ '--exclude-dir=.git '
-
-    " build grep command
-    if a:recursion
-        let l:grep_cmd =
-            \ 'GnuGrep -R '
-            \ . l:inc
-            \ . l:exc
-            \ . shellescape(@@)
-            \ . ' .'
-    else
-        let l:grep_cmd =
-            \ 'GnuGrep '
-            \ . shellescape(@@)
-            \ . ' %'
-    endif
-
-    " append post actions
-    let l:full_cmd =
-        \ l:grep_cmd
-        \ . ' | GrepPost'
-
-    " open command-line window with editable command
-    call feedkeys(':' . l:full_cmd . "\<C-f>", 'n')
-
-    " restore unnamed register
-    let @@ = l:saved_unnamed_register
-endfunction
-" }}}
-
 " ==========异步grep========== {{{
-function! s:ParseArgs(str) abort
-    let args = []
-    let s = a:str
-
-    while !empty(s)
-        let s = substitute(s, '^\s\+', '', '')
-
-        " 单引号参数
-        if s =~ "^'"
-            let m = matchlist(s, "^'\\([^']*\\)'")
-            call add(args, m[1])
-            let s = substitute(s, "^'[^']*'\\s*", '', '')
-
-        " 普通参数
-        else
-            let m = matchstr(s, '^\S\+')
-            call add(args, m)
-            let s = substitute(s, '^\S\+\s*', '', '')
-        endif
-    endwhile
-
-    return args
-endfunction
-
 " 异步grep, 注意job_start执行的是外部命令
 " 而RunGrep中的execute 'silent grep! ' . a:args执行的是vim的包装命令
 function! s:AsyncGrep(args) abort
-    let l:cmd = ['grep']
+    let l:cmd = [g:grep_tool]
     " args可能出现'vim grep'这种情况，需要特殊处理
     call extend(l:cmd, s:ParseArgs(a:args))
-    echom string(l:cmd)
+
+    " echom string(l:cmd)
+    let l:cmd_str = join(l:cmd, ' ')
+    echom l:cmd_str
 
     let l:outs = []
     let l:errs = []
@@ -757,18 +685,18 @@ function! s:AsyncGrep(args) abort
             \ 'err_mode': 'nl',
             \ 'out_cb': {ch, msg -> !empty(msg) ? add(l:outs, msg) : 0},
             \ 'err_cb': {ch, msg -> !empty(msg) ? add(l:errs, msg) : 0},
-            \ 'exit_cb': {job, code -> s:GrepDone(copy(l:outs), copy(l:errs))},
+            \ 'exit_cb': {job, code -> s:GrepDone(copy(l:outs), copy(l:errs), copy(l:cmd_str))},
             \ })
 endfunction
 
-function! s:GrepDone(lines, errs) abort
+function! s:GrepDone(lines, errs, cmd) abort
     if !empty(a:errs)
         echom join(a:errs, "\n")
     endif
 
-    if !empty(a:lines)
-        echom join(a:lines, "\n")
-    endif
+    " if !empty(a:lines)
+    "     echom join(a:lines, "\n")
+    " endif
 
     " 过滤空项
     let l:lines = filter(a:lines, '!empty(v:val)')
@@ -781,8 +709,9 @@ function! s:GrepDone(lines, errs) abort
     " %m: message
     " 这里的解析必须配合grep输出格式，如果是其他如rg就需要相应修改解析
     call setqflist([], ' ', {
+                \ 'title': a:cmd,
                 \ 'lines': l:lines,
-                \ 'efm': '%f:%l:%m'
+                \ 'efm': g:grep_format
                 \ })
     " 打开窗口
     botright copen
@@ -795,15 +724,36 @@ function! s:GrepOperatorAsync(type, recursion) abort
     " save unnamed register
     let l:saved_unnamed_register = @@
 
-    " yank selected text
-    if a:type ==# 'v'
-        normal! `<v`>y
-    elseif a:type ==# 'char'
-        normal! `[v`]y
-    else
-        return
-    endif
+    try
+        " yank selected text
+        if a:type ==# 'v'
+            normal! `<v`>y
+        elseif a:type ==# 'char'
+            normal! `[v`]y
+        else
+            return
+        endif
 
+        let l:grep_cmd = ''
+        if g:grep_tool ==# 'rg'
+            let l:grep_cmd = s:BuildCmdRipGrep(shellescape(@@), a:recursion)
+        elseif g:grep_tool ==# 'grep'
+            let l:grep_cmd = s:BuildCmdGnuGrep(shellescape(@@), a:recursion)
+        else
+            echom "Unsupported grep tool: " . g:grep_tool
+            return
+        endif
+
+        " open command-line window with editable command
+        call feedkeys(':' . l:grep_cmd . "\<C-f>", 'n')
+
+    finally
+        " restore unnamed register
+        let @@ = l:saved_unnamed_register
+    endtry
+endfunction
+
+function! s:BuildCmdGnuGrep(pattern, recursion) abort
     " include filters
     if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
         let l:inc =
@@ -828,20 +778,77 @@ function! s:GrepOperatorAsync(type, recursion) abort
             \ 'AsyncGrep -Rn '
             \ . l:inc
             \ . l:exc
-            \ . shellescape(@@)
+            \ . a:pattern
             \ . ' .'
     else
         let l:grep_cmd =
             \ 'AsyncGrep -Hn '
-            \ . shellescape(@@)
+            \ . a:pattern
+            \ . ' ' . expand('%:p')
+    endif
+    
+    return l:grep_cmd
+endfunction
+
+function! s:BuildCmdRipGrep(pattern, recursion) abort
+    " include filters
+    if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
+        let l:inc =
+            \ '-g *.c '
+            \ . '-g *.cc '
+            \ . '-g *.cpp '
+            \ . '-g *.h '
+            \ . '-g *.hpp '
+    elseif &l:filetype ==# 'python'
+        let l:inc = '-g *.py '
+    else
+        let l:inc = ''
+    endif
+
+    " exclude dirs
+    let l:exc =
+        \ '-g !.git '
+
+    " build grep command
+    if a:recursion
+        let l:grep_cmd =
+            \ 'AsyncGrep --vimgrep -H -n '
+            \ . l:inc
+            \ . l:exc
+            \ . a:pattern
+            \ . ' .'
+    else
+        let l:grep_cmd =
+            \ 'AsyncGrep --vimgrep -H -n '
+            \ . a:pattern
             \ . ' ' . expand('%:p')
     endif
 
-    " open command-line window with editable command
-    call feedkeys(':' . l:grep_cmd . "\<C-f>", 'n')
+    return l:grep_cmd
+endfunction
 
-    " restore unnamed register
-    let @@ = l:saved_unnamed_register
+function! s:ParseArgs(str) abort
+    let args = []
+    let s = a:str
+
+    while !empty(s)
+        let s = substitute(s, '^\s\+', '', '')
+
+        " 单引号参数
+        if s =~ "^'"
+            let m = matchlist(s, "^'\\([^']*\\)'")
+            call add(args, m[1])
+            let s = substitute(s, "^'[^']*'\\s*", '', '')
+
+        " 普通参数
+        else
+            let m = matchstr(s, '^\S\+')
+            call add(args, m)
+            let s = substitute(s, '^\S\+\s*', '', '')
+        endif
+    endwhile
+
+    return args
 endfunction
 " }}}
 " }}}
