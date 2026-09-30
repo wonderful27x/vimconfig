@@ -617,21 +617,24 @@ nnoremap <leader><leader>ss :silent! vimgrep /<C-r><C-w>/gj ./**/* \| botright c
 " the two map below are for nomal mode, visual mode
 " how to use: <localleader>giw, viw<localleader>g ...
 nnoremap <silent> <leader>g :set operatorfunc=<SID>GrepOperatorR<CR>g@
-vnoremap <silent> <leader>g :<c-u>call <SID>GrepOperator(visualmode(), 1)<CR>
+vnoremap <silent> <leader>g :<c-u>call <SID>GrepOperatorR(visualmode())
 nnoremap <silent> <leader>G :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-vnoremap <silent> <leader>G :<c-u>call <SID>GrepOperator(visualmode(), 0)<CR>
+vnoremap <silent> <leader>G :<c-u>call <SID>GrepOperatorNR(visualmode())
 " better use than <leader>G
 nnoremap <silent> <leader><leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-vnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperator(visualmode(), 0)<CR>
+vnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperatorNR(visualmode())
 
 function! s:GrepOperatorR(type)
-    call s:GrepOperator(a:type, 1)
+    " call s:GrepOperator(a:type, 1)
+    call s:GrepOperatorAsync(a:type, 1)
 endfunction
 
 function! s:GrepOperatorNR(type)
-    call s:GrepOperator(a:type, 0)
+    " call s:GrepOperator(a:type, 0)
+    call s:GrepOperatorAsync(a:type, 0)
 endfunction
 
+" ==========同步grep========== {{{
 function! s:AfterGrep() abort
     botright copen
     silent execute "normal! \<C-l>"
@@ -708,6 +711,139 @@ function! s:GrepOperator(type, recursion) abort
     " restore unnamed register
     let @@ = l:saved_unnamed_register
 endfunction
+" }}}
+
+" ==========异步grep========== {{{
+function! s:ParseArgs(str) abort
+    let args = []
+    let s = a:str
+
+    while !empty(s)
+        let s = substitute(s, '^\s\+', '', '')
+
+        " 单引号参数
+        if s =~ "^'"
+            let m = matchlist(s, "^'\\([^']*\\)'")
+            call add(args, m[1])
+            let s = substitute(s, "^'[^']*'\\s*", '', '')
+
+        " 普通参数
+        else
+            let m = matchstr(s, '^\S\+')
+            call add(args, m)
+            let s = substitute(s, '^\S\+\s*', '', '')
+        endif
+    endwhile
+
+    return args
+endfunction
+
+" 异步grep, 注意job_start执行的是外部命令
+" 而RunGrep中的execute 'silent grep! ' . a:args执行的是vim的包装命令
+function! s:AsyncGrep(args) abort
+    let l:cmd = ['grep']
+    " args可能出现'vim grep'这种情况，需要特殊处理
+    call extend(l:cmd, s:ParseArgs(a:args))
+    echom string(l:cmd)
+
+    let l:outs = []
+    let l:errs = []
+    " out_mode/err_mode: nl: 按换行符切分输出，否则可能是半行
+    " exit_cb: 进程退出回调，copy一下防止直接修改内容
+            \ 'out_cb': {ch, msg -> !empty(msg) ? add(l:outs, msg) : 0},
+            \ 'err_cb': {ch, msg -> !empty(msg) ? add(l:errs, msg) : 0},
+    call job_start(l:cmd, {
+            \ 'out_mode': 'nl',
+            \ 'err_mode': 'nl',
+            \ 'out_cb': {ch, msg -> !empty(msg) ? add(l:outs, msg) : 0},
+            \ 'err_cb': {ch, msg -> !empty(msg) ? add(l:errs, msg) : 0},
+            \ 'exit_cb': {job, code -> s:GrepDone(copy(l:outs), copy(l:errs))},
+            \ })
+endfunction
+
+function! s:GrepDone(lines, errs) abort
+    if !empty(a:errs)
+        echom join(a:errs, "\n")
+    endif
+
+    if !empty(a:lines)
+        echom join(a:lines, "\n")
+    endif
+
+    " 过滤空项
+    let l:lines = filter(a:lines, '!empty(v:val)')
+    " 填入quickfix
+    " 使用第三个参数更新，因为l:lines需要解析成quickfix的格式
+    " 如果l:lines直接就是解析好的格式，可以直接用第一个参数
+    " efm: errorformat
+    " %f: 文件名
+    " %l: 行号
+    " %m: message
+    " 这里的解析必须配合grep输出格式，如果是其他如rg就需要相应修改解析
+    call setqflist([], ' ', {
+                \ 'lines': l:lines,
+                \ 'efm': '%f:%l:%m'
+                \ })
+    " 打开窗口
+    botright copen
+endfunction
+
+command! -nargs=+ AsyncGrep call s:AsyncGrep(<q-args>)
+
+" 增强异步版本的grep，预填基础信息允许用户修改, 尤其是填充exclude信息
+function! s:GrepOperatorAsync(type, recursion) abort
+    " save unnamed register
+    let l:saved_unnamed_register = @@
+
+    " yank selected text
+    if a:type ==# 'v'
+        normal! `<v`>y
+    elseif a:type ==# 'char'
+        normal! `[v`]y
+    else
+        return
+    endif
+
+    " include filters
+    if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
+        let l:inc =
+            \ '--include=*.c '
+            \ . '--include=*.cc '
+            \ . '--include=*.cpp '
+            \ . '--include=*.h '
+            \ . '--include=*.hpp '
+    elseif &l:filetype ==# 'python'
+        let l:inc = '--include=*.py '
+    else
+        let l:inc = ''
+    endif
+
+    " exclude dirs
+    let l:exc =
+        \ '--exclude-dir=.git '
+
+    " build grep command
+    if a:recursion
+        let l:grep_cmd =
+            \ 'AsyncGrep -Rn '
+            \ . l:inc
+            \ . l:exc
+            \ . shellescape(@@)
+            \ . ' .'
+    else
+        let l:grep_cmd =
+            \ 'AsyncGrep -Hn '
+            \ . shellescape(@@)
+            \ . ' ' . expand('%:p')
+    endif
+
+    " open command-line window with editable command
+    call feedkeys(':' . l:grep_cmd . "\<C-f>", 'n')
+
+    " restore unnamed register
+    let @@ = l:saved_unnamed_register
+endfunction
+" }}}
 " }}}
 
 " ==========register macro record========== {{{
