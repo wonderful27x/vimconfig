@@ -4,6 +4,8 @@ GOD OF EDITOR VIM
 **To make good work, to make sharp tools!  
 Hello, welcome to the god of editor VIM !**
 
+#### This is vim settings through `.vimrc` for most useful skills with the traditional faster way
+
 #### Quick Start
 1. clone [vim-plug][1] for vim plugin manager  
 `curl -fLo ~/.vim/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim`

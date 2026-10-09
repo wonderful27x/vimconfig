@@ -463,15 +463,99 @@ nnoremap <F7> :!ctags -R<CR>
 " ==========format settings========== {{{
 augroup doc_format
     autocmd!
-    autocmd FileType c,cpp setlocal formatprg=clang-format\ --style=file
+    " 如果有.clang-format就优先使用，否则使用--fallback-style
+    autocmd FileType c,cpp let &l:formatprg =
+          \ 'clang-format --style=file --fallback-style=Mozilla'
+          \ . ' --assume-filename='
+          \ . shellescape(empty(expand('%:t')) ? 'stdin.c' : expand('%:t'))
 augroup END
 
-command! Format call s:DocumentFormat()
-function! s:DocumentFormat() abort
-    if (&l:filetype ==# 'cpp' || &l:filetype ==# 'c')
-        silent %!clang-format
+" style: LLVM Google Chromium Mozilla WebKit Microsoft GNU None
+let s:formatters = [
+      \ 'LLVM',
+      \ 'Google',
+      \ 'Chromium',
+      \ 'Mozilla',
+      \ 'WebKit',
+      \ 'Microsoft',
+      \ 'GNU',
+      \ 'None',
+      \ ]
+
+" 格式化, 缩进依赖于 tabstop shiftwidth expandtab
+function! s:DocumentFormat(firstl, lastl, style) abort
+    let l:saved_fp = &l:formatprg
+
+    if !empty(a:style)
+        let l:base_style = ''
+
+        if a:style ==? 'linux'
+            let l:base_style = 'LLVM'
+            let l:brace_style = 'BreakBeforeBraces: Linux'
+        elseif index(s:formatters, a:style) >= 0
+            let l:base_style = a:style
+            let l:brace_style = ''
+        else
+            echom 'Unknown format style: ' . a:style
+            return
+        endif
+
+        " shiftwidth 为 0 时，使用 tabstop
+        let l:indent_width = &l:shiftwidth > 0
+              \ ? &l:shiftwidth
+              \ : &l:tabstop
+
+        let l:use_tab = &l:expandtab ? 'Never' : 'ForIndentation'
+
+        let l:style = printf(
+              \ '{BasedOnStyle: %s, IndentWidth: %d, TabWidth: %d, UseTab: %s%s}',
+              \ l:base_style,
+              \ l:indent_width,
+              \ &l:tabstop,
+              \ l:use_tab,
+              \ empty(l:brace_style) ? '' : ', ' . l:brace_style
+              \ )
+
+        let l:cmd = 'clang-format --style=' . shellescape(l:style)
+
+        let l:filename = expand('%:t')
+        if empty(l:filename)
+            let l:filename = 'stdin.c'
+        endif
+
+        let l:cmd .= ' --assume-filename=' . shellescape(l:filename)
+        let &l:formatprg = l:cmd
     endif
+
+    try
+        execute 'normal! ' . a:firstl . 'Ggq' . a:lastl . 'G'
+    finally
+        let &l:formatprg = l:saved_fp
+    endtry
 endfunction
+
+
+" 命令补全函数
+function! s:FormatComplete(ArgLead, CmdLine, CursorPos) abort
+    let l:styles = ['Linux'] + s:formatters
+    let l:result = []
+
+    for l:style in l:styles
+        if strpart(l:style, 0, strlen(a:ArgLead)) ==# a:ArgLead
+            call add(l:result, l:style)
+        endif
+    endfor
+
+    return l:result
+endfunction
+
+" 格式化命令映射, 不带参数则使用doc_format中的默认设置,
+" 这将使.clang-format成为第一优先级
+" :Format [linux/Mozilla/...]           格式化整个文件
+" :'<,'>Format [linux/Mozilla/...]      格式化选中的行
+" command! -range=% -nargs=? Format call <SID>DocumentFormat(<line1>, <line2>, <q-args>)
+command! -range=% -nargs=? -complete=customlist,s:FormatComplete Format
+      \ call <SID>DocumentFormat(<line1>, <line2>, <q-args>)
 " }}}
 
 " ==========fold settings========== {{{
