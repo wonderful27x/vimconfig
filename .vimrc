@@ -757,6 +757,10 @@ function! s:GrepOperatorNR(type)
 endfunction
 
 " ==========异步grep========== {{{
+let g:grep_job = -1
+let g:grep_timer = -1
+let g:grep_index = 0
+
 " 异步grep, 注意job_start执行的是外部命令
 " 而RunGrep中的execute 'silent grep! ' . a:args执行的是vim的包装命令
 function! s:AsyncGrep(args) abort
@@ -765,22 +769,45 @@ function! s:AsyncGrep(args) abort
     let l:cmd_str = join(l:cmd, ' ')
     " echom l:cmd_str
 
+    " 异步任务
     let l:outs = []
     let l:errs = []
     " out_mode/err_mode: nl: 按换行符切分输出，否则可能是半行
     " exit_cb: 进程退出回调，copy一下防止直接修改内容
-            \ 'out_cb': {ch, msg -> !empty(msg) ? add(l:outs, msg) : 0},
-            \ 'err_cb': {ch, msg -> !empty(msg) ? add(l:errs, msg) : 0},
-    call job_start(l:cmd, {
+    let g:grep_index = 0
+    let g:grep_job = job_start(l:cmd, {
             \ 'out_mode': 'nl',
             \ 'err_mode': 'nl',
             \ 'out_cb': {ch, msg -> !empty(msg) ? add(l:outs, msg) : 0},
             \ 'err_cb': {ch, msg -> !empty(msg) ? add(l:errs, msg) : 0},
-            \ 'exit_cb': {job, code -> s:GrepDone(copy(l:outs), copy(l:errs), copy(l:cmd_str))}
+            \ 'exit_cb': {job, code -> s:GrepDone(copy(l:outs), copy(l:errs), copy(l:cmd_str), code)}
             \ })
+
+  " 每 200 毫秒更新一次状态
+  let g:grep_timer = timer_start(
+        \ 200,
+        \ 's:GrepTick',
+        \ {'repeat': -1}
+        \ )
+
+    echo "AsyncGrep running ... |"
 endfunction
 
-function! s:GrepDone(lines, errs, cmd) abort
+function! s:GrepTick(timer) abort
+  let chars = ['|', '/', '-', '\']
+  let g:grep_index = (g:grep_index + 1) % len(chars)
+  echo 'AsyncGrep running ... ' . chars[g:grep_index]
+endfunction
+
+function! s:GrepDone(lines, errs, cmd, code) abort
+    " 停止timer
+    if g:grep_timer != -1
+        call timer_stop(g:grep_timer)
+        let g:grep_timer = -1
+    endif
+
+    echo "AsyncGrep finish(" . a:code . ")."
+
     if !empty(a:errs)
         echom join(a:errs, "\n")
     endif
@@ -808,7 +835,55 @@ function! s:GrepDone(lines, errs, cmd) abort
     botright copen
 endfunction
 
+" 'term'    " 默认，正常终止
+" 'hup'     " 发送 HUP
+" 'int'     " 发送 INT，类似 Ctrl-C
+" 'quit'    " 发送 QUIT
+" 'kill'    " 强制杀死
+let s:stop_ways = [
+      \ 'term',
+      \ 'hup',
+      \ 'int',
+      \ 'quit',
+      \ 'kill',
+      \ ]
+
+function! s:StopGrep(...) abort
+    let l:type = a:0 > 0 ? a:1 : s:stop_ways[0]
+    if index(s:stop_ways, l:type) < 0
+        echo '无效的停止方式: ' . l:type
+        return
+    endif
+
+    " 停止timer
+    if exists('g:grep_timer') && g:grep_timer != -1
+        call timer_stop(g:grep_timer)
+        let g:grep_timer = -1
+    endif
+
+    " 停止job
+    if exists('g:grep_job') && job_status(g:grep_job) ==# 'run'
+        call job_stop(g:grep_job, l:type)
+    endif
+endfunction
+
+" 命令补全函数
+function! s:StopGrepComplete(ArgLead, CmdLine, CursorPos) abort
+    let l:styles = s:stop_ways
+    let l:result = []
+
+    for l:style in l:styles
+        if strpart(l:style, 0, strlen(a:ArgLead)) ==# a:ArgLead
+            call add(l:result, l:style)
+        endif
+    endfor
+
+    return l:result
+endfunction
+
 command! -nargs=+ AsyncGrep call s:AsyncGrep(<q-args>)
+command! -nargs=? -complete=customlist,s:StopGrepComplete StopGrep
+      \ call s:StopGrep(<f-args>)
 
 " 增强异步版本的grep，预填基础信息允许用户修改, 尤其是填充exclude信息
 function! s:GrepOperatorAsync(type, recursion) abort
@@ -877,7 +952,7 @@ function! s:BuildCmdGnuGrep(pattern, recursion) abort
             \ . a:pattern
             \ . ' ' . expand('%:p')
     endif
-    
+  
     return l:grep_cmd
 endfunction
 
