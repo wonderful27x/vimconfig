@@ -154,9 +154,9 @@ nnoremap <leader>x :<c-u>vertical resize 0<CR>
 nnoremap <leader><leader>x :<c-u>resize 0<CR>
 " max window size
 nnoremap <leader>o :<c-u>resize 9999<CR>:<c-u>vertical resize 9999<CR>:echo "max window size"<CR>
-" add/reduce window size
-nnoremap <S-Up> :<c-u>resize -1<CR>
-nnoremap <S-Down> :<c-u>resize +1<CR>
+" increase/decrease window size
+nnoremap <S-Up> :<c-u>resize +1<CR>
+nnoremap <S-Down> :<c-u>resize -1<CR>
 nnoremap <S-Left> :<c-u>vertical resize -1<CR>
 nnoremap <S-Right> :<c-u>vertical resize +1<CR>
 " }}}
