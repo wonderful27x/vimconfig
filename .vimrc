@@ -675,6 +675,7 @@ nnoremap <leader><leader>f :find ./**/<C-r><C-w>
 " }}}
 
 " ==========convenient map for grep searching========== {{{
+" ==========vim grep========== {{{
 " command completement of search
 " g: 一行如果有多个匹配所有
 " j: 不跳转到第一个匹配
@@ -693,7 +694,34 @@ nnoremap <leader><leader>sc :silent! vimgrep /<C-r><C-w>/gj ./**/*.{c,cc,cpp,h,h
 nnoremap <leader><leader>sh :silent! vimgrep /<C-r><C-w>/gj ./**/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhh
 nnoremap <leader><leader>s% :silent! vimgrep /<C-r><C-w>/gj % \| botright cwindow<C-f>BBBBhhhh
 nnoremap <leader><leader>ss :silent! vimgrep /<C-r><C-w>/gj ./**/* \| botright cwindow<C-f>BBBh
+" }}}
 
+" ==========async grep========== {{{
+" g@: call the function set by the 'operatorfunc'
+" <SID>: use for function namespace
+" <c-u>: clear the command line to the begin
+" visualmode(): vim inside function to get the last visual mode type: v, V, <C-v>
+" the two map below are for nomal mode, visual mode
+" how to use: <localleader>giw, viw<localleader>g ...
+nnoremap <silent> <leader>g :set operatorfunc=<SID>GrepOperatorR<CR>g@
+vnoremap <silent> <leader>g :<c-u>call <SID>GrepOperatorR(visualmode())<CR>
+nnoremap <silent> <leader>G :set operatorfunc=<SID>GrepOperatorNR<CR>g@
+vnoremap <silent> <leader>G :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
+" better use than <leader>G
+nnoremap <silent> <leader><leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
+vnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
+
+command! -nargs=+ AsyncGrep call s:AsyncGrep(<q-args>)
+command! -nargs=? -complete=customlist,s:StopGrepComplete StopGrep
+      \ call s:StopGrep(<f-args>)
+
+function! s:GrepOperatorR(type)
+    call s:GrepOperatorAsync(a:type, 1)
+endfunction
+
+function! s:GrepOperatorNR(type)
+    call s:GrepOperatorAsync(a:type, 0)
+endfunction
 
 function! s:GrepDetect() abort
     for i in range(len(s:grep_tools))
@@ -734,29 +762,7 @@ let g:grep_tool = 'grep'
 let g:grep_format = '%f:%l:%m'
 call s:GrepDetect()
 
-" g@: call the function set by the 'operatorfunc'
-" <SID>: use for function namespace
-" <c-u>: clear the command line to the begin
-" visualmode(): vim inside function to get the last visual mode type: v, V, <C-v>
-" the two map below are for nomal mode, visual mode
-" how to use: <localleader>giw, viw<localleader>g ...
-nnoremap <silent> <leader>g :set operatorfunc=<SID>GrepOperatorR<CR>g@
-vnoremap <silent> <leader>g :<c-u>call <SID>GrepOperatorR(visualmode())<CR>
-nnoremap <silent> <leader>G :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-vnoremap <silent> <leader>G :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
-" better use than <leader>G
-nnoremap <silent> <leader><leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-vnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
-
-function! s:GrepOperatorR(type)
-    call s:GrepOperatorAsync(a:type, 1)
-endfunction
-
-function! s:GrepOperatorNR(type)
-    call s:GrepOperatorAsync(a:type, 0)
-endfunction
-
-" ==========异步grep========== {{{
+" ==========grep job========== {{{
 let g:grep_job = -1
 let g:grep_timer = -1
 let g:grep_index = 0
@@ -806,7 +812,7 @@ function! s:GrepDone(lines, errs, cmd, code) abort
         let g:grep_timer = -1
     endif
 
-    echo "AsyncGrep finish(" . a:code . ")."
+    echo "AsyncGrep finish(" . a:code . "). Filling quickfix ..."
 
     if !empty(a:errs)
         echom join(a:errs, "\n")
@@ -833,6 +839,8 @@ function! s:GrepDone(lines, errs, cmd, code) abort
                 \ })
     " 打开窗口
     botright copen
+
+    echo "AsyncGrep done | " . len(lines) . " found"
 endfunction
 
 " 'term'    " 默认，正常终止
@@ -880,11 +888,9 @@ function! s:StopGrepComplete(ArgLead, CmdLine, CursorPos) abort
 
     return l:result
 endfunction
+" }}}
 
-command! -nargs=+ AsyncGrep call s:AsyncGrep(<q-args>)
-command! -nargs=? -complete=customlist,s:StopGrepComplete StopGrep
-      \ call s:StopGrep(<f-args>)
-
+" ==========grep 路由========== {{{
 " 增强异步版本的grep，预填基础信息允许用户修改, 尤其是填充exclude信息
 function! s:GrepOperatorAsync(type, recursion) abort
     " save unnamed register
@@ -952,7 +958,7 @@ function! s:BuildCmdGnuGrep(pattern, recursion) abort
             \ . a:pattern
             \ . ' ' . expand('%:p')
     endif
-  
+
     return l:grep_cmd
 endfunction
 
@@ -1032,6 +1038,7 @@ function! s:ParseArgs(str) abort
 
     return args
 endfunction
+" }}}
 " }}}
 " }}}
 
