@@ -377,7 +377,7 @@ function! s:BinaryClear(quiet) abort
     call <SID>ResetH()
     let g:c_jkhl_binary_called = 0
     if a:quiet !=? 'true'
-        echom "Binary location has been cleared!"
+        echo "Binary location has been cleared!"
     endif
 endfunction
 
@@ -396,7 +396,7 @@ function! s:BinaryLocationV(direction, type) abort
        if a:type ==? 'visual'
            call <SID>VisualMark()
        endif
-       echom "call BinaryLocationV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
+       echo "call BinaryLocationV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
        return
    endif
 
@@ -414,7 +414,7 @@ function! s:BinaryLocationV(direction, type) abort
        call <SID>VisualMark()
    endif
 
-   echom "call BinaryLocationV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
+   echo "call BinaryLocationV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
 endfunction
 
 function! s:BinaryLocationH(direction, type) abort
@@ -428,7 +428,7 @@ function! s:BinaryLocationH(direction, type) abort
         if a:type ==? 'visual'
            call <SID>VisualMark()
         endif
-        echom "call BinaryLocationH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
+        echo "call BinaryLocationH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
         return
     endif
 
@@ -446,7 +446,7 @@ function! s:BinaryLocationH(direction, type) abort
        call <SID>VisualMark()
     endif
 
-    echom "call BinaryLocationH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
+    echo "call BinaryLocationH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
 endfunction
 " }}}
 " }}}
@@ -496,7 +496,7 @@ function! s:DocumentFormat(firstl, lastl, style) abort
             let l:base_style = a:style
             let l:brace_style = ''
         else
-            echom 'Unknown format style: ' . a:style
+            echo 'Unknown format style: ' . a:style
             return
         endif
 
@@ -800,9 +800,9 @@ function! s:AsyncGrep(args) abort
 endfunction
 
 function! s:GrepTick(timer) abort
-  let chars = ['|', '/', '-', '\']
-  let g:grep_index = (g:grep_index + 1) % len(chars)
-  echo 'AsyncGrep running ... ' . chars[g:grep_index]
+    let chars = ['|', '/', '-', '\']
+    let g:grep_index = (g:grep_index + 1) % len(chars)
+    echo 'AsyncGrep running ... ' . chars[g:grep_index]
 endfunction
 
 function! s:GrepDone(lines, errs, cmd, code) abort
@@ -812,7 +812,7 @@ function! s:GrepDone(lines, errs, cmd, code) abort
         let g:grep_timer = -1
     endif
 
-    echo "AsyncGrep finish(" . a:code . "). Filling quickfix ..."
+    echom "AsyncGrep finish(" . a:code . "). Filling quickfix ..."
 
     if !empty(a:errs)
         echom join(a:errs, "\n")
@@ -837,10 +837,13 @@ function! s:GrepDone(lines, errs, cmd, code) abort
                 \ 'lines': l:lines,
                 \ 'efm': s:GetGrepFmt(split(a:cmd)[0])
                 \ })
-    " 打开窗口
-    botright copen
 
-    echo "AsyncGrep done | " . len(lines) . " found"
+    " 打开窗口
+    if !empty(l:lines)
+        botright copen
+    endif
+
+    echom "AsyncGrep done | " . len(lines) . " found"
 endfunction
 
 " 'term'    " 默认，正常终止
@@ -859,7 +862,7 @@ let s:stop_ways = [
 function! s:StopGrep(...) abort
     let l:type = a:0 > 0 ? a:1 : s:stop_ways[0]
     if index(s:stop_ways, l:type) < 0
-        echo '无效的停止方式: ' . l:type
+        echom '无效的停止方式: ' . l:type
         return
     endif
 
@@ -912,7 +915,7 @@ function! s:GrepOperatorAsync(type, recursion) abort
         elseif g:grep_tool ==# 'grep'
             let l:grep_cmd = s:BuildCmdGnuGrep(shellescape(@@), a:recursion)
         else
-            echom "Unsupported grep tool: " . g:grep_tool
+            echo "Unsupported grep tool: " . g:grep_tool
             return
         endif
 
@@ -1002,14 +1005,14 @@ endfunction
 function! s:ParseArgs(str) abort
     " 必须以--tool=开头
     if a:str !~ '^--tool='
-        echom "args miss --tool="
+        echo "args miss --tool="
         return ['unknow']
     endif
 
     " 解析--tool=
     let tool = matchstr(a:str, '--tool=\zs\S\+')
     if empty(s:GetGrepFmt(tool))
-        echom "unsupported tool: " . tool
+        echo "unsupported tool: " . tool
         return ['unknow']
     endif
 
@@ -1206,7 +1209,7 @@ vnoremap <leader><leader>t :Translate!
 " 设置c++查找路径，若WSL下无法识别std，请打开该设置
 " let g:lsp_settings = {
 " \   'clangd': {
-" \   'args': ['--query-driver=/usr/bin/c++*'],
+" \   'args': ['--query-driver=/usr/bin/c++*,/usr/bin/g++*'],
 " \   }
 " \}
 
@@ -1224,7 +1227,7 @@ vnoremap <leader><leader>t :Translate!
 
 " " C/C++ LSP
 " " 若WSL下无法识别std，加入下面这条命令
-" " \   '--query-driver=/usr/bin/c++*',
+" \   '--query-driver=/usr/bin/c++*,/usr/bin/g++*',
 " if executable('clangd')
 "     " sudo apt install clangd
 "     au User lsp_setup call lsp#register_server({
