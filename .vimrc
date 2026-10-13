@@ -112,11 +112,13 @@ nnoremap Y y$
 " let mapleader=";"
 " 设置快捷键将选中文本复制到系统剪切板
 vnoremap <Leader>y "+y
-nnoremap <Leader>y "+yiw
 nnoremap <Leader>Y "+y$
+nnoremap <Leader>yy "+yy
 nnoremap <Leader><Leader>y "+yy
-" 设置快捷键将系统剪切板内容粘贴至vim
+nnoremap <silent> <leader>y :set operatorfunc=<SID>Yank2Clipboard<CR>g@
+" " 设置快捷键将系统剪切板内容粘贴至vim
 nnoremap <Leader>p "+p
+nnoremap <Leader>P "+P
 
 " 让配置变更立即生效, 使用快捷键运行source感觉更好
 " autocmd BufWritePost $MYVIMRC source $MYVIMRC
@@ -221,31 +223,31 @@ vnoremap <Plug>(V_BinaryLocationUp)     :<c-u>call <SID>BinaryLocationV("up", "v
 vnoremap <Plug>(V_BinaryLocationLeft)   :<c-u>call <SID>BinaryLocationH("left", "visual")<CR>
 vnoremap <Plug>(V_BinaryLocationRight)  :<c-u>call <SID>BinaryLocationH("right", "visual")<CR>
 " ------------------------------------------
-nmap <C-j> <Plug>(N_BinaryLocationDown)
-nmap <C-k> <Plug>(N_BinaryLocationUp)
-nmap <C-h> <Plug>(N_BinaryLocationLeft)
-nmap <C-l> <Plug>(N_BinaryLocationRight)
+nmap <silent> <C-j> <Plug>(N_BinaryLocationDown)
+nmap <silent> <C-k> <Plug>(N_BinaryLocationUp)
+nmap <silent> <C-h> <Plug>(N_BinaryLocationLeft)
+nmap <silent> <C-l> <Plug>(N_BinaryLocationRight)
 " -------------------------------------------------
 nnoremap v vmv
-vmap <C-j> <Plug>(V_BinaryLocationDown)
-vmap <C-k> <Plug>(V_BinaryLocationUp)
-vmap <C-h> <Plug>(V_BinaryLocationLeft)
-vmap <C-l> <Plug>(V_BinaryLocationRight)
+vmap <silent> <C-j> <Plug>(V_BinaryLocationDown)
+vmap <silent> <C-k> <Plug>(V_BinaryLocationUp)
+vmap <silent> <C-h> <Plug>(V_BinaryLocationLeft)
+vmap <silent> <C-l> <Plug>(V_BinaryLocationRight)
 " ------------------------------------------
 " nnoremap <silent> j j:<c-u>call <SID>BinaryClearFast()<CR>
 " nnoremap <silent> k k:<c-u>call <SID>BinaryClearFast()<CR>
 " nnoremap <silent> l l:<c-u>call <SID>BinaryClearFast()<CR>
 " nnoremap <silent> h h:<c-u>call <SID>BinaryClearFast()<CR>
 " 上面的方法在<C-o>的情况下会触发bug!!!
-" nnoremap <silent> j <Cmd>call <SID>J_Down()<CR>
-" nnoremap <silent> k <Cmd>call <SID>K_Up()<CR>
-" nnoremap <silent> l <Cmd>call <SID>L_Right()<CR>
-" nnoremap <silent> h <Cmd>call <SID>H_Left()<CR>
+" nnoremap <silent> j <Cmd>call <SID>KEY_J()<CR>
+" nnoremap <silent> k <Cmd>call <SID>KEY_K()<CR>
+" nnoremap <silent> l <Cmd>call <SID>KEY_L()<CR>
+" nnoremap <silent> h <Cmd>call <SID>KEY_H()<CR>
 " <Cmd>需要vim9支持
-nnoremap <silent> j :<c-u>call <SID>J_Down(v:count1)<CR>
-nnoremap <silent> k :<c-u>call <SID>K_Up(v:count1)<CR>
-nnoremap <silent> l :<c-u>call <SID>L_Right(v:count1)<CR>
-nnoremap <silent> h :<c-u>call <SID>H_Left(v:count1)<CR>
+nnoremap <silent> j :<c-u>call <SID>KEY_J(v:count1)<CR>
+nnoremap <silent> k :<c-u>call <SID>KEY_K(v:count1)<CR>
+nnoremap <silent> l :<c-u>call <SID>KEY_L(v:count1)<CR>
+nnoremap <silent> h :<c-u>call <SID>KEY_H(v:count1)<CR>
 noremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
 " }}}
 
@@ -256,6 +258,21 @@ function! s:VSetSearch(cmdtype) abort
     norm! gv"sy
     let @/ = '\V' . substitute(escape(@s, a:cmdtype.'\'), '\n', '\\n', 'g')
     let @s = temp
+endfunction
+" }}}
+
+" ==========functions for clipboard yank========== {{{
+function! s:Yank2Clipboard(type) abort
+    " yank selected text
+    if a:type ==# 'v'
+        normal! `<v`>"+y
+    elseif a:type ==# 'char'
+        normal! `[v`]"+y
+    elseif a:type ==# 'line'
+        normal! `[V`]"+y
+    else
+        return
+    endif
 endfunction
 " }}}
 
@@ -305,40 +322,26 @@ endfunction
 " }}}
 
 " ==========functions for binary cursor location========== {{{
-augroup InsertFlag
-    autocmd!
-    autocmd InsertEnter * let b:from_insert = 1
-    autocmd InsertLeave * unlet! b:from_insert
-augroup END
-
-function! s:J_Down(count) abort
+function! s:KEY_J(count) abort
     " 执行原义j, 带数量功能
     execute 'normal! ' . a:count . 'j'
-    " 如果不是从插入模式里来的（包括 <C-o> 临时 normal），清理
-    if !exists('b:from_insert')
-        call s:BinaryClearFast()
-    endif
+    " 清理标记
+    call s:BinaryClearFast()
 endfunction
 
-function! s:K_Up(count) abort
+function! s:KEY_K(count) abort
     execute 'normal! ' . a:count . 'k'
-    if !exists('b:from_insert')
-        call s:BinaryClearFast()
-    endif
+    call s:BinaryClearFast()
 endfunction
 
-function! s:L_Right(count) abort
+function! s:KEY_L(count) abort
     execute 'normal! ' . a:count . 'l'
-    if !exists('b:from_insert')
-        call s:BinaryClearFast()
-    endif
+    call s:BinaryClearFast()
 endfunction
 
-function! s:H_Left(count) abort
+function! s:KEY_H(count) abort
     execute 'normal! ' . a:count . 'h'
-    if !exists('b:from_insert')
-        call s:BinaryClearFast()
-    endif
+    call s:BinaryClearFast()
 endfunction
 
 function! s:ResetV() abort
@@ -388,7 +391,7 @@ function! s:BinaryLocationV(direction, type) abort
        if a:type ==? 'visual'
            call <SID>VisualMark()
        endif
-       echo "call BinaryLocationV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
+       " echo "call BinaryLocationV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
        return
    endif
 
@@ -406,7 +409,7 @@ function! s:BinaryLocationV(direction, type) abort
        call <SID>VisualMark()
    endif
 
-   echo "call BinaryLocationV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
+   " echo "call BinaryLocationV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
 endfunction
 
 function! s:BinaryLocationH(direction, type) abort
@@ -420,7 +423,7 @@ function! s:BinaryLocationH(direction, type) abort
         if a:type ==? 'visual'
            call <SID>VisualMark()
         endif
-        echo "call BinaryLocationH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
+        " echo "call BinaryLocationH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
         return
     endif
 
@@ -438,7 +441,7 @@ function! s:BinaryLocationH(direction, type) abort
        call <SID>VisualMark()
     endif
 
-    echo "call BinaryLocationH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
+    " echo "call BinaryLocationH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
 endfunction
 " }}}
 " }}}
