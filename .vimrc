@@ -242,10 +242,10 @@ vmap <C-l> <Plug>(V_BinaryLocationRight)
 " nnoremap <silent> l <Cmd>call <SID>L_Right()<CR>
 " nnoremap <silent> h <Cmd>call <SID>H_Left()<CR>
 " <Cmd>需要vim9支持
-nnoremap <silent> j :<c-u>call <SID>J_Down()<CR>
-nnoremap <silent> k :<c-u>call <SID>K_Up()<CR>
-nnoremap <silent> l :<c-u>call <SID>L_Right()<CR>
-nnoremap <silent> h :<c-u>call <SID>H_Left()<CR>
+nnoremap <silent> j :<c-u>call <SID>J_Down(v:count1)<CR>
+nnoremap <silent> k :<c-u>call <SID>K_Up(v:count1)<CR>
+nnoremap <silent> l :<c-u>call <SID>L_Right(v:count1)<CR>
+nnoremap <silent> h :<c-u>call <SID>H_Left(v:count1)<CR>
 noremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
 " }}}
 
@@ -311,42 +311,34 @@ augroup InsertFlag
     autocmd InsertLeave * unlet! b:from_insert
 augroup END
 
-function! s:J_Down() abort
-    " 如果是从插入模式里来的（包括 <C-o> 临时 normal），只移动
-    if exists('b:from_insert')
-        normal! j
-        return
+function! s:J_Down(count) abort
+    " 执行原义j, 带数量功能
+    execute 'normal! ' . a:count . 'j'
+    " 如果不是从插入模式里来的（包括 <C-o> 临时 normal），清理
+    if !exists('b:from_insert')
+        call s:BinaryClearFast()
     endif
-    " 真正 normal 模式按 j：先清理再移动
-    call s:BinaryClearFast()
-    normal! j
 endfunction
 
-function! s:K_Up() abort
-    if exists('b:from_insert')
-        normal! k
-        return
+function! s:K_Up(count) abort
+    execute 'normal! ' . a:count . 'k'
+    if !exists('b:from_insert')
+        call s:BinaryClearFast()
     endif
-    call s:BinaryClearFast()
-    normal! k
 endfunction
 
-function! s:L_Right() abort
-    if exists('b:from_insert')
-        normal! l
-        return
+function! s:L_Right(count) abort
+    execute 'normal! ' . a:count . 'l'
+    if !exists('b:from_insert')
+        call s:BinaryClearFast()
     endif
-    call s:BinaryClearFast()
-    normal! l
 endfunction
 
-function! s:H_Left() abort
-    if exists('b:from_insert')
-        normal! h
-        return
+function! s:H_Left(count) abort
+    execute 'normal! ' . a:count . 'h'
+    if !exists('b:from_insert')
+        call s:BinaryClearFast()
     endif
-    call s:BinaryClearFast()
-    normal! h
 endfunction
 
 function! s:ResetV() abort
