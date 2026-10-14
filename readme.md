@@ -18,10 +18,12 @@ Hello, welcome to the god of editor VIM !**
 - [x] Case conversion insert mode
 - [x] Fast fold
 - [x] Grep
+- [x] Hex format
 - [x] Document format
 - [x] Section jump: [[、]]、[]、][
 - [x] Macro for log
 - [x] Code comments
+- [x] Git tool
 - [x] Highlight cpp
 - [x] Preview markdown
 - [x] Translator
@@ -32,6 +34,19 @@ Hello, welcome to the god of editor VIM !**
 
 
 #### Quick Start
+
+**Install vim**
+
+Recommend compile source code
+- `sudo apt install libwayland-dev`
+- `git clone https://github.com/vim/vim.git`
+- `cd vim`
+- `./configure --prefix=/usr/local --with-features=huge`
+- `make -j8`
+- `sudo make install`
+> note: Install build tools first and `libwayland-dev` is very imported for clipboard support
+
+**Config vim**
 1. clone [vim-plug][1] for vim plugin manager  
 `curl -fLo ~/.vim/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim`
 2. add your vim settings to `.vimrc` and copy it to  
