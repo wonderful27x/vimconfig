@@ -215,10 +215,10 @@ nnoremap <Plug>(N_BinaryLocationUp)     :<c-u>call <SID>BinaryLocationV("up", "n
 nnoremap <Plug>(N_BinaryLocationLeft)   :<c-u>call <SID>BinaryLocationH("left", "null")<CR>
 nnoremap <Plug>(N_BinaryLocationRight)  :<c-u>call <SID>BinaryLocationH("right", "null")<CR>
 " -------------------------------------------------
-vnoremap <Plug>(V_BinaryLocationDown)   :<c-u>call <SID>BinaryLocationV("down", "visual")<CR>
-vnoremap <Plug>(V_BinaryLocationUp)     :<c-u>call <SID>BinaryLocationV("up", "visual")<CR>
-vnoremap <Plug>(V_BinaryLocationLeft)   :<c-u>call <SID>BinaryLocationH("left", "visual")<CR>
-vnoremap <Plug>(V_BinaryLocationRight)  :<c-u>call <SID>BinaryLocationH("right", "visual")<CR>
+xnoremap <Plug>(V_BinaryLocationDown)   :<c-u>call <SID>BinaryLocationV("down", "visual")<CR>
+xnoremap <Plug>(V_BinaryLocationUp)     :<c-u>call <SID>BinaryLocationV("up", "visual")<CR>
+xnoremap <Plug>(V_BinaryLocationLeft)   :<c-u>call <SID>BinaryLocationH("left", "visual")<CR>
+xnoremap <Plug>(V_BinaryLocationRight)  :<c-u>call <SID>BinaryLocationH("right", "visual")<CR>
 " ------------------------------------------
 nmap <silent> <C-j> <Plug>(N_BinaryLocationDown)
 nmap <silent> <C-k> <Plug>(N_BinaryLocationUp)
@@ -226,10 +226,10 @@ nmap <silent> <C-h> <Plug>(N_BinaryLocationLeft)
 nmap <silent> <C-l> <Plug>(N_BinaryLocationRight)
 " -------------------------------------------------
 nnoremap v vmv
-vmap <silent> <C-j> <Plug>(V_BinaryLocationDown)
-vmap <silent> <C-k> <Plug>(V_BinaryLocationUp)
-vmap <silent> <C-h> <Plug>(V_BinaryLocationLeft)
-vmap <silent> <C-l> <Plug>(V_BinaryLocationRight)
+xmap <silent> <C-j> <Plug>(V_BinaryLocationDown)
+xmap <silent> <C-k> <Plug>(V_BinaryLocationUp)
+xmap <silent> <C-h> <Plug>(V_BinaryLocationLeft)
+xmap <silent> <C-l> <Plug>(V_BinaryLocationRight)
 " ------------------------------------------
 " nnoremap <silent> j j:<c-u>call <SID>BinaryClearFast()<CR>
 " nnoremap <silent> k k:<c-u>call <SID>BinaryClearFast()<CR>
@@ -245,7 +245,8 @@ nnoremap <silent> j :<c-u>call <SID>KEY_J(v:count1)<CR>
 nnoremap <silent> k :<c-u>call <SID>KEY_K(v:count1)<CR>
 nnoremap <silent> l :<c-u>call <SID>KEY_L(v:count1)<CR>
 nnoremap <silent> h :<c-u>call <SID>KEY_H(v:count1)<CR>
-noremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
+nnoremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
+xnoremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
 " }}}
 
 " ================functions================ {{{
@@ -671,12 +672,12 @@ nnoremap <leader><leader>ss :silent! vimgrep /<C-r><C-w>/gj ./**/* \| botright c
 " the two map below are for nomal mode, visual mode
 " how to use: <localleader>giw, viw<localleader>g ...
 nnoremap <silent> <leader>g :set operatorfunc=<SID>GrepOperatorR<CR>g@
-vnoremap <silent> <leader>g :<c-u>call <SID>GrepOperatorR(visualmode())<CR>
+xnoremap <silent> <leader>g :<c-u>call <SID>GrepOperatorR(visualmode())<CR>
 nnoremap <silent> <leader>G :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-vnoremap <silent> <leader>G :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
+xnoremap <silent> <leader>G :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
 " better use than <leader>G
 nnoremap <silent> <leader><leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-vnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
+xnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
 
 command! -nargs=+ AsyncGrep call s:AsyncGrep(<q-args>)
 command! -nargs=? -complete=customlist,s:StopGrepComplete StopGrep
@@ -1164,12 +1165,12 @@ let g:translator_default_engines = ['bing', 'haici']
 " convenient map for translating
 nnoremap <leader>t :Translate <C-r><C-w>
 nnoremap <leader><leader>t :Translate! 
-vnoremap <leader>t :Translate
-vnoremap <leader><leader>t :Translate!
+xnoremap <leader>t :Translate
+xnoremap <leader><leader>t :Translate!
 " nnoremap <leader>t :TranslateW <C-r><C-w>
 " nnoremap <leader><leader>t :TranslateW! 
-" vnoremap <leader>t :TranslateW
-" vnoremap <leader><leader>t :TranslateW!
+" xnoremap <leader>t :TranslateW
+" xnoremap <leader><leader>t :TranslateW!
 " }}}
 
 " ==========vim-lsp settings========== {{{
