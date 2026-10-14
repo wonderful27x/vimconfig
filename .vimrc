@@ -1334,11 +1334,22 @@ if exists('*popup_list') && g:CJ_cmd_nmap =~# '^<Plug>' && g:CK_cmd_nmap =~# '^<
     nnoremap <silent><expr> <C-j>
         \ empty(popup_list())
         \ ? g:CJ_cmd_nmap
-        \ : lsp#scroll(+4)
+        \ : lsp#scroll(+1)
     nnoremap <silent><expr> <C-k>
         \ empty(popup_list())
         \ ? g:CK_cmd_nmap
-        \ : lsp#scroll(-4)
+        \ : lsp#scroll(-1)
+endif
+" 使用<C-u>/<C-d>上下滚动popup window
+if exists('*popup_list')
+    nnoremap <silent><expr> <C-u>
+            \ empty(popup_list())
+            \ ? "<C-u>"
+            \ : lsp#scroll(-4)
+    nnoremap <silent><expr> <C-d>
+            \ empty(popup_list())
+            \ ? "<C-d>"
+            \ : lsp#scroll(+4)
 endif
 
 " 重启服务
