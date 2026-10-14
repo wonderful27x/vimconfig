@@ -649,19 +649,9 @@ function! QuickfixToggle()
 endfunction
 " }}}
 
-" ==========hex show========== {{{
-let g:hex_show = 0
-nnoremap <silent> <F6> :call <SID>HexShowToggle()<CR>
-function! s:HexShowToggle() abort
-    let g:hex_show = !g:hex_show
-    if g:hex_show
-        silent execute "%!xxd"
-        echo "hex show"
-    else
-        silent execute "%!xxd -r"
-        echo "restore from hex"
-    endif
-endfunction
+" ==========hex format========== {{{
+command! Hex %!xxd
+command! Uhex %!xxd -r
 " }}}
 
 " ==========convenient map for file finding========== {{{
