@@ -108,15 +108,12 @@ nnoremap <silent> <leader><C-l> :<C-u>nohlsearch<CR><C-l>
 " map Y to yank text from cursor to the end of line
 nnoremap Y y$
 
-" 定义快捷键前缀<Leader>, todo: 有冲突
-" let mapleader=";"
 " 设置快捷键将选中文本复制到系统剪切板
-vnoremap <Leader>y "+y
+nnoremap <leader>y "+y
+xnoremap <leader>y "+y
 nnoremap <Leader>Y "+y$
-nnoremap <Leader>yy "+yy
 nnoremap <Leader><Leader>y "+yy
-nnoremap <silent> <leader>y :set operatorfunc=<SID>Yank2Clipboard<CR>g@
-" " 设置快捷键将系统剪切板内容粘贴至vim
+" 设置快捷键将系统剪切板内容粘贴至vim
 nnoremap <Leader>p "+p
 nnoremap <Leader>P "+P
 
@@ -258,21 +255,6 @@ function! s:VSetSearch(cmdtype) abort
     norm! gv"sy
     let @/ = '\V' . substitute(escape(@s, a:cmdtype.'\'), '\n', '\\n', 'g')
     let @s = temp
-endfunction
-" }}}
-
-" ==========functions for clipboard yank========== {{{
-function! s:Yank2Clipboard(type) abort
-    " yank selected text
-    if a:type ==# 'v'
-        normal! `<v`>"+y
-    elseif a:type ==# 'char'
-        normal! `[v`]"+y
-    elseif a:type ==# 'line'
-        normal! `[V`]"+y
-    else
-        return
-    endif
 endfunction
 " }}}
 
