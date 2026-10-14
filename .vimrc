@@ -1129,7 +1129,7 @@ Plug 'mhinz/vim-signify'                          "git工具
 Plug 'voldikss/vim-translator'                    "vim翻译工具
 " ------------------------------------------------------------
 Plug 'prabirshrestha/vim-lsp'                     "LSP core
-Plug 'mattn/vim-lsp-settings'                     "LSP语言服务配置
+" Plug 'mattn/vim-lsp-settings'                     "LSP语言服务配置
 Plug 'prabirshrestha/asyncomplete.vim'            "lsp自动补全
 Plug 'prabirshrestha/asyncomplete-lsp.vim'        "lsp自动补全
 " ------------------------------------------------------------
@@ -1181,33 +1181,33 @@ xnoremap <leader><leader>t :Translate!
 " \   }
 " \}
 
-" " PYTHON LSP
-" " 若无法忍受vim-lsp-settings插件在打开文件时的卡顿
-" " 手动配置LSP语言服务, 请注释: Plug 'mattn/vim-lsp-settings'
-" if executable('ty')
-"     " pip install ty
-"     au User lsp_setup call lsp#register_server({
-"         \ 'name': 'ty',
-"         \ 'cmd': {server_info->['ty', 'server']},
-"         \ 'allowlist': ['python'],
-"         \ })
-" endif
+" PYTHON LSP
+" 若无法忍受vim-lsp-settings插件在打开文件时的卡顿
+" 手动配置LSP语言服务, 请注释: Plug 'mattn/vim-lsp-settings'
+if executable('ty')
+    " pip install ty
+    au User lsp_setup call lsp#register_server({
+        \ 'name': 'ty',
+        \ 'cmd': {server_info->['ty', 'server']},
+        \ 'allowlist': ['python'],
+        \ })
+endif
 
-" " C/C++ LSP
-" " 若WSL下无法识别std，加入下面这条命令
-" \   '--query-driver=/usr/bin/c++*,/usr/bin/g++*',
-" if executable('clangd')
-"     " sudo apt install clangd
-"     au User lsp_setup call lsp#register_server({
-"         \ 'name': 'clangd',
-"         \ 'cmd': {server_info->[
-"         \   'clangd',
-"         \   '--background-index',
-"         \   '--clang-tidy',
-"         \ ]},
-"         \ 'allowlist': ['c', 'cpp'],
-"         \ })
-" endif
+" C/C++ LSP
+" 若WSL下无法识别std，加入下面这条命令
+\   '--query-driver=/usr/bin/c++*,/usr/bin/g++*',
+if executable('clangd')
+    " sudo apt install clangd
+    au User lsp_setup call lsp#register_server({
+        \ 'name': 'clangd',
+        \ 'cmd': {server_info->[
+        \   'clangd',
+        \   '--background-index',
+        \   '--clang-tidy',
+        \ ]},
+        \ 'allowlist': ['c', 'cpp'],
+        \ })
+endif
 
 
 " 启用原生LSP
