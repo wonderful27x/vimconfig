@@ -377,7 +377,7 @@ function! s:BinaryClear(quiet) abort
 endfunction
 
 function! s:VisualMark()
-    silent execute "normal! mw`vv`w"
+    silent execute "normal! `vv``"
 endfunction
 
 function! s:BinaryLocationV(direction, type) abort
