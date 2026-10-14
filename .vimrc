@@ -1161,16 +1161,32 @@ let g:signify_disable_by_default = 1
 " ==========vim-translator settings========== {{{
 " translator variable
 " let g:translator_proxy_url = 'socks5://127.0.0.1:1080'
-let g:translator_default_engines = ['bing', 'haici']
+" let g:translator_default_engines = ['bing', 'haici']
+" let g:translator_default_engines = ['bing', 'haici', 'youdao']
 " convenient map for translating
-nnoremap <leader>t :Translate <C-r><C-w>
-nnoremap <leader><leader>t :Translate! 
-xnoremap <leader>t :Translate
-xnoremap <leader><leader>t :Translate!
-" nnoremap <leader>t :TranslateW <C-r><C-w>
-" nnoremap <leader><leader>t :TranslateW! 
-" xnoremap <leader>t :TranslateW
-" xnoremap <leader><leader>t :TranslateW!
+" Echo translation in the cmdline
+nnoremap <leader>tt :Translate <C-r><C-w>
+xnoremap <leader>tt :Translate
+nnoremap <leader><leader>tt :Translate!
+xnoremap <leader><leader>tt :Translate!
+" -----------------------------------------
+" Display translation in a window
+nnoremap <leader>tw :TranslateW <C-r><C-w>
+xnoremap <leader>tw :TranslateW
+nnoremap <leader><leader>tw :TranslateW!
+xnoremap <leader><leader>tw :TranslateW!
+" -----------------------------------------
+" Replace the text with translation
+nnoremap <leader>tr :TranslateR <C-r><C-w>
+xnoremap <leader>tr :TranslateR
+nnoremap <leader><leader>tr :TranslateR!
+xnoremap <leader><leader>tr :TranslateR!
+" -----------------------------------------
+" Translate the text in clipboard
+nnoremap <leader>tx :TranslateX <C-r><C-w>
+xnoremap <leader>tx :TranslateX
+nnoremap <leader><leader>tx :TranslateX!
+xnoremap <leader><leader>tx :TranslateX!
 " }}}
 
 " ==========vim-lsp settings========== {{{
