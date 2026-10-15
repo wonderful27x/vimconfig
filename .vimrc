@@ -458,10 +458,17 @@ let s:AsyncJobs = {}
 
 command! -nargs=+ Async call s:Async(<q-args>)
 command! -nargs=* GenTags call s:GenTagsAsync(<q-args>)
+" command! -nargs=* GenCscope call s:GenCscopeFilesAsync(<q-args>)
+" command! -nargs=* GenCscope call s:GenCscopeFromFilesAsync(<q-args>)
+command! -nargs=* GenCscope call s:GenCscopeAsync(<q-args>)
 
 function! s:Async(args) abort
     let l:cmd = a:args
     let l:shell_cmd = [&shell, &shellcmdflag, a:args]
+
+    " echom 'Async cmd: ' . l:cmd
+    " echom 'Async shell_cmd: ' . string(l:shell_cmd)
+    " return
 
     if has_key(s:AsyncJobs, l:cmd)
         echom 'job for [' . s:AsyncJobs[l:cmd].job . "] 已存在!"
@@ -638,6 +645,134 @@ function! s:StopAsyncJob(key, stop_way)
     " call remove(s:AsyncJobs, a:key)
 endfunction
 
+function! s:GenCscopeAsync(args) abort
+    let l:cmd_genf = s:GenCscopeFilesAsync(a:args . " --no_run")
+    let l:cmd_genc = s:GenCscopeFromFilesAsync(a:args . " --no_run")
+
+    " 如果指定了path直接用GenCscopeFromFilesAsync的命令, 否则组合命令
+    let l:path = s:ExtractPath(a:args)
+    if !empty(l:path)
+        let l:cmd = l:cmd_genc
+    else
+        let l:cmd = l:cmd_genf . " | " . l:cmd_genc
+    endif
+
+    " 有--no_run命令
+    " if match(a:args, '\%(^\|\s\)--no_run\%(\s\|$\)') >= 0
+    if index(split(a:args), '--no_run') >= 0
+        return l:cmd
+    endif
+
+    " 有--f命令
+    " if match(a:args, '\%(^\|\s\)--f\%(\s\|$\)') >= 0
+    if index(split(a:args), '--f') >= 0
+        call feedkeys(':' . l:cmd . "\<C-f>", 'n')
+    else
+        execute l:cmd
+    endif
+
+    return l:cmd
+endfunction
+
+function! s:GenCscopeFromFilesAsync(args) abort
+    let l:cmd = 'Async cscope -b -q -k -i '
+    let l:path = s:ExtractPath(a:args)
+    if !empty(l:path)
+        let l:cmd = l:cmd . shellescape(s:ExtractPath(a:args))
+    else
+        let l:cmd = l:cmd . 'cscope.files'
+    endif
+
+    " 有--no_run命令
+    " if match(a:args, '\%(^\|\s\)--no_run\%(\s\|$\)') >= 0
+    if index(split(a:args), '--no_run') >= 0
+        return l:cmd
+    endif
+
+    " 有--f命令
+    " if match(a:args, '\%(^\|\s\)--f\%(\s\|$\)') >= 0
+    if index(split(a:args), '--f') >= 0
+        call feedkeys(':' . l:cmd . "\<C-f>", 'n')
+    else
+        execute l:cmd
+    endif
+
+    return l:cmd
+endfunction
+
+function! s:ExtractPath(s)
+    " 1. 双引号包裹
+    let path = matchstr(a:s, '--path="\zs[^"]\+')
+    if !empty(path)
+        return path
+    endif
+
+    " 2. 单引号包裹
+    let path = matchstr(a:s, "--path='\\zs[^']\\+")
+    if !empty(path)
+        return path
+    endif
+
+    " 3. 无引号（到空格或结尾）
+    let path = matchstr(a:s, '--path=\zs\S\+')
+    return path
+endfunction
+
+function! s:GenCscopeFilesAsync(args) abort
+    let l:lang = matchstr(a:args, '\%(^\|\s\)--lang=\zs\S\+')
+
+    " language
+    if empty(l:lang) || l:lang ==? 'auto'
+        if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
+            let l:lang = 'c,c++'
+        elseif &l:filetype ==# 'python'
+            let l:lang = 'python'
+        else
+            let l:lang = ''
+        endif
+    endif
+
+    " include
+    let l:inc = ''
+    if l:lang =~? '^\(c\|c++\|c,c++\)$'
+        let l:inc = '\( -name "*.c" -o -name "*.cc" -o -name "*.cpp" -o -name "*.h" -o -name "*.hpp" \) '
+    elseif l:lang ==? 'python'
+        let l:inc = '\( -name "*.py" \) '
+    endif
+
+    " exclude dirs
+    let l:exc =
+        \ '\( '
+        \ . '-name ".git" '
+        \ . '-o -name "build" '
+        \ . '\) -prune -o '
+
+    " build ctags command
+    let l:cmd =
+        \ 'Async find . '
+        \ . l:exc
+        \ . '-type f '
+        \ . l:inc
+        \ . '-print > cscope.files'
+
+    " 有--no_run命令
+    " if match(a:args, '\%(^\|\s\)--no_run\%(\s\|$\)') >= 0
+    if index(split(a:args), '--no_run') >= 0
+        return l:cmd
+    endif
+
+    " 有--f命令
+    " if match(a:args, '\%(^\|\s\)--f\%(\s\|$\)') >= 0
+    if index(split(a:args), '--f') >= 0
+        call feedkeys(':' . l:cmd . "\<C-f>", 'n')
+    else
+        execute l:cmd
+    endif
+
+    return l:cmd
+endfunction
+" }}}
+
 function! s:GenTagsAsync(args) abort
     let l:lang = matchstr(a:args, '\%(^\|\s\)--lang=\zs\S\+')
 
@@ -665,13 +800,21 @@ function! s:GenTagsAsync(args) abort
         \ . l:lang
         \ . l:exc
 
+    " 有--no_run命令
+    " if match(a:args, '\%(^\|\s\)--no_run\%(\s\|$\)') >= 0
+    if index(split(a:args), '--no_run') >= 0
+        return l:cmd
+    endif
 
     " 有--f命令
-    if match(a:args, '\%(^\|\s\)--f\%(\s\|$\)') >= 0
+    " if match(a:args, '\%(^\|\s\)--f\%(\s\|$\)') >= 0
+    if index(split(a:args), '--f') >= 0
         call feedkeys(':' . l:cmd . "\<C-f>", 'n')
     else
         execute l:cmd
     endif
+
+    return l:cmd
 endfunction
 " }}}
 
