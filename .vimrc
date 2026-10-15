@@ -455,69 +455,166 @@ nnoremap <F7> :!ctags -R<CR>
 " autocmd BufWritePost * call system("ctags -R")
 
 let s:AsyncJobs = {}
-command! -nargs=+ Async call s:Async(<q-args>)
-command! -nargs=? GenTags call s:GenTagsAsync(<f-args>)
 
-" ctags -R --languages=C,C++ --exclude=node_modules --exclude=.git 
+command! -nargs=+ Async call s:Async(<q-args>)
+command! -nargs=* GenTags call s:GenTagsAsync(<q-args>)
+
 function! s:Async(args) abort
-    let l:cmd = s:ParseAsyncArgs(a:args)
-    " echom string(l:cmd)
-    let l:cmd_str = join(l:cmd, ' ')
-    " echom l:cmd_str
+    let l:cmd = a:args
+    let l:shell_cmd = [&shell, &shellcmdflag, a:args]
+
+    if has_key(s:AsyncJobs, l:cmd)
+        echom 'job for [' . s:AsyncJobs[l:cmd].job . "] 已存在!"
+        return
+    endif
 
     " 建字典
-    let s:AsyncJobs[l:cmd_str] = {
+    let s:AsyncJobs[l:cmd] = {
         \ 'index': 0,
         \ 'job': v:null,
         \ 'timer': v:null,
+        \ 'state': 'uninit',
         \ 'outs': [],
         \ 'errs': [],
     \ }
 
-    " 异步任务
-    " out_mode/err_mode: nl: 按换行符切分输出，否则可能是半行
-    " exit_cb: 进程退出回调，copy一下防止直接修改内容
-    let l:job = job_start(l:cmd, {
-            \ 'out_mode': 'nl',
-            \ 'err_mode': 'nl',
-            \ 'out_cb': {ch, msg -> !empty(msg) ? add(s:AsyncJobs[l:cmd_str].outs, msg) : 0},
-            \ 'err_cb': {ch, msg -> !empty(msg) ? add(s:AsyncJobs[l:cmd_str].errs, msg) : 0},
-            \ 'exit_cb': {job, code -> s:AsyncJobDone(l:cmd_str, code)}
-            \ })
-
-    " 把 job 对象填进字典
-    let s:AsyncJobs[l:cmd_str].job = l:job
-
+    " 先把timer启动起来，防止job结束过快timer还没创建
     " 每 200 毫秒更新一次状态
     let l:timer = timer_start(
         \ 200,
-        \ function('s:AsyncTick', [l:cmd_str]),
+        \ function('s:AsyncTick', [l:cmd]),
         \ {'repeat': -1}
         \ )
 
-    let s:AsyncJobs[l:cmd_str].timer = l:timer
+    let s:AsyncJobs[l:cmd].timer = l:timer
 
     echo "Async-" . l:cmd[0] . " running ... |"
+
+    " 异步任务
+    " out_mode/err_mode: nl: 按换行符切分输出，否则可能是半行
+    " exit_cb: 进程退出回调
+    let l:job = job_start(l:shell_cmd, {
+            \ 'out_mode': 'nl',
+            \ 'err_mode': 'nl',
+            \ 'out_cb': {ch, msg -> s:OnJobOut(l:cmd, ch, msg)},
+            \ 'err_cb': {ch, msg -> s:OnJobErr(l:cmd, ch, msg)},
+            \ 'exit_cb': {job, code -> s:OnJobExit(l:cmd, job, code)}
+            \ })
+
+    " 把 job 对象填进字典
+    " 由于OnJobExit可以在job返回前结束，所以使用一个状态来控制
+    " OnJobExit是在vim进行执行的，所以和下面的逻辑是同步的
+    if s:AsyncJobs[l:cmd].state != 'done'
+        let s:AsyncJobs[l:cmd].job = l:job
+        let s:AsyncJobs[l:cmd].state = 'running'
+    endif
+endfunction
+
+function! s:OnJobOut(key, ch, msg) abort
+    call add(s:AsyncJobs[a:key].outs, a:msg)
+endfunction
+
+function! s:OnJobErr(key, ch, msg) abort
+    call add(s:AsyncJobs[a:key].errs, a:msg)
+    echom a:msg
+endfunction
+
+function! s:OnJobExit(key, job, code) abort
+    if !has_key(s:AsyncJobs, a:key)
+        echom 'job for [' . a:key .'] not exist!'
+        return
+    endif
+
+    let s:AsyncJobs[a:key].job = a:job
+    let s:AsyncJobs[a:key].state = 'running'
+
+    try
+        " 停止timer
+        let l:timer = get(s:AsyncJobs[a:key], 'timer', v:null)
+        call s:StopTimer(l:timer, 'term')
+        let s:AsyncJobs[a:key].timer = v:null
+
+        " 执行后期处理任务
+        call s:AsyncJobDone(a:key, a:code)
+    finally
+
+        " 清理job
+        let s:AsyncJobs[a:key].state = 'done'
+        call remove(s:AsyncJobs, a:key)
+    endtry
+endfunction
+
+function! s:EchoMsg(lines) abort
+    for l:line in a:lines
+        echom l:line
+    endfor
+endfunction
+
+function! s:AsyncJobDone(cmd, code) abort
+    echom "Async-" . split(a:cmd)[0] . " finish(" . a:code . "). Processing data ..."
+
+    " EchoMsg(s:AsyncJobs[a:cmd].errs)
+
+    " if !empty(s:AsyncJobs[a:cmd].errs)
+    "     echom join(s:AsyncJobs[a:cmd].errs, "\n")
+    " endif
+
+    " if !empty(s:AsyncJobs[a:cmd].outs)
+    "     echom join(s:AsyncJobs[a:cmd].outs, "\n")
+    " endif
+
+    " 过滤空项
+    let l:errs = filter(s:AsyncJobs[a:cmd].errs, '!empty(v:val)')
+    let l:lines = filter(s:AsyncJobs[a:cmd].outs, '!empty(v:val)')
+
+    " TODO 根据不同命令决定如何展示内容，填入quickfix? new window? or nothing todo
+
+    echom "Async-" . split(a:cmd)[0] . " done | " . len(l:lines) . " outs + " . len(l:errs) . ' errs'
 endfunction
 
 function! s:AsyncTick(cmd, timer) abort
+    " stop and remove后可能仍然收到回调
+    if !has_key(s:AsyncJobs, a:cmd)
+        return
+    endif
+
     let chars = ['|', '/', '-', '\']
     let s:AsyncJobs[a:cmd].index = (s:AsyncJobs[a:cmd].index + 1) % len(chars)
     echo 'Async-' . split(a:cmd)[0]. ' running ... ' . chars[s:AsyncJobs[a:cmd].index]
 endfunction
 
-function! s:StopOneJob(job, stop_way)
+function! s:StopTimer(timer, stop_way)
+    " 1. 检查 timer 是否存在且有效
+    if a:timer is v:null
+        return
+    endif
+
+    " 2. 检查 timer 是否还在运行, 停止它
+    try
+        call timer_stop(a:timer)
+    catch
+        echohl ErrorMsg
+        echomsg v:exception
+        echohl None
+    endtry
+endfunction
+
+function! s:StopJob(job, stop_way)
     " 1. 检查 job 是否存在且有效
     if a:job is v:null
         return
     endif
 
     " 2. 检查 job 是否还在运行, 停止它
-    if job_status(a:job) ==# 'run'
-        call job_stop(a:job, a:stop_way)
-    endif
-
-    echom "stop ok-======= "
+    try
+        if job_status(a:job) ==# 'run'
+            call job_stop(a:job, a:stop_way)
+        endif
+    catch
+        echohl ErrorMsg
+        echomsg v:exception
+        echohl None
+    endtry
 endfunction
 
 function! s:StopAsyncJob(key, stop_way)
@@ -525,81 +622,36 @@ function! s:StopAsyncJob(key, stop_way)
         return
     endif
 
-    " 停止job
-    let l:job = get(s:AsyncJobs[a:key], 'job', v:null)
-    call s:StopOneJob(l:job, a:stop_way)
-    let s:AsyncJobs[a:key].job = v:null
+    let s:AsyncJobs[a:key].state = 'stopping'
 
     " 停止timer
     let l:timer = get(s:AsyncJobs[a:key], 'timer', v:null)
-    call s:StopOneJob(l:timer, a:stop_way)
+    call s:StopTimer(l:timer, stop_way)
     let s:AsyncJobs[a:key].timer = v:null
 
-    " 清理字典条目
-    call remove(s:AsyncJobs, a:key)
+    " 停止job
+    let l:job = get(s:AsyncJobs[a:key], 'job', v:null)
+    call s:StopJob(l:job, a:stop_way)
+    let s:AsyncJobs[a:key].job = v:null
+
+    " 清理字典条目, 不需要在这里清理，exit callback通常会执行，哪怕是kill
+    " call remove(s:AsyncJobs, a:key)
 endfunction
 
-function! s:AsyncJobDone(cmd, code) abort
-    if !has_key(s:AsyncJobs, a:cmd)
-        return
-    endif
+function! s:GenTagsAsync(args) abort
+    let l:lang = matchstr(a:args, '\%(^\|\s\)--lang=\zs\S\+')
 
-    " 停止timer
-    let l:timer = get(s:AsyncJobs[a:cmd], 'timer', v:null)
-    call s:StopOneJob(l:timer, 'term')
-    let s:AsyncJobs[a:cmd].timer = v:null
-
-    echom "=======" . a:cmd
-    echom "Async-" . split(a:cmd)[0] . " finish(" . a:code . "). Filling quickfix ..."
-
-    return
-
-    if !empty(s:AsyncJobs[a:cmd].errs)
-        echom join(s:AsyncJobs[a:cmd].errs, "\n")
-    endif
-
-    " if !empty(s:AsyncJobs[a:cmd].outs)
-    "     echom join(s:AsyncJobs[a:cmd].outs, "\n")
-    " endif
-
-    " 过滤空项
-    let l:lines = filter(s:AsyncJobs[a:cmd].outs, '!empty(v:val)')
-    " 填入quickfix
-    " 使用第三个参数更新，因为l:lines需要解析成quickfix的格式
-    " 如果l:lines直接就是解析好的格式，可以直接用第一个参数
-    " efm: errorformat
-    " %f: 文件名
-    " %l: 行号
-    " %m: message
-    " 这里的解析必须配合grep输出格式，如果是其他如rg就需要相应修改解析
-    " call setqflist([], ' ', {
-    "             \ 'title': a:cmd,
-    "             \ 'lines': l:lines,
-    "             \ 'efm': s:GetGrepFmt(split(a:cmd)[0])
-    "             \ })
-
-    " " 打开窗口
-    " if !empty(l:lines)
-    "     botright copen
-    " endif
-
-    " 清理字典条目
-    call remove(s:AsyncJobs, a:cmd)
-
-    echom "Async-" . split(a:cmd)[0] . " done | " . len(lines) . " found"
-endfunction
-
-function! s:GenTagsAsync(...) abort
     " language
-    let l:lang = ''
-    if a:0 == 0
+    if empty(l:lang) || l:lang ==? 'auto'
         if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
             let l:lang = '--languages=C,C++ '
         elseif &l:filetype ==# 'python'
             let l:lang = '--languages=Python '
+        else
+            let l:lang = ''
         endif
     else
-        let l:lang = '--languages=' . a:1 . ' '
+        let l:lang = '--languages=' . l:lang . ' '
     endif
 
     " exclude dirs
@@ -613,31 +665,13 @@ function! s:GenTagsAsync(...) abort
         \ . l:lang
         \ . l:exc
 
-    call feedkeys(':' . l:cmd . "\<C-f>", 'n')
-endfunction
 
-function! s:ParseAsyncArgs(str) abort
-    let s = a:str
-    let args = []
-    " args可能出现'vim grep'这种情况，需要特殊处理
-    while !empty(s)
-        let s = substitute(s, '^\s\+', '', '')
-
-        " 单引号参数
-        if s =~ "^'"
-            let m = matchlist(s, "^'\\([^']*\\)'")
-            call add(args, m[1])
-            let s = substitute(s, "^'[^']*'\\s*", '', '')
-
-        " 普通参数
-        else
-            let m = matchstr(s, '^\S\+')
-            call add(args, m)
-            let s = substitute(s, '^\S\+\s*', '', '')
-        endif
-    endwhile
-
-    return args
+    " 有--f命令
+    if match(a:args, '\%(^\|\s\)--f\%(\s\|$\)') >= 0
+        call feedkeys(':' . l:cmd . "\<C-f>", 'n')
+    else
+        execute l:cmd
+    endif
 endfunction
 " }}}
 
@@ -948,13 +982,19 @@ let g:grep_job = -1
 let g:grep_timer = -1
 let g:grep_index = 0
 
+function! s:GetProgramFromShellCmd(cmd) abort
+    let l:program = ''
+    if !empty(a:cmd)
+        let l:program = matchstr(l:cmd[2], '^\s*\zs\S\+')
+    endif
+    return l:program
+endfunction
+
 " 异步grep, 注意job_start执行的是外部命令
 " 而RunGrep中的execute 'silent grep! ' . a:args执行的是vim的包装命令
 function! s:AsyncGrep(args) abort
-    let l:cmd = s:ParseArgs(a:args)
-    " echom string(l:cmd)
-    let l:cmd_str = join(l:cmd, ' ')
-    " echom l:cmd_str
+    let l:cmd = a:args
+    let l:shell_cmd = [&shell, &shellcmdflag, a:args]
 
     " 异步任务
     let l:outs = []
@@ -962,12 +1002,12 @@ function! s:AsyncGrep(args) abort
     " out_mode/err_mode: nl: 按换行符切分输出，否则可能是半行
     " exit_cb: 进程退出回调，copy一下防止直接修改内容
     let g:grep_index = 0
-    let g:grep_job = job_start(l:cmd, {
+    let g:grep_job = job_start(l:shell_cmd, {
             \ 'out_mode': 'nl',
             \ 'err_mode': 'nl',
             \ 'out_cb': {ch, msg -> !empty(msg) ? add(l:outs, msg) : 0},
             \ 'err_cb': {ch, msg -> !empty(msg) ? add(l:errs, msg) : 0},
-            \ 'exit_cb': {job, code -> s:GrepDone(copy(l:outs), copy(l:errs), l:cmd_str, code)}
+            \ 'exit_cb': {job, code -> s:GrepDone(copy(l:outs), copy(l:errs), l:cmd, code)}
             \ })
 
   " 每 200 毫秒更新一次状态
@@ -1024,7 +1064,7 @@ function! s:GrepDone(lines, errs, cmd, code) abort
         botright copen
     endif
 
-    echom "AsyncGrep done | " . len(lines) . " found"
+    echom "AsyncGrep done | " . len(l:lines) . " found"
 endfunction
 
 " 'term'    " 默认，正常终止
@@ -1131,14 +1171,14 @@ function! s:BuildCmdGnuGrep(pattern, recursion) abort
     " build grep command
     if a:recursion
         let l:grep_cmd =
-            \ 'AsyncGrep --tool=grep -Rn '
+            \ 'AsyncGrep grep -Rn '
             \ . l:inc
             \ . l:exc
             \ . a:pattern
             \ . ' .'
     else
         let l:grep_cmd =
-            \ 'AsyncGrep --tool=grep -Hn '
+            \ 'AsyncGrep grep -Hn '
             \ . a:pattern
             \ . ' ' . expand('%:p')
     endif
@@ -1168,59 +1208,19 @@ function! s:BuildCmdRipGrep(pattern, recursion) abort
     " build grep command
     if a:recursion
         let l:grep_cmd =
-            \ 'AsyncGrep --tool=rg --vimgrep -H -n '
+            \ 'AsyncGrep rg --vimgrep -H -n '
             \ . l:inc
             \ . l:exc
             \ . a:pattern
             \ . ' .'
     else
         let l:grep_cmd =
-            \ 'AsyncGrep --tool=rg --vimgrep -H -n '
+            \ 'AsyncGrep rg --vimgrep -H -n '
             \ . a:pattern
             \ . ' ' . expand('%:p')
     endif
 
     return l:grep_cmd
-endfunction
-
-function! s:ParseArgs(str) abort
-    " 必须以--tool=开头
-    if a:str !~ '^--tool='
-        echo "args miss --tool="
-        return ['unknow']
-    endif
-
-    " 解析--tool=
-    let tool = matchstr(a:str, '--tool=\zs\S\+')
-    if empty(s:GetGrepFmt(tool))
-        echo "unsupported tool: " . tool
-        return ['unknow']
-    endif
-
-    " 删除--tool=
-    let s = substitute(a:str, '--tool=', '', '')
-
-    let args = []
-
-    " args可能出现'vim grep'这种情况，需要特殊处理
-    while !empty(s)
-        let s = substitute(s, '^\s\+', '', '')
-
-        " 单引号参数
-        if s =~ "^'"
-            let m = matchlist(s, "^'\\([^']*\\)'")
-            call add(args, m[1])
-            let s = substitute(s, "^'[^']*'\\s*", '', '')
-
-        " 普通参数
-        else
-            let m = matchstr(s, '^\S\+')
-            call add(args, m)
-            let s = substitute(s, '^\S\+\s*', '', '')
-        endif
-    endwhile
-
-    return args
 endfunction
 " }}}
 " }}}
