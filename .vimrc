@@ -108,12 +108,15 @@ nnoremap <silent> <leader><C-l> :<C-u>nohlsearch<CR><C-l>
 " map Y to yank text from cursor to the end of line
 nnoremap Y y$
 
+" 定义快捷键前缀<Leader>, todo: 有冲突
+" let mapleader=";"
 " 设置快捷键将选中文本复制到系统剪切板
-nnoremap <leader>y "+y
-xnoremap <leader>y "+y
+vnoremap <Leader>y "+y
 nnoremap <Leader>Y "+y$
+nnoremap <Leader>yy "+yy
 nnoremap <Leader><Leader>y "+yy
-" 设置快捷键将系统剪切板内容粘贴至vim
+nnoremap <silent> <leader>y :set operatorfunc=<SID>Yank2Clipboard<CR>g@
+" " 设置快捷键将系统剪切板内容粘贴至vim
 nnoremap <Leader>p "+p
 nnoremap <Leader>P "+P
 
@@ -215,10 +218,10 @@ nnoremap <Plug>(N_BinaryLocationUp)     :<c-u>call <SID>BinaryLocationV("up", "n
 nnoremap <Plug>(N_BinaryLocationLeft)   :<c-u>call <SID>BinaryLocationH("left", "null")<CR>
 nnoremap <Plug>(N_BinaryLocationRight)  :<c-u>call <SID>BinaryLocationH("right", "null")<CR>
 " -------------------------------------------------
-xnoremap <Plug>(V_BinaryLocationDown)   :<c-u>call <SID>BinaryLocationV("down", "visual")<CR>
-xnoremap <Plug>(V_BinaryLocationUp)     :<c-u>call <SID>BinaryLocationV("up", "visual")<CR>
-xnoremap <Plug>(V_BinaryLocationLeft)   :<c-u>call <SID>BinaryLocationH("left", "visual")<CR>
-xnoremap <Plug>(V_BinaryLocationRight)  :<c-u>call <SID>BinaryLocationH("right", "visual")<CR>
+vnoremap <Plug>(V_BinaryLocationDown)   :<c-u>call <SID>BinaryLocationV("down", "visual")<CR>
+vnoremap <Plug>(V_BinaryLocationUp)     :<c-u>call <SID>BinaryLocationV("up", "visual")<CR>
+vnoremap <Plug>(V_BinaryLocationLeft)   :<c-u>call <SID>BinaryLocationH("left", "visual")<CR>
+vnoremap <Plug>(V_BinaryLocationRight)  :<c-u>call <SID>BinaryLocationH("right", "visual")<CR>
 " ------------------------------------------
 nmap <silent> <C-j> <Plug>(N_BinaryLocationDown)
 nmap <silent> <C-k> <Plug>(N_BinaryLocationUp)
@@ -226,10 +229,10 @@ nmap <silent> <C-h> <Plug>(N_BinaryLocationLeft)
 nmap <silent> <C-l> <Plug>(N_BinaryLocationRight)
 " -------------------------------------------------
 nnoremap v vmv
-xmap <silent> <C-j> <Plug>(V_BinaryLocationDown)
-xmap <silent> <C-k> <Plug>(V_BinaryLocationUp)
-xmap <silent> <C-h> <Plug>(V_BinaryLocationLeft)
-xmap <silent> <C-l> <Plug>(V_BinaryLocationRight)
+vmap <silent> <C-j> <Plug>(V_BinaryLocationDown)
+vmap <silent> <C-k> <Plug>(V_BinaryLocationUp)
+vmap <silent> <C-h> <Plug>(V_BinaryLocationLeft)
+vmap <silent> <C-l> <Plug>(V_BinaryLocationRight)
 " ------------------------------------------
 " nnoremap <silent> j j:<c-u>call <SID>BinaryClearFast()<CR>
 " nnoremap <silent> k k:<c-u>call <SID>BinaryClearFast()<CR>
@@ -245,8 +248,7 @@ nnoremap <silent> j :<c-u>call <SID>KEY_J(v:count1)<CR>
 nnoremap <silent> k :<c-u>call <SID>KEY_K(v:count1)<CR>
 nnoremap <silent> l :<c-u>call <SID>KEY_L(v:count1)<CR>
 nnoremap <silent> h :<c-u>call <SID>KEY_H(v:count1)<CR>
-nnoremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
-xnoremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
+noremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
 " }}}
 
 " ================functions================ {{{
@@ -256,6 +258,21 @@ function! s:VSetSearch(cmdtype) abort
     norm! gv"sy
     let @/ = '\V' . substitute(escape(@s, a:cmdtype.'\'), '\n', '\\n', 'g')
     let @s = temp
+endfunction
+" }}}
+
+" ==========functions for clipboard yank========== {{{
+function! s:Yank2Clipboard(type) abort
+    " yank selected text
+    if a:type ==# 'v'
+        normal! `<v`>"+y
+    elseif a:type ==# 'char'
+        normal! `[v`]"+y
+    elseif a:type ==# 'line'
+        normal! `[V`]"+y
+    else
+        return
+    endif
 endfunction
 " }}}
 
@@ -360,7 +377,7 @@ function! s:BinaryClear(quiet) abort
 endfunction
 
 function! s:VisualMark()
-    silent execute "normal! `vv``"
+    silent execute "normal! mw`vv`w"
 endfunction
 
 function! s:BinaryLocationV(direction, type) abort
@@ -431,11 +448,197 @@ endfunction
 " }}}
 
 " ==========nocore settings========== {{{
-" ==========FN========== {{{
+" ==========ctags========== {{{
 " f7 执行!ctags -R
 nnoremap <F7> :!ctags -R<CR>
 " 每次保存文件时自动调用ctags -R, 这种方式不好，它会使得保存变慢，并且不需要tags的项目在保存时也会生成
 " autocmd BufWritePost * call system("ctags -R")
+
+let s:AsyncJobs = {}
+command! -nargs=+ Async call s:Async(<q-args>)
+command! -nargs=? GenTags call s:GenTagsAsync(<f-args>)
+
+" ctags -R --languages=C,C++ --exclude=node_modules --exclude=.git 
+function! s:Async(args) abort
+    let l:cmd = s:ParseAsyncArgs(a:args)
+    " echom string(l:cmd)
+    let l:cmd_str = join(l:cmd, ' ')
+    " echom l:cmd_str
+
+    " 建字典
+    let s:AsyncJobs[l:cmd_str] = {
+        \ 'index': 0,
+        \ 'job': v:null,
+        \ 'timer': v:null,
+        \ 'outs': [],
+        \ 'errs': [],
+    \ }
+
+    " 异步任务
+    " out_mode/err_mode: nl: 按换行符切分输出，否则可能是半行
+    " exit_cb: 进程退出回调，copy一下防止直接修改内容
+    let l:job = job_start(l:cmd, {
+            \ 'out_mode': 'nl',
+            \ 'err_mode': 'nl',
+            \ 'out_cb': {ch, msg -> !empty(msg) ? add(s:AsyncJobs[l:cmd_str].outs, msg) : 0},
+            \ 'err_cb': {ch, msg -> !empty(msg) ? add(s:AsyncJobs[l:cmd_str].errs, msg) : 0},
+            \ 'exit_cb': {job, code -> s:AsyncJobDone(l:cmd_str, code)}
+            \ })
+
+    " 把 job 对象填进字典
+    let s:AsyncJobs[l:cmd_str].job = l:job
+
+    " 每 200 毫秒更新一次状态
+    let l:timer = timer_start(
+        \ 200,
+        \ function('s:AsyncTick', [l:cmd_str]),
+        \ {'repeat': -1}
+        \ )
+
+    let s:AsyncJobs[l:cmd_str].timer = l:timer
+
+    echo "Async-" . l:cmd[0] . " running ... |"
+endfunction
+
+function! s:AsyncTick(cmd, timer) abort
+    let chars = ['|', '/', '-', '\']
+    let s:AsyncJobs[a:cmd].index = (s:AsyncJobs[a:cmd].index + 1) % len(chars)
+    echo 'Async-' . split(a:cmd)[0]. ' running ... ' . chars[s:AsyncJobs[a:cmd].index]
+endfunction
+
+function! s:StopOneJob(job, stop_way)
+    " 1. 检查 job 是否存在且有效
+    if a:job is v:null
+        return
+    endif
+
+    " 2. 检查 job 是否还在运行, 停止它
+    if job_status(a:job) ==# 'run'
+        call job_stop(a:job, a:stop_way)
+    endif
+
+    echom "stop ok-======= "
+endfunction
+
+function! s:StopAsyncJob(key, stop_way)
+    if !has_key(s:AsyncJobs, a:key)
+        return
+    endif
+
+    " 停止job
+    let l:job = get(s:AsyncJobs[a:key], 'job', v:null)
+    call s:StopOneJob(l:job, a:stop_way)
+    let s:AsyncJobs[a:key].job = v:null
+
+    " 停止timer
+    let l:timer = get(s:AsyncJobs[a:key], 'timer', v:null)
+    call s:StopOneJob(l:timer, a:stop_way)
+    let s:AsyncJobs[a:key].timer = v:null
+
+    " 清理字典条目
+    call remove(s:AsyncJobs, a:key)
+endfunction
+
+function! s:AsyncJobDone(cmd, code) abort
+    if !has_key(s:AsyncJobs, a:cmd)
+        return
+    endif
+
+    " 停止timer
+    let l:timer = get(s:AsyncJobs[a:cmd], 'timer', v:null)
+    call s:StopOneJob(l:timer, 'term')
+    let s:AsyncJobs[a:cmd].timer = v:null
+
+    echom "=======" . a:cmd
+    echom "Async-" . split(a:cmd)[0] . " finish(" . a:code . "). Filling quickfix ..."
+
+    return
+
+    if !empty(s:AsyncJobs[a:cmd].errs)
+        echom join(s:AsyncJobs[a:cmd].errs, "\n")
+    endif
+
+    " if !empty(s:AsyncJobs[a:cmd].outs)
+    "     echom join(s:AsyncJobs[a:cmd].outs, "\n")
+    " endif
+
+    " 过滤空项
+    let l:lines = filter(s:AsyncJobs[a:cmd].outs, '!empty(v:val)')
+    " 填入quickfix
+    " 使用第三个参数更新，因为l:lines需要解析成quickfix的格式
+    " 如果l:lines直接就是解析好的格式，可以直接用第一个参数
+    " efm: errorformat
+    " %f: 文件名
+    " %l: 行号
+    " %m: message
+    " 这里的解析必须配合grep输出格式，如果是其他如rg就需要相应修改解析
+    " call setqflist([], ' ', {
+    "             \ 'title': a:cmd,
+    "             \ 'lines': l:lines,
+    "             \ 'efm': s:GetGrepFmt(split(a:cmd)[0])
+    "             \ })
+
+    " " 打开窗口
+    " if !empty(l:lines)
+    "     botright copen
+    " endif
+
+    " 清理字典条目
+    call remove(s:AsyncJobs, a:cmd)
+
+    echom "Async-" . split(a:cmd)[0] . " done | " . len(lines) . " found"
+endfunction
+
+function! s:GenTagsAsync(...) abort
+    " language
+    let l:lang = ''
+    if a:0 == 0
+        if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
+            let l:lang = '--languages=C,C++ '
+        elseif &l:filetype ==# 'python'
+            let l:lang = '--languages=Python '
+        endif
+    else
+        let l:lang = '--languages=' . a:1 . ' '
+    endif
+
+    " exclude dirs
+    let l:exc =
+        \ '--exclude=.git '
+        \ . '--exclude=build '
+
+    " build ctags command
+    let l:cmd =
+        \ 'Async ctags -R '
+        \ . l:lang
+        \ . l:exc
+
+    call feedkeys(':' . l:cmd . "\<C-f>", 'n')
+endfunction
+
+function! s:ParseAsyncArgs(str) abort
+    let s = a:str
+    let args = []
+    " args可能出现'vim grep'这种情况，需要特殊处理
+    while !empty(s)
+        let s = substitute(s, '^\s\+', '', '')
+
+        " 单引号参数
+        if s =~ "^'"
+            let m = matchlist(s, "^'\\([^']*\\)'")
+            call add(args, m[1])
+            let s = substitute(s, "^'[^']*'\\s*", '', '')
+
+        " 普通参数
+        else
+            let m = matchstr(s, '^\S\+')
+            call add(args, m)
+            let s = substitute(s, '^\S\+\s*', '', '')
+        endif
+    endwhile
+
+    return args
+endfunction
 " }}}
 
 " ==========format settings========== {{{
@@ -632,9 +835,19 @@ function! QuickfixToggle()
 endfunction
 " }}}
 
-" ==========hex format========== {{{
-command! Hex %!xxd
-command! Uhex %!xxd -r
+" ==========hex show========== {{{
+let g:hex_show = 0
+nnoremap <silent> <F6> :call <SID>HexShowToggle()<CR>
+function! s:HexShowToggle() abort
+    let g:hex_show = !g:hex_show
+    if g:hex_show
+        silent execute "%!xxd"
+        echo "hex show"
+    else
+        silent execute "%!xxd -r"
+        echo "restore from hex"
+    endif
+endfunction
 " }}}
 
 " ==========convenient map for file finding========== {{{
@@ -672,12 +885,12 @@ nnoremap <leader><leader>ss :silent! vimgrep /<C-r><C-w>/gj ./**/* \| botright c
 " the two map below are for nomal mode, visual mode
 " how to use: <localleader>giw, viw<localleader>g ...
 nnoremap <silent> <leader>g :set operatorfunc=<SID>GrepOperatorR<CR>g@
-xnoremap <silent> <leader>g :<c-u>call <SID>GrepOperatorR(visualmode())<CR>
+vnoremap <silent> <leader>g :<c-u>call <SID>GrepOperatorR(visualmode())<CR>
 nnoremap <silent> <leader>G :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-xnoremap <silent> <leader>G :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
+vnoremap <silent> <leader>G :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
 " better use than <leader>G
 nnoremap <silent> <leader><leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-xnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
+vnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
 
 command! -nargs=+ AsyncGrep call s:AsyncGrep(<q-args>)
 command! -nargs=? -complete=customlist,s:StopGrepComplete StopGrep
@@ -754,7 +967,7 @@ function! s:AsyncGrep(args) abort
             \ 'err_mode': 'nl',
             \ 'out_cb': {ch, msg -> !empty(msg) ? add(l:outs, msg) : 0},
             \ 'err_cb': {ch, msg -> !empty(msg) ? add(l:errs, msg) : 0},
-            \ 'exit_cb': {job, code -> s:GrepDone(copy(l:outs), copy(l:errs), copy(l:cmd_str), code)}
+            \ 'exit_cb': {job, code -> s:GrepDone(copy(l:outs), copy(l:errs), l:cmd_str, code)}
             \ })
 
   " 每 200 毫秒更新一次状态
@@ -898,6 +1111,7 @@ endfunction
 
 function! s:BuildCmdGnuGrep(pattern, recursion) abort
     " include filters
+    let l:inc = ''
     if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
         let l:inc =
             \ '--include=*.c '
@@ -907,13 +1121,12 @@ function! s:BuildCmdGnuGrep(pattern, recursion) abort
             \ . '--include=*.hpp '
     elseif &l:filetype ==# 'python'
         let l:inc = '--include=*.py '
-    else
-        let l:inc = ''
     endif
 
     " exclude dirs
     let l:exc =
         \ '--exclude-dir=.git '
+        \ . '--exclude-dir=build '
 
     " build grep command
     if a:recursion
@@ -935,6 +1148,7 @@ endfunction
 
 function! s:BuildCmdRipGrep(pattern, recursion) abort
     " include filters
+    let l:inc = ''
     if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
         let l:inc =
             \ '-g *.c '
@@ -944,13 +1158,12 @@ function! s:BuildCmdRipGrep(pattern, recursion) abort
             \ . '-g *.hpp '
     elseif &l:filetype ==# 'python'
         let l:inc = '-g *.py '
-    else
-        let l:inc = ''
     endif
 
     " exclude dirs
     let l:exc =
         \ '-g !.git '
+        \ . '-g !build '
 
     " build grep command
     if a:recursion
@@ -1129,7 +1342,7 @@ Plug 'mhinz/vim-signify'                          "git工具
 Plug 'voldikss/vim-translator'                    "vim翻译工具
 " ------------------------------------------------------------
 Plug 'prabirshrestha/vim-lsp'                     "LSP core
-" Plug 'mattn/vim-lsp-settings'                     "LSP语言服务配置
+Plug 'mattn/vim-lsp-settings'                     "LSP语言服务配置
 Plug 'prabirshrestha/asyncomplete.vim'            "lsp自动补全
 Plug 'prabirshrestha/asyncomplete-lsp.vim'        "lsp自动补全
 " ------------------------------------------------------------
@@ -1161,32 +1374,16 @@ let g:signify_disable_by_default = 1
 " ==========vim-translator settings========== {{{
 " translator variable
 " let g:translator_proxy_url = 'socks5://127.0.0.1:1080'
-" let g:translator_default_engines = ['bing', 'haici']
-" let g:translator_default_engines = ['bing', 'haici', 'youdao']
+let g:translator_default_engines = ['bing', 'haici']
 " convenient map for translating
-" Echo translation in the cmdline
-nnoremap <leader>tt :Translate <C-r><C-w>
-xnoremap <leader>tt :Translate
-nnoremap <leader><leader>tt :Translate!
-xnoremap <leader><leader>tt :Translate!
-" -----------------------------------------
-" Display translation in a window
-nnoremap <leader>tw :TranslateW <C-r><C-w>
-xnoremap <leader>tw :TranslateW
-nnoremap <leader><leader>tw :TranslateW!
-xnoremap <leader><leader>tw :TranslateW!
-" -----------------------------------------
-" Replace the text with translation
-nnoremap <leader>tr :TranslateR <C-r><C-w>
-xnoremap <leader>tr :TranslateR
-nnoremap <leader><leader>tr :TranslateR!
-xnoremap <leader><leader>tr :TranslateR!
-" -----------------------------------------
-" Translate the text in clipboard
-nnoremap <leader>tx :TranslateX <C-r><C-w>
-xnoremap <leader>tx :TranslateX
-nnoremap <leader><leader>tx :TranslateX!
-xnoremap <leader><leader>tx :TranslateX!
+nnoremap <leader>t :Translate <C-r><C-w>
+nnoremap <leader><leader>t :Translate! 
+vnoremap <leader>t :Translate
+vnoremap <leader><leader>t :Translate!
+" nnoremap <leader>t :TranslateW <C-r><C-w>
+" nnoremap <leader><leader>t :TranslateW! 
+" vnoremap <leader>t :TranslateW
+" vnoremap <leader><leader>t :TranslateW!
 " }}}
 
 " ==========vim-lsp settings========== {{{
@@ -1197,33 +1394,33 @@ xnoremap <leader><leader>tx :TranslateX!
 " \   }
 " \}
 
-" PYTHON LSP
-" 若无法忍受vim-lsp-settings插件在打开文件时的卡顿
-" 手动配置LSP语言服务, 请注释: Plug 'mattn/vim-lsp-settings'
-if executable('ty')
-    " pip install ty
-    au User lsp_setup call lsp#register_server({
-        \ 'name': 'ty',
-        \ 'cmd': {server_info->['ty', 'server']},
-        \ 'allowlist': ['python'],
-        \ })
-endif
+" " PYTHON LSP
+" " 若无法忍受vim-lsp-settings插件在打开文件时的卡顿
+" " 手动配置LSP语言服务, 请注释: Plug 'mattn/vim-lsp-settings'
+" if executable('ty')
+"     " pip install ty
+"     au User lsp_setup call lsp#register_server({
+"         \ 'name': 'ty',
+"         \ 'cmd': {server_info->['ty', 'server']},
+"         \ 'allowlist': ['python'],
+"         \ })
+" endif
 
-" C/C++ LSP
-" 若WSL下无法识别std，加入下面这条命令
-\   '--query-driver=/usr/bin/c++*,/usr/bin/g++*',
-if executable('clangd')
-    " sudo apt install clangd
-    au User lsp_setup call lsp#register_server({
-        \ 'name': 'clangd',
-        \ 'cmd': {server_info->[
-        \   'clangd',
-        \   '--background-index',
-        \   '--clang-tidy',
-        \ ]},
-        \ 'allowlist': ['c', 'cpp'],
-        \ })
-endif
+" " C/C++ LSP
+" " 若WSL下无法识别std，加入下面这条命令
+" \   '--query-driver=/usr/bin/c++*,/usr/bin/g++*',
+" if executable('clangd')
+"     " sudo apt install clangd
+"     au User lsp_setup call lsp#register_server({
+"         \ 'name': 'clangd',
+"         \ 'cmd': {server_info->[
+"         \   'clangd',
+"         \   '--background-index',
+"         \   '--clang-tidy',
+"         \ ]},
+"         \ 'allowlist': ['c', 'cpp'],
+"         \ })
+" endif
 
 
 " 启用原生LSP
@@ -1350,22 +1547,11 @@ if exists('*popup_list') && g:CJ_cmd_nmap =~# '^<Plug>' && g:CK_cmd_nmap =~# '^<
     nnoremap <silent><expr> <C-j>
         \ empty(popup_list())
         \ ? g:CJ_cmd_nmap
-        \ : lsp#scroll(+1)
+        \ : lsp#scroll(+4)
     nnoremap <silent><expr> <C-k>
         \ empty(popup_list())
         \ ? g:CK_cmd_nmap
-        \ : lsp#scroll(-1)
-endif
-" 使用<C-u>/<C-d>上下滚动popup window
-if exists('*popup_list')
-    nnoremap <silent><expr> <C-u>
-            \ empty(popup_list())
-            \ ? "<C-u>"
-            \ : lsp#scroll(-4)
-    nnoremap <silent><expr> <C-d>
-            \ empty(popup_list())
-            \ ? "<C-d>"
-            \ : lsp#scroll(+4)
+        \ : lsp#scroll(-4)
 endif
 
 " 重启服务
