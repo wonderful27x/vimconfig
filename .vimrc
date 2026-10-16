@@ -454,21 +454,79 @@ nnoremap <F7> :!ctags -R<CR>
 " 每次保存文件时自动调用ctags -R, 这种方式不好，它会使得保存变慢，并且不需要tags的项目在保存时也会生成
 " autocmd BufWritePost * call system("ctags -R")
 
+" 'term'    " 默认，正常终止
+" 'hup'     " 发送 HUP
+" 'int'     " 发送 INT，类似 Ctrl-C
+" 'quit'    " 发送 QUIT
+" 'kill'    " 强制杀死
+let s:stop_ways = [
+      \ 'term',
+      \ 'hup',
+      \ 'int',
+      \ 'quit',
+      \ 'kill',
+      \ ]
+
+let s:job_id = -1
 let s:AsyncJobs = {}
+
+" " 子任务
+" let s:Subjob = {
+"     \ 'org': '',    "原始async命令
+"     \ 'cmd': '',    "真正的program命令
+"     \ 'len': '',    "cmd的长度
+"     \ 'fmt': '',    "输出格式
+"     \ 'o': v:false, "命令结束后是否打开quickfix
+"     \ 'ts': 0,      "命令执行起始时间
+"     \ 'te': 0,      "命令执行结束时间
+"     \ 'sts': '',    "状态信息
+" }
+
+" " 每个AsyncJob包含一个subjobs列表，里面包含具体的命令参数，
+" " subjob_id是当前job对象正在执行的子任务索引，当一个子任务执行结束后，
+" " 如果subjobs里还有未执行的子任务，会重新创建一个job对象，同时subjob_id++
+" " 注意id不会变，id是和AsyncJob绑定的，即一个AsyncJob + id + subjobs
+" " 这样做是因为，有的工作可能需要多条命令才能完成，且这些命令有先后顺序
+" let s:AsyncJobs[key] = {
+"     \ 'id': -1,             "job id, 每个AsyncJob对应一个id，从0开始增长
+"     \ 'job': v:null,        "job对象, 真正执行外部命令的对象
+"     \ 'timer': v:null,      "计时器, 用于更新进度等信息
+"     \ 'state': 'uninit',    "状态, 分为uninit/running/stopping/done/xdone, 用于时序控制
+"     \ 'outs': [],           "标准输出
+"     \ 'errs': [],           "错误输出
+"     \ 'prog_idx': 0,        "进度索引
+"     \ 'subjobs': [],        "子任务列表
+"     \ 'subjob_id': 0        "当前子任务索引
+" \ }
 
 command! -nargs=+ Async call s:Async(<q-args>)
 command! -nargs=* GenTags call s:GenTagsAsync(<q-args>)
+command! -nargs=* GenCscope call s:GenCscopeAsync(<q-args>)
 " command! -nargs=* GenCscope call s:GenCscopeFilesAsync(<q-args>)
 " command! -nargs=* GenCscope call s:GenCscopeFromFilesAsync(<q-args>)
-command! -nargs=* GenCscope call s:GenCscopeAsync(<q-args>)
+
+function! s:GenJobID() abort
+    let s:job_id++;
+    return s:job_id
+endfunction
 
 function! s:Async(args) abort
     let l:cmd = a:args
-    let l:shell_cmd = [&shell, &shellcmdflag, a:args]
+    let l:subjobs = s:ParseAsyncArgs(a:args)
 
-    " echom 'Async cmd: ' . l:cmd
-    " echom 'Async shell_cmd: ' . string(l:shell_cmd)
-    " return
+    if len(l:subjobs) == 0
+        echom 'Async no subjobs to run!'
+        return
+    endif
+
+    let l:shell_cmd = [&shell, &shellcmdflag, l:subjobs[0].cmd]
+
+    " test
+    echom 'Async cmd: ' . l:cmd
+    echom 'Async subjobs: '
+    echom l:subjobs
+    echom 'Async subjobs[0].shell_cmd: ' . string(l:shell_cmd)
+    return
 
     if has_key(s:AsyncJobs, l:cmd)
         echom 'job for [' . s:AsyncJobs[l:cmd].job . "] 已存在!"
@@ -476,13 +534,17 @@ function! s:Async(args) abort
     endif
 
     " 建字典
+    let l:job_id = s:GenJobID()
     let s:AsyncJobs[l:cmd] = {
-        \ 'index': 0,
+        \ 'id': job_id,
         \ 'job': v:null,
         \ 'timer': v:null,
         \ 'state': 'uninit',
         \ 'outs': [],
         \ 'errs': [],
+        \ 'prog_idx': 0,
+        \ 'subjobs': l:subjobs,
+        \ 'subjob_id': 0
     \ }
 
     " 先把timer启动起来，防止job结束过快timer还没创建
@@ -590,7 +652,7 @@ function! s:AsyncTick(cmd, timer) abort
     echo 'Async-' . split(a:cmd)[0]. ' running ... ' . chars[s:AsyncJobs[a:cmd].index]
 endfunction
 
-function! s:StopTimer(timer, stop_way)
+function! s:StopTimer(timer, stop_way) abort
     " 1. 检查 timer 是否存在且有效
     if a:timer is v:null
         return
@@ -606,7 +668,7 @@ function! s:StopTimer(timer, stop_way)
     endtry
 endfunction
 
-function! s:StopJob(job, stop_way)
+function! s:StopJob(job, stop_way) abort
     " 1. 检查 job 是否存在且有效
     if a:job is v:null
         return
@@ -624,7 +686,7 @@ function! s:StopJob(job, stop_way)
     endtry
 endfunction
 
-function! s:StopAsyncJob(key, stop_way)
+function! s:StopAsyncJob(key, stop_way) abort
     if !has_key(s:AsyncJobs, a:key)
         return
     endif
@@ -645,6 +707,212 @@ function! s:StopAsyncJob(key, stop_way)
     " call remove(s:AsyncJobs, a:key)
 endfunction
 
+" TODO 根据命令获取默认参数的subjob
+function! s:GetDefaultSubJob(cmd, last) abort
+    return {
+        \ 'org': '',
+        \ 'cmd': a:cmd,
+        \ 'len': strchars(a:cmd),
+        \ 'fmt': '',
+        \ 'o': v:false,
+        \ 'ts': 0,
+        \ 'te': 0,
+        \ 'sts': 'uinit'
+        \ }
+endfunction
+
+" 将async命令的参数解析成subjobs
+function! s:ParseAsyncArgs(args) abort
+    let l:subjobs = []
+    let l:cmdlist = s:SplitAsyncArgs(a:args)
+    for i in range(len(l:cmdlist))
+        let last = i == len(l:cmdlist) - 1
+        let cmd = l:cmdlist[i]
+        " 获取默认参数的subjob
+        let subjob = s:GetDefaultSubJob(cmd.cmd, last)
+
+        " 从设置的命令更新参数
+        let org = empty(cmd.pre_cmd) ? cmd.cmd : cmd.pre_cmd . ' ' . cmd.cmd
+        let cmd_ctr = s:GetCtrFromPrecmd(cmd.pre_cmd)
+        " ---------------------------------------------
+        let subjob.org = org
+        let subjob.cmd = cmd.cmd
+        let subjob.len = strchars(cmd.cmd)
+        if !empty(cmd_ctr.fmt)
+            let subjob.fmt = cmd_ctr.fmt
+        endif
+        if !empty(cmd_ctr.o)
+            let subjob.o = cmd_ctr.o ==# '0' ? v:false : v:true
+        endif
+
+        " 加入到列表
+        call add(l:subjobs, subjob)
+    endfor
+
+    return l:subjobs
+endfunction
+
+" 从<...|...>中解析出fmt、o等参数
+function! s:GetCtrFromPrecmd(pre_cmd) abort
+    let l:cmd_ctr = {'fmt': '', 'o': ''}
+
+    if a:pre_cmd !~# '^<.*>$'
+        return l:cmd_ctr
+    endif
+
+    " 去掉首尾的 < >
+    let l:content = strcharpart(a:pre_cmd, 1, strchars(a:pre_cmd) - 2)
+
+    for l:field in split(l:content, '|', 1)
+        if l:field =~# '^fmt='
+            let l:cmd_ctr.fmt = strpart(l:field, strlen('fmt='))
+        elseif l:field =~# '^o='
+            let l:cmd_ctr.o = strpart(l:field, strlen('o='))
+        endif
+    endfor
+
+    return l:cmd_ctr
+endfunction
+
+" 分割async命令参数 [{pre_cmd=<...> cmd=...}]
+function! s:SplitAsyncArgs(args) abort
+    let l:s = a:args
+    let l:total = strchars(l:s)
+    let l:i = 0
+    let l:result = []
+
+    while l:i < l:total
+        " 1. 找到第一个非空字符
+        while l:i < l:total && strcharpart(l:s, l:i, 1) =~# '^\s$'
+            let l:i += 1
+        endwhile
+        if l:i >= l:total
+            break
+        endif
+
+        " 不以 < 开头：从当前位置到末尾，整体作为 cmd
+        if strcharpart(l:s, l:i, 1) !=# '<'
+            call add(l:result, {
+                        \ 'pre_cmd': '',
+                        \ 'cmd': strcharpart(l:s, l:i)
+                        \ })
+            break
+        endif
+
+        " 2. 读取整个 <...>，作为 pre_cmd
+        let l:pre_start = l:i
+        while l:i < l:total && strcharpart(l:s, l:i, 1) !=# '>'
+            let l:i += 1
+        endwhile
+        if l:i >= l:total
+            throw 'SplitAsyncArgs: 缺少 >'
+        endif
+
+        let l:pre_cmd = strcharpart(l:s, l:pre_start, l:i - l:pre_start + 1)
+        let l:options = strcharpart(l:s, l:pre_start + 1, l:i - l:pre_start - 1)
+        let l:i += 1
+
+        " 按 | 分割 <...> 的内容，查找 len=数字
+        let l:len_text = ''
+        for l:field in split(l:options, '|', 1)
+            let l:value = matchstr(l:field, '^len=\zs[0-9]\+$')
+            if !empty(l:value)
+                let l:len_text = l:value
+                break
+            endif
+        endfor
+
+        " 3. 找到 <...> 之后 cmd 的第一个非空字符
+        while l:i < l:total && strcharpart(l:s, l:i, 1) =~# '^\s$'
+            let l:i += 1
+        endwhile
+        if l:i >= l:total
+            throw 'SplitAsyncArgs: <...> 之后缺少命令'
+        endif
+
+        " 没有 len：cmd 一直取到末尾
+        if empty(l:len_text)
+            call add(l:result, {
+                        \ 'pre_cmd': l:pre_cmd,
+                        \ 'cmd': strcharpart(l:s, l:i)
+                        \ })
+            break
+        endif
+
+        " 有 len：按指定字符数截取 cmd
+        let l:cmd_len = str2nr(l:len_text)
+        if l:cmd_len <= 0 || l:i + l:cmd_len > l:total
+            throw 'SplitAsyncArgs: len 无效或命令长度不足'
+        endif
+
+        call add(l:result, {
+                    \ 'pre_cmd': l:pre_cmd,
+                    \ 'cmd': strcharpart(l:s, l:i, l:cmd_len)
+                    \ })
+        let l:i += l:cmd_len
+
+        " 4. 截取完 cmd 后，跳过空白并查找分隔符 |
+        while l:i < l:total && strcharpart(l:s, l:i, 1) =~# '^\s$'
+            let l:i += 1
+        endwhile
+        if l:i >= l:total
+            break
+        endif
+        if strcharpart(l:s, l:i, 1) !=# '|'
+            throw 'SplitAsyncArgs: 命令之后缺少分隔符 |'
+        endif
+        let l:i += 1
+
+        " 分隔符后不能只有空白
+        let l:next = l:i
+        while l:next < l:total && strcharpart(l:s, l:next, 1) =~# '^\s$'
+            let l:next += 1
+        endwhile
+        if l:next >= l:total
+            throw 'SplitAsyncArgs: 分隔符 | 之后缺少命令'
+        endif
+    endwhile
+
+    return l:result
+endfunction
+
+" 将多条命令合并成一条
+" 完整的async命令格式: Async <...> cmd1 [...] | <...> cmd2 [...]
+" 如: Async <len=42> find . -name "*.cpp" -print > cscope.files | <len=31|fmt=%f:%l:%m,%f:%l:%c:%m|o=1> cscope -b -q -k -i cscope.files
+" <...>是命令前缀，'<...> '后跟具体命令, 多条命令用|隔开
+" 命令前缀用来指定命令额外的一些行为，多个行为也用|隔开, 其中:
+" len: 指定了命令的长度, 多条命令拼接时需要
+" fmt: 指定命令输出的格式
+" o  : 指定命令结束后是否打开quickfix
+function! s:MergeAsyncCmd(cmds) abort
+    if len(a:cmds) == 0
+        return ''
+    elseif len(a:cmds) == 1
+        return a:cmds[0]
+    endif
+
+    let l:merge_cmd = 'Async '
+
+    for i in range(len(a:cmds))
+        let cmd = a:cmds[i]
+
+        " 去掉前面的Async
+        let rcmd = trim(substitute(cmd, '^\s*\S\+', '', ''))
+        " 注意这里必须用strchars, 如果用len则不等于字符数
+        let opt_len = '<len=' . strchars(rcmd) . '> '
+
+        if i == len(a:cmds) - 1
+            " 最后一项
+            let l:merge_cmd = l:merge_cmd . rcmd
+        else
+            let l:merge_cmd = l:merge_cmd . opt_len . rcmd . ' | '
+        endif
+
+    endfor
+
+    return l:merge_cmd
+endfunction
+
 function! s:GenCscopeAsync(args) abort
     let l:cmd_genf = s:GenCscopeFilesAsync(a:args . " --no_run")
     let l:cmd_genc = s:GenCscopeFromFilesAsync(a:args . " --no_run")
@@ -654,7 +922,7 @@ function! s:GenCscopeAsync(args) abort
     if !empty(l:path)
         let l:cmd = l:cmd_genc
     else
-        let l:cmd = l:cmd_genf . " | " . l:cmd_genc
+        let l:cmd = s:MergeAsyncCmd([l:cmd_genf, l:cmd_genc])
     endif
 
     " 有--no_run命令
@@ -700,7 +968,7 @@ function! s:GenCscopeFromFilesAsync(args) abort
     return l:cmd
 endfunction
 
-function! s:ExtractPath(s)
+function! s:ExtractPath(s) abort
     " 1. 双引号包裹
     let path = matchstr(a:s, '--path="\zs[^"]\+')
     if !empty(path)
@@ -735,17 +1003,17 @@ function! s:GenCscopeFilesAsync(args) abort
     " include
     let l:inc = ''
     if l:lang =~? '^\(c\|c++\|c,c++\)$'
-        let l:inc = '\( -name "*.c" -o -name "*.cc" -o -name "*.cpp" -o -name "*.h" -o -name "*.hpp" \) '
+        let l:inc = '"(" -name "*.c" -o -name "*.cc" -o -name "*.cpp" -o -name "*.h" -o -name "*.hpp" ")" '
     elseif l:lang ==? 'python'
-        let l:inc = '\( -name "*.py" \) '
+        let l:inc = '"(" -name "*.py" ")" '
     endif
 
     " exclude dirs
     let l:exc =
-        \ '\( '
+        \ '"(" '
         \ . '-name ".git" '
         \ . '-o -name "build" '
-        \ . '\) -prune -o '
+        \ . '")" -prune -o '
 
     " build ctags command
     let l:cmd =
@@ -1209,19 +1477,6 @@ function! s:GrepDone(lines, errs, cmd, code) abort
 
     echom "AsyncGrep done | " . len(l:lines) . " found"
 endfunction
-
-" 'term'    " 默认，正常终止
-" 'hup'     " 发送 HUP
-" 'int'     " 发送 INT，类似 Ctrl-C
-" 'quit'    " 发送 QUIT
-" 'kill'    " 强制杀死
-let s:stop_ways = [
-      \ 'term',
-      \ 'hup',
-      \ 'int',
-      \ 'quit',
-      \ 'kill',
-      \ ]
 
 function! s:StopGrep(...) abort
     let l:type = a:0 > 0 ? a:1 : s:stop_ways[0]
