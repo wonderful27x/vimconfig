@@ -488,7 +488,7 @@ let s:AsyncJobs = {}
 "     \ 'cmd': '',    "真正的program命令
 "     \ 'len': '',    "cmd的长度
 "     \ 'fmt': '',    "输出格式
-"     \ 'fil': '',    "填充类型，all/out/err
+"     \ 'fil': '',    "填充类型，none/all/out/err
 "     \ 'o': v:false, "命令结束后是否打开quickfix
 "     \ 'ts': 0,      "命令执行起始时间
 "     \ 'te': 0,      "命令执行结束时间
@@ -516,9 +516,7 @@ command! -nargs=+ Async call s:Async(<q-args>)
 command! -nargs=* GenTags call s:GenTagsAsync(<q-args>)
 command! -nargs=* GenCscope call s:GenCscopeAsync(<q-args>)
 command! -nargs=1 AsyncSleep call s:AsyncSleep(<q-args>)
-command! -nargs=1 AsyncTest call s:AsyncTest(<q-args>)
-" command! -nargs=* GenCscope call s:GenCscopeFilesAsync(<q-args>)
-" command! -nargs=* GenCscope call s:GenCscopeFromFilesAsync(<q-args>)
+command! -nargs=* AsyncTest call s:AsyncTest(<q-args>)
 
 function! s:Async(args) abort
     let l:cmd = a:args
@@ -611,12 +609,14 @@ function! s:OnJobExit(key, job, code) abort
     let l:curr_subjob = s:GetCurrSubjob(a:key)
 
     let s:AsyncJobs[a:key].job = a:job
-    let s:AsyncJobs[a:key].state = 'running'
-    let l:curr_subjob.state = 'running'
+    if s:AsyncJobs[a:key].state ==# 'uinit'
+        let s:AsyncJobs[a:key].state = 'running'
+        let l:curr_subjob.state = 'running'
+    endif
 
     try
-        " 如果是最后一个subjob才停止timer
-        if s:IsLastSubJob(a:key)
+        " 如果是最后一个subjob或发送了stopping信号才停止timer
+        if s:IsLastSubJob(a:key) || s:AsyncJobs[a:key].state ==# 'stopping'
             let l:timer = get(s:AsyncJobs[a:key], 'timer', v:null)
             call s:StopTimer(l:timer, 'term')
             let s:AsyncJobs[a:key].timer = v:null
@@ -626,10 +626,11 @@ function! s:OnJobExit(key, job, code) abort
         call s:AsyncJobDone(a:key, a:code)
     finally
 
-        if s:IsLastSubJob(a:key)
-            " 如果是最后一个subjob清理整个AsyncJob
-            let s:AsyncJobs[a:key].state = 'done'
-            let l:curr_subjob.state = 'done'
+        if s:IsLastSubJob(a:key) || s:AsyncJobs[a:key].state ==# 'stopping'
+            " 如果是最后一个subjob或发送了停止命令清理整个AsyncJob
+            let l:finish_type = s:AsyncJobs[a:key].state ==# 'stopping' ? 'xdone' : 'done'
+            let s:AsyncJobs[a:key].state = l:finish_type
+            let l:curr_subjob.state = l:finish_type
             call remove(s:AsyncJobs, a:key)
         else
             " 如果不是最后一个subjob，启动一个新的job执行后续任务
@@ -693,26 +694,86 @@ function! s:EchoMsg(lines) abort
     endfor
 endfunction
 
+function! s:AsyncDataProcess(key, code) abort
+    let l:subjob = s:GetCurrSubjob(a:key)
+    if l:subjob.fil ==? 'none'
+        return
+    endif
+
+    let l:format = &errorformat
+    " 如果指定了具体格式, 过滤空项
+    if !empty(l:subjob.fmt)
+        let l:errs = filter(s:AsyncJobs[a:key].errs, '!empty(v:val)')
+        let l:outs = filter(s:AsyncJobs[a:key].outs, '!empty(v:val)')
+        let l:format = l:subjob.fmt
+    else
+        let l:errs = s:AsyncJobs[a:key].errs
+        let l:outs = s:AsyncJobs[a:key].outs
+    endif
+
+    let l:filled = v:false
+    if l:subjob.fil ==? 'err' && !empty(l:errs)
+        call setqflist([], ' ', {
+                    \ 'title': l:subjob.cmd,
+                    \ 'lines': l:errs,
+                    \ 'efm': l:format
+                    \ })
+        let l:filled = v:true
+    elseif l:subjob.fil ==? 'out' && !empty(l:outs)
+        call setqflist([], ' ', {
+                    \ 'title': l:subjob.cmd,
+                    \ 'lines': l:outs,
+                    \ 'efm': l:format
+                    \ })
+        let l:filled = v:true
+    elseif l:subjob.fil ==? 'all' && (!empty(l:errs) || !empty(l:outs))
+        call setqflist([], ' ', {
+                    \ 'title': l:subjob.cmd,
+                    \ 'lines': l:errs,
+                    \ 'efm': l:format
+                    \ })
+        call setqflist([], 'a', {
+                    \ 'lines': l:outs,
+                    \ 'efm': l:format
+                    \ })
+        let l:filled = v:true
+    elseif l:subjob.fil ==? 'asp'
+        if !empty(l:outs)
+            call setqflist([], ' ', {
+                        \ 'title': l:subjob.cmd,
+                        \ 'lines': l:outs,
+                        \ 'efm': l:format
+                        \ })
+            let l:filled = v:true
+        endif
+        if !empty(l:errs)
+            call setqflist([], ' ', {
+                        \ 'title': l:subjob.cmd,
+                        \ 'lines': l:errs,
+                        \ 'efm': l:format
+                        \ })
+            let l:filled = v:true
+        endif
+    endif
+
+    " 打开窗口
+    if l:subjob.o && l:filled
+        botright copen
+    endif
+
+    return {'n_outs': len(l:outs), 'n_errs': len(l:errs)}
+endfunction
+
 function! s:AsyncJobDone(key, code) abort
     echom "Async-" . s:GetCurrSubjobProgram(a:key) . " finish(" . a:code . "). Processing data ..."
 
-    " EchoMsg(s:AsyncJobs[a:cmd].errs)
+    " call s:EchoMsg(s:AsyncJobs[a:key].outs)
+    " call s:EchoMsg(s:AsyncJobs[a:key].errs)
 
-    " if !empty(s:AsyncJobs[a:cmd].errs)
-    "     echom join(s:AsyncJobs[a:cmd].errs, "\n")
-    " endif
+    let l:num = s:AsyncDataProcess(a:key, a:code)
+    let l:finish_type = s:AsyncJobs[a:key].state ==# 'stopping' ? ' xdone | ' : ' done | '
 
-    " if !empty(s:AsyncJobs[a:cmd].outs)
-    "     echom join(s:AsyncJobs[a:cmd].outs, "\n")
-    " endif
-
-    " 过滤空项
-    let l:errs = filter(s:AsyncJobs[a:key].errs, '!empty(v:val)')
-    let l:lines = filter(s:AsyncJobs[a:key].outs, '!empty(v:val)')
-
-    " TODO 根据不同命令决定如何展示内容，填入quickfix? new window? or nothing todo
-
-    echom "Async-" . s:GetCurrSubjobProgram(a:key) . " done | " . len(l:lines) . " outs + " . len(l:errs) . ' errs'
+    echom "Async-" . s:GetCurrSubjobProgram(a:key) . l:finish_type . l:num.n_outs . " outs + " . l:num.n_errs . ' errs'
 endfunction
 
 function! s:UpdateTickCtr() abort
@@ -846,7 +907,7 @@ function! s:GetDefaultSubJob(cmd, last) abort
         \ 'org': '',
         \ 'cmd': a:cmd,
         \ 'len': strchars(a:cmd),
-        \ 'fmt': '',
+        \ 'fmt': &errorformat,
         \ 'fil': 'all',
         \ 'o': v:false,
         \ 'ts': 0,
@@ -1225,9 +1286,13 @@ function! s:GenTagsAsync(args) abort
 endfunction
 
 function! s:AsyncTest(args) abort
-    " let l:cmd = 'Async sleep ' . a:args
-    " let l:cmd = 'Async sleep ' . a:args . ' | sleep ' . a:args
-    let l:cmd = 'Async grep -Rn hello .'
+    let l:ts = empty(a:args) ? '10' : a:args
+
+    " let l:cmd = 'Async <o=1> grep -Rn vim .'
+    " let l:cmd = 'Async sleep ' . l:ts
+    " let l:cmd = 'Async <len=14|o=1> grep -Rn vim . | sleep ' . l:ts
+    let l:cmd = 'Async <o=1> rg --vimgrep -H -n vim .'
+
     execute l:cmd
     return l:cmd
 endfunction
