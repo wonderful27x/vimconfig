@@ -469,18 +469,18 @@ let s:async_tick_ctr = {
     \}
 
 let s:async_job_id = -1
-let s:AsyncJobs = {}
+let s:async_jobs = {}
 
 " " 子任务
-" let s:Subjob = {
+" let s:subjob = {
 "     \ 'org': '',    "原始async命令
 "     \ 'cmd': '',    "真正的program命令
 "     \ 'len': '',    "cmd的长度
 "     \ 'fmt': '',    "输出格式
 "     \ 'fil': '',    "填充类型，none/all/out/err
 "     \ 'o': v:false, "命令结束后是否打开quickfix
-"     \ 'ts': 0,      "命令执行起始时间
-"     \ 'te': 0,      "命令执行结束时间
+"     \ 'ts': '',     "命令执行起始时间
+"     \ 'te': '',     "命令执行结束时间
 "     \ 'sts': '',    "状态信息
 " }
 
@@ -489,7 +489,7 @@ let s:AsyncJobs = {}
 " " 如果subjobs里还有未执行的子任务，会重新创建一个job对象，同时subjob_id++
 " " 注意id不会变，id是和AsyncJob绑定的，即一个AsyncJob + id + subjobs
 " " 这样做是因为，有的工作可能需要多条命令才能完成，且这些命令有先后顺序
-" let s:AsyncJobs[key] = {
+" let s:async_jobs[key] = {
 "     \ 'id': -1,             "job id, 每个AsyncJob对应一个id，从0开始增长
 "     \ 'job': v:null,        "job对象, 真正执行外部命令的对象
 "     \ 'timer': v:null,      "计时器, 用于更新进度等信息
@@ -526,14 +526,14 @@ function! s:Async(args) abort
     " echom 'Async subjobs[0].shell_cmd: ' . string(l:shell_cmd)
     " return
 
-    if has_key(s:AsyncJobs, l:cmd)
-        echom 'job for [' . s:AsyncJobs[l:cmd].job . "] 已存在!"
+    if has_key(s:async_jobs, l:cmd)
+        echom 'job for [' . s:async_jobs[l:cmd].job . "] 已存在!"
         return
     endif
 
     " 建字典
     let l:job_id = s:GenJobID()
-    let s:AsyncJobs[l:cmd] = {
+    let s:async_jobs[l:cmd] = {
         \ 'id': job_id,
         \ 'job': v:null,
         \ 'timer': v:null,
@@ -561,12 +561,12 @@ function! s:GenJobID() abort
 endfunction
 
 function! s:GetSubjobs(key) abort
-    return s:AsyncJobs[a:key].subjobs
+    return s:async_jobs[a:key].subjobs
 endfunction
 
 function! s:GetCurrSubjob(key) abort
-    let l:id = s:AsyncJobs[a:key].subjob_id
-    return s:AsyncJobs[a:key].subjobs[id]
+    let l:id = s:async_jobs[a:key].subjob_id
+    return s:async_jobs[a:key].subjobs[id]
 endfunction
 
 function! s:GetCurrSubjobCmd(key) abort
@@ -579,14 +579,16 @@ endfunction
 
 function! s:IsLastSubJob(key) abort
     let l:subjob_size = len(s:GetSubjobs(a:key))
-    return s:AsyncJobs[a:key].subjob_id == l:subjob_size - 1
+    return s:async_jobs[a:key].subjob_id == l:subjob_size - 1
 endfunction
 
 function! s:AsyncQuery(args) abort
-    if index(split(a:args), '--table') < 0
+    if index(split(a:args), '--table') >= 0
+        call s:OpenCustomTimerWindow('Async jobs', 's:ScheduleAsyncQuery', 200)
+    else
         " simple模式
         let l:msg = ''
-        for [l:key, l:data] in items(s:AsyncJobs)
+        for [l:key, l:data] in items(s:async_jobs)
             let l:msg = l:msg . l:data.id . '-' . s:GetCurrSubjobProgram(l:key) . ' '
         endfor
         if !empty(l:msg)
@@ -595,60 +597,62 @@ function! s:AsyncQuery(args) abort
         else
             echom 'No async job running!'
         endif
-    else
-        " TODO
     endif
 endfunction
 
 function! s:OnJobOut(key, ch, msg) abort
-    call add(s:AsyncJobs[a:key].outs, a:msg)
+    call add(s:async_jobs[a:key].outs, a:msg)
 endfunction
 
 function! s:OnJobErr(key, ch, msg) abort
-    call add(s:AsyncJobs[a:key].errs, a:msg)
+    call add(s:async_jobs[a:key].errs, a:msg)
     " echom a:msg
 endfunction
 
 function! s:OnJobExit(key, job, code) abort
-    if !has_key(s:AsyncJobs, a:key)
+    if !has_key(s:async_jobs, a:key)
         echom 'job for [' . a:key .'] not exist!'
         return
     endif
 
     let l:curr_subjob = s:GetCurrSubjob(a:key)
 
-    let s:AsyncJobs[a:key].job = a:job
-    if s:AsyncJobs[a:key].state ==# 'uinit'
-        let s:AsyncJobs[a:key].state = 'running'
-        let l:curr_subjob.state = 'running'
+    let s:async_jobs[a:key].job = a:job
+    if s:async_jobs[a:key].state ==# 'uinit'
+        let s:async_jobs[a:key].state = 'running'
+        let l:curr_subjob.sts = 'running'
     endif
 
     try
         " 如果是最后一个subjob或发送了stopping信号才停止timer
-        if s:IsLastSubJob(a:key) || s:AsyncJobs[a:key].state ==# 'stopping'
-            let l:timer = get(s:AsyncJobs[a:key], 'timer', v:null)
+        if s:IsLastSubJob(a:key) || s:async_jobs[a:key].state ==# 'stopping'
+            let l:timer = get(s:async_jobs[a:key], 'timer', v:null)
             call s:StopTimer(l:timer, 'term')
-            let s:AsyncJobs[a:key].timer = v:null
+            let s:async_jobs[a:key].timer = v:null
         endif
 
         " 执行后期处理任务
         call s:AsyncJobDone(a:key, a:code)
     finally
 
-        if s:IsLastSubJob(a:key) || s:AsyncJobs[a:key].state ==# 'stopping'
+        " 更新状态
+        let l:finish_type = s:async_jobs[a:key].state ==# 'stopping' ? 'xdone' : 'done'
+        let s:async_jobs[a:key].state = l:finish_type
+        let l:curr_subjob.sts = l:finish_type
+        let l:time = printf('%.1f', reltimefloat(reltime(l:curr_subjob.ts)))
+        let l:curr_subjob.te = l:time
+
+        if s:IsLastSubJob(a:key) || s:async_jobs[a:key].state ==# 'stopping'
             " 如果是最后一个subjob或发送了停止命令清理整个AsyncJob
-            let l:finish_type = s:AsyncJobs[a:key].state ==# 'stopping' ? 'xdone' : 'done'
-            let s:AsyncJobs[a:key].state = l:finish_type
-            let l:curr_subjob.state = l:finish_type
-            call remove(s:AsyncJobs, a:key)
+            call remove(s:async_jobs, a:key)
         else
             " 如果不是最后一个subjob，启动一个新的job执行后续任务
             " 先reset
-            let s:AsyncJobs[a:key].state = 'uninit'
-            let s:AsyncJobs[a:key].outs = []
-            let s:AsyncJobs[a:key].errs = []
-            let s:AsyncJobs[a:key].prog_idx = 0
-            let s:AsyncJobs[a:key].subjob_id += 1
+            let s:async_jobs[a:key].state = 'uninit'
+            let s:async_jobs[a:key].outs = []
+            let s:async_jobs[a:key].errs = []
+            let s:async_jobs[a:key].prog_idx = 0
+            let s:async_jobs[a:key].subjob_id += 1
 
             echo "Async-" . s:GetCurrSubjobProgram(a:key) . " running ... |"
             call s:StartAsyncSubjob(a:key)
@@ -664,13 +668,15 @@ function! s:StartAsyncTimer(key, tms) abort
         \ {'repeat': -1}
         \ )
 
-    let s:AsyncJobs[a:key].timer = l:timer
+    let s:async_jobs[a:key].timer = l:timer
 endfunction
 
 " 启动一个子任务
 function! s:StartAsyncSubjob(key) abort
     let l:curr_subjob = s:GetCurrSubjob(a:key)
     let l:shell_cmd = [&shell, &shellcmdflag, l:curr_subjob.cmd]
+
+    let l:curr_subjob.ts = reltime()
 
     " 异步任务
     " out_mode/err_mode: nl: 按换行符切分输出，否则可能是半行
@@ -688,10 +694,10 @@ function! s:StartAsyncSubjob(key) abort
     " 把 job 对象填进字典
     " 由于OnJobExit可以在job返回前结束，所以使用一个状态来控制
     " OnJobExit是在vim进行执行的，所以和下面的逻辑是同步的
-    if s:AsyncJobs[a:key].state != 'done' && s:AsyncJobs[a:key].state != 'xdone'
-        let s:AsyncJobs[a:key].job = l:job
-        let s:AsyncJobs[a:key].state = 'running'
-        let l:curr_subjob.state = 'running'
+    if s:async_jobs[a:key].state != 'done' && s:async_jobs[a:key].state != 'xdone'
+        let s:async_jobs[a:key].job = l:job
+        let s:async_jobs[a:key].state = 'running'
+        let l:curr_subjob.sts = 'running'
     endif
 
     call s:UpdateTickCtr()
@@ -712,12 +718,12 @@ function! s:AsyncDataProcess(key, code) abort
     let l:format = &errorformat
     " 如果指定了具体格式, 过滤空项
     if !empty(l:subjob.fmt)
-        let l:errs = filter(s:AsyncJobs[a:key].errs, '!empty(v:val)')
-        let l:outs = filter(s:AsyncJobs[a:key].outs, '!empty(v:val)')
+        let l:errs = filter(s:async_jobs[a:key].errs, '!empty(v:val)')
+        let l:outs = filter(s:async_jobs[a:key].outs, '!empty(v:val)')
         let l:format = l:subjob.fmt
     else
-        let l:errs = s:AsyncJobs[a:key].errs
-        let l:outs = s:AsyncJobs[a:key].outs
+        let l:errs = s:async_jobs[a:key].errs
+        let l:outs = s:async_jobs[a:key].outs
     endif
 
     let l:filled = v:false
@@ -776,18 +782,20 @@ endfunction
 function! s:AsyncJobDone(key, code) abort
     echom "Async-" . s:GetCurrSubjobProgram(a:key) . " finish(" . a:code . "). Processing data ..."
 
-    " call s:EchoMsg(s:AsyncJobs[a:key].outs)
-    " call s:EchoMsg(s:AsyncJobs[a:key].errs)
+    " call s:EchoMsg(s:async_jobs[a:key].outs)
+    " call s:EchoMsg(s:async_jobs[a:key].errs)
 
     let l:num = s:AsyncDataProcess(a:key, a:code)
-    let l:finish_type = s:AsyncJobs[a:key].state ==# 'stopping' ? ' xdone | ' : ' done | '
+    let l:finish_type = s:async_jobs[a:key].state ==# 'stopping' ? ' xdone | ' : ' done | '
+    let l:subjob = s:GetCurrSubjob(a:key)
+    let l:time = printf('%.1f', reltimefloat(reltime(l:subjob.ts)))
 
-    echom "Async-" . s:GetCurrSubjobProgram(a:key) . l:finish_type . l:num.n_outs . " outs + " . l:num.n_errs . ' errs'
+    echom "Async-" . s:GetCurrSubjobProgram(a:key) . l:finish_type . l:num.n_outs . " outs + " . l:num.n_errs . ' errs | ' . l:time . 's'
 endfunction
 
 function! s:UpdateTickCtr() abort
     " 更新最大最小值
-    let l:ids = map(values(s:AsyncJobs), 'v:val.id')
+    let l:ids = map(values(s:async_jobs), 'v:val.id')
     let s:async_tick_ctr.min_id = min(l:ids)
     let s:async_tick_ctr.max_id = max(l:ids)
     " 限制范围
@@ -806,7 +814,7 @@ endfunction
 
 function! s:AsyncTick(key, timer) abort
     " stop and remove后可能仍然收到回调
-    if !has_key(s:AsyncJobs, a:key)
+    if !has_key(s:async_jobs, a:key)
         return
     endif
 
@@ -817,8 +825,8 @@ function! s:AsyncTick(key, timer) abort
 
     " 暂停控制
     if s:async_tick_ctr.timeout > 0
-        let l:elapsed_ms = float2nr(reltimefloat(reltime(s:async_tick_ctr.start_time)) * 1000)
-        if l:elapsed_ms < s:async_tick_ctr.timeout
+        let l:time_ms = float2nr(reltimefloat(reltime(s:async_tick_ctr.start_time)) * 1000)
+        if l:time_ms < s:async_tick_ctr.timeout
             return
         else
             let s:async_tick_ctr.timeout = 0
@@ -839,9 +847,9 @@ function! s:AsyncTick(key, timer) abort
     "             \ . " static_count:" . s:async_tick_ctr.static_count
 
     " 如果不是当前循环id
-    if s:async_tick_ctr.loop_id != s:AsyncJobs[a:key].id
+    if s:async_tick_ctr.loop_id != s:async_jobs[a:key].id
         let s:async_tick_ctr.static_count += 1
-        if s:async_tick_ctr.static_count > len(s:AsyncJobs)
+        if s:async_tick_ctr.static_count > len(s:async_jobs)
             " 如何很久没有变化了，更新一下防止其中一个退出导致无法驱动loop
             call s:UpdateTickCtr()
         endif
@@ -866,9 +874,9 @@ function! s:AsyncTick(key, timer) abort
     " 执行一次状态更新
     let chars = ['|', '/', '-', '\']
 
-    " let s:AsyncJobs[a:key].prog_idx = (s:AsyncJobs[a:key].prog_idx + 1) % len(chars)
+    " let s:async_jobs[a:key].prog_idx = (s:async_jobs[a:key].prog_idx + 1) % len(chars)
     " " 在timer的回调中，echo后面不要有任何代码，否则光标会闪烁!!!
-    " echo 'Async-' . s:GetCurrSubjobProgram(a:key) . ' running ... ' . chars[s:AsyncJobs[a:key].prog_idx]
+    " echo 'Async-' . s:GetCurrSubjobProgram(a:key) . ' running ... ' . chars[s:async_jobs[a:key].prog_idx]
 
     let s:async_tick_ctr.index = (s:async_tick_ctr.index + 1) % len(chars)
     " 在timer的回调中，echo后面不要有任何代码，否则光标会闪烁!!!
@@ -927,11 +935,11 @@ function! s:StopAsyncJob(async_job, stop_way) abort
     let a:async_job.job = v:null
 
     " 清理字典条目, 不需要在这里清理，exit callback通常会执行，哪怕是kill
-    " call remove(s:AsyncJobs, a:key)
+    " call remove(s:async_jobs, a:key)
 endfunction
 
 function! s:FindAsyncJobById(id)
-    for [l:key, l:data] in items(s:AsyncJobs)
+    for [l:key, l:data] in items(s:async_jobs)
         if l:data.id ==# a:id
             return l:data
         endif
@@ -940,7 +948,7 @@ function! s:FindAsyncJobById(id)
 endfunction
 
 function! s:StopAsyncJobAll(stop_way) abort
-    for [l:key, l:data] in items(s:AsyncJobs)
+    for [l:key, l:data] in items(s:async_jobs)
         call s:StopAsyncJob(l:data, a:stop_way)
     endfor
 endfunction
@@ -951,15 +959,15 @@ function! s:StopAsyncJobWithId(id, stop_way) abort
 endfunction
 
 function! s:StopAsyncJobWithKey(key, stop_way) abort
-    if !has_key(s:AsyncJobs, a:key)
+    if !has_key(s:async_jobs, a:key)
         return
     endif
-    call s:StopAsyncJob(s:AsyncJobs[a:key], a:stop_way)
+    call s:StopAsyncJob(s:async_jobs[a:key], a:stop_way)
 endfunction
 
 function! s:StopAsyncJobWithName(name, stop_way) abort
-    for [l:key, l:data] in items(s:AsyncJobs)
-        let l:program = split(l:data.subjobs[l:data.subjob_id].cmd)[0]
+    for [l:key, l:data] in items(s:async_jobs)
+        let l:program = s:GetCurrSubjobProgram(l:key)
         if l:program ==# a:name
             call s:StopAsyncJob(l:data, a:stop_way)
         endif
@@ -1018,8 +1026,8 @@ function! s:GetDefaultSubJob(cmd, last) abort
         \ 'fmt': &errorformat,
         \ 'fil': 'all',
         \ 'o': v:false,
-        \ 'ts': 0,
-        \ 'te': 0,
+        \ 'ts': '',
+        \ 'te': '',
         \ 'sts': 'uinit'
         \ }
 endfunction
@@ -1346,6 +1354,151 @@ function! s:GenCscopeFilesAsync(args) abort
     endif
 
     return l:cmd
+endfunction
+
+" " 测试数据
+" " 定义基础模板，每个任务使用 copy() 避免共享
+" let s:sub_job1 = {
+"     \ 'org': 'Grep -Rn vim .',
+"     \ 'cmd': 'Grep -Rn vim .',
+"     \ 'len': 14,
+"     \ 'fmt': '%f:%l:%m',
+"     \ 'fil': 'all',
+"     \ 'o': v:false,
+"     \ 'ts': 0,
+"     \ 'te': 0,
+"     \ 'sts': 'running'
+" \ }
+
+" let s:sub_job2 = {
+"     \ 'org': '<len=31|o=1> cscope -b -q -i -i cscope.files',
+"     \ 'cmd': 'cscope -b -q -i -i cscope',
+"     \ 'len': 31,
+"     \ 'fmt': '%f:%l:%m',
+"     \ 'fil': 'all',
+"     \ 'o': v:false,
+"     \ 'ts': 0,
+"     \ 'te': 0,
+"     \ 'sts': 'xdone'
+" \ }
+
+" " 使用 copy() 隔离，防止 abc 和 xyz 互相影响
+" let s:asyncjobs = {}
+" let s:asyncjobs['abc'] = {
+"     \ 'id': 0,
+"     \ 'job': v:null,
+"     \ 'timer': v:null,
+"     \ 'state': 'running',
+"     \ 'outs': [],
+"     \ 'errs': [],
+"     \ 'prog_idx': 0,
+"     \ 'subjobs': [copy(s:sub_job1), copy(s:sub_job2)],
+"     \ 'subjob_id': 1
+" \ }
+
+" let s:asyncjobs['xyz'] = {
+"     \ 'id': 1,
+"     \ 'job': v:null,
+"     \ 'timer': v:null,
+"     \ 'state': 'running',
+"     \ 'outs': [],
+"     \ 'errs': [],
+"     \ 'prog_idx': 0,
+"     \ 'subjobs': [copy(s:sub_job1)],
+"     \ 'subjob_id': 0
+" \ }
+
+" command! -nargs=0 AsyncQ call s:OpenCustomTimerWindow('Async jobs', 's:ScheduleAsyncQuery', 200)
+
+" 查询Async异步任务
+function! s:ScheduleAsyncQuery(bufnr, timer) abort
+    " 如果 buffer 已经不存在了，停掉 timer
+    if !bufexists(a:bufnr)
+        call timer_stop(a:timer)
+        return
+    endif
+
+    " 如果 buffer 不在任何窗口显示了，也可以停掉 timer
+    if empty(win_findbuf(a:bufnr))
+        call timer_stop(a:timer)
+        return
+    endif
+
+    " if empty(s:async_jobs)
+    "     return
+    " endif
+
+    let l:async_job_msg = []
+    let l:msg = printf("id  subjob-id   name        state       time(s)    cmd")
+    call add(l:async_job_msg, l:msg)
+    for [l:key, l:data] in items(s:async_jobs)
+        for i in range(len(l:data.subjobs))
+            let l:subjob = l:data.subjobs[i]
+
+            let l:time = l:subjob.te
+            if empty(l:time)
+                let l:time = printf('%.1f', reltimefloat(reltime(l:subjob.ts)))
+            endif
+
+            let l:msg = printf("%-2d\t\t%-2d\t\t%-8s\t%-8s\t%-5s\t\t%s",
+                        \ l:data.id, i, split(l:subjob.cmd)[0], l:subjob.sts, l:time, l:subjob.cmd)
+
+            call add(l:async_job_msg, l:msg)
+        endfor
+    endfor
+
+    " 临时解除不可修改状态，填入内容
+    call setbufvar(a:bufnr, '&modifiable', 1)
+
+    " 清空并写入新内容
+    silent call deletebufline(a:bufnr, 1, '$')
+    call setbufline(a:bufnr, 1, l:async_job_msg)
+
+    " 恢复不可修改状态
+    call setbufvar(a:bufnr, '&modifiable', 0)
+endfunction
+
+" 全局保存 timer 和 buffer 的映射
+let s:custom_schedule_window = {}
+
+" 打开窗口并初始化, titile: 窗口标题 timer_fun: timer回调函数名 time刷新时间
+function! s:OpenCustomTimerWindow(title, timer_fun, time) abort
+    " 在下方开一个 10 行的分屏
+    execute 'botright 10split'
+
+    " 创建一个无关联的 scratch buffer
+    enew
+    " 设置 buffer 属性：不关联文件、不保存、关闭窗口时自动销毁(wipe)
+    setlocal buftype=nofile bufhidden=wipe noswapfile
+    " 禁止修改
+    setlocal nomodifiable
+    " 设置 buffer 名称
+    execute 'file [' . a:title . ']'
+
+    let l:bufnr = bufnr('%')
+
+    " 启动 timer 刷新内容
+    let l:timer = timer_start(a:time, function(a:timer_fun, [l:bufnr]), {'repeat': -1})
+    let s:custom_schedule_window[l:bufnr] = l:timer
+
+    " 监听 buffer 销毁（窗口关闭时自动触发）
+    augroup WindowAutoCleanup
+        autocmd!
+        execute 'autocmd BufWipeout <buffer=' . l:bufnr . '> call s:OnCustomScheduleWindowClosed(' . l:bufnr . ')'
+    augroup END
+
+    " 映射 q 关闭窗口
+    nnoremap <buffer> <silent> q :close<CR>
+endfunction
+
+" 窗口关闭时的清理逻辑
+function! s:OnCustomScheduleWindowClosed(bufnr) abort
+    if has_key(s:custom_schedule_window, a:bufnr)
+        call timer_stop(s:custom_schedule_window[a:bufnr])
+        call remove(s:custom_schedule_window, a:bufnr)
+    endif
+    " 可以在这里写其他清理逻辑
+    " echom "自定义窗口已关闭，timer 已停止"
 endfunction
 " }}}
 
