@@ -456,19 +456,6 @@ nnoremap <F7> :!ctags -R<CR>
 " 每次保存文件时自动调用ctags -R, 这种方式不好，它会使得保存变慢，并且不需要tags的项目在保存时也会生成
 " autocmd BufWritePost * call system("ctags -R")
 
-" 'term'    " 默认，正常终止
-" 'hup'     " 发送 HUP
-" 'int'     " 发送 INT，类似 Ctrl-C
-" 'quit'    " 发送 QUIT
-" 'kill'    " 强制杀死
-let s:stop_ways = [
-      \ 'term',
-      \ 'hup',
-      \ 'int',
-      \ 'quit',
-      \ 'kill',
-      \ ]
-
 let s:async_tick_ctr = {
     \ 'index': 0,
     \ 'static_count': 0,
@@ -476,7 +463,9 @@ let s:async_tick_ctr = {
     \ 'curr_loop_times': 0,
     \ 'loop_id': 0,
     \ 'min_id': 0,
-    \ 'max_id': 0
+    \ 'max_id': 0,
+    \ 'timeout': 0,
+    \ 'start_time': '',
     \}
 
 let s:async_job_id = -1
@@ -517,6 +506,8 @@ command! -nargs=* GenTags call s:GenTagsAsync(<q-args>)
 command! -nargs=* GenCscope call s:GenCscopeAsync(<q-args>)
 command! -nargs=1 AsyncSleep call s:AsyncSleep(<q-args>)
 command! -nargs=* AsyncTest call s:AsyncTest(<q-args>)
+command! -nargs=* AsyncQuery call s:AsyncQuery(<q-args>)
+command! -nargs=+ -complete=customlist,s:AsyncStopComplete AsyncStop call s:AsyncStop(<q-args>)
 
 function! s:Async(args) abort
     let l:cmd = a:args
@@ -586,9 +577,27 @@ function! s:GetCurrSubjobProgram(key) abort
     return split(s:GetCurrSubjobCmd(a:key))[0]
 endfunction
 
-function! s:IsLastSubJob(key)
+function! s:IsLastSubJob(key) abort
     let l:subjob_size = len(s:GetSubjobs(a:key))
     return s:AsyncJobs[a:key].subjob_id == l:subjob_size - 1
+endfunction
+
+function! s:AsyncQuery(args) abort
+    if index(split(a:args), '--table') < 0
+        " simple模式
+        let l:msg = ''
+        for [l:key, l:data] in items(s:AsyncJobs)
+            let l:msg = l:msg . l:data.id . '-' . s:GetCurrSubjobProgram(l:key) . ' '
+        endfor
+        if !empty(l:msg)
+            call s:PauseAsyncTick(5000)
+            echom 'Async jobs [id-name]: ' . l:msg
+        else
+            echom 'No async job running!'
+        endif
+    else
+        " TODO
+    endif
 endfunction
 
 function! s:OnJobOut(key, ch, msg) abort
@@ -790,10 +799,30 @@ function! s:UpdateTickCtr() abort
     endif
 endfunction
 
+function! s:PauseAsyncTick(timems)
+    let s:async_tick_ctr.timeout = a:timems
+    let s:async_tick_ctr.start_time = reltime()
+endfunction
+
 function! s:AsyncTick(key, timer) abort
     " stop and remove后可能仍然收到回调
     if !has_key(s:AsyncJobs, a:key)
         return
+    endif
+
+    " 检查 Vim 是否处于 more-prompt 或 hit-enter prompt 状态
+    if state('s') != ''
+        return
+    endif
+
+    " 暂停控制
+    if s:async_tick_ctr.timeout > 0
+        let l:elapsed_ms = float2nr(reltimefloat(reltime(s:async_tick_ctr.start_time)) * 1000)
+        if l:elapsed_ms < s:async_tick_ctr.timeout
+            return
+        else
+            let s:async_tick_ctr.timeout = 0
+        endif
     endif
 
     " ================================================================== 
@@ -880,25 +909,104 @@ function! s:StopJob(job, stop_way) abort
     endtry
 endfunction
 
-function! s:StopAsyncJob(key, stop_way) abort
-    if !has_key(s:AsyncJobs, a:key)
+function! s:StopAsyncJob(async_job, stop_way) abort
+    if empty(a:async_job)
         return
     endif
 
-    let s:AsyncJobs[a:key].state = 'stopping'
+    let a:async_job.state = 'stopping'
 
     " 停止timer
-    let l:timer = get(s:AsyncJobs[a:key], 'timer', v:null)
-    call s:StopTimer(l:timer, stop_way)
-    let s:AsyncJobs[a:key].timer = v:null
+    let l:timer = get(a:async_job, 'timer', v:null)
+    call s:StopTimer(l:timer, a:stop_way)
+    let a:async_job.timer = v:null
 
     " 停止job
-    let l:job = get(s:AsyncJobs[a:key], 'job', v:null)
+    let l:job = get(a:async_job, 'job', v:null)
     call s:StopJob(l:job, a:stop_way)
-    let s:AsyncJobs[a:key].job = v:null
+    let a:async_job.job = v:null
 
     " 清理字典条目, 不需要在这里清理，exit callback通常会执行，哪怕是kill
     " call remove(s:AsyncJobs, a:key)
+endfunction
+
+function! s:FindAsyncJobById(id)
+    for [l:key, l:data] in items(s:AsyncJobs)
+        if l:data.id ==# a:id
+            return l:data
+        endif
+    endfor
+    return {}
+endfunction
+
+function! s:StopAsyncJobAll(stop_way) abort
+    for [l:key, l:data] in items(s:AsyncJobs)
+        call s:StopAsyncJob(l:data, a:stop_way)
+    endfor
+endfunction
+
+function! s:StopAsyncJobWithId(id, stop_way) abort
+    let l:async_job = s:FindAsyncJobById(a:id)
+    call s:StopAsyncJob(l:async_job, a:stop_way)
+endfunction
+
+function! s:StopAsyncJobWithKey(key, stop_way) abort
+    if !has_key(s:AsyncJobs, a:key)
+        return
+    endif
+    call s:StopAsyncJob(s:AsyncJobs[a:key], a:stop_way)
+endfunction
+
+function! s:StopAsyncJobWithName(name, stop_way) abort
+    for [l:key, l:data] in items(s:AsyncJobs)
+        let l:program = split(l:data.subjobs[l:data.subjob_id].cmd)[0]
+        if l:program ==# a:name
+            call s:StopAsyncJob(l:data, a:stop_way)
+        endif
+    endfor
+endfunction
+
+function! s:AsyncStop(args) abort
+    let l:id = matchstr(a:args, '\%(^\|\s\)--id=\zs\S\+')
+    let l:key = matchstr(a:args, '\%(^\|\s\)--key=\zs\S\+')
+    let l:name = matchstr(a:args, '\%(^\|\s\)--name=\zs\S\+')
+    let l:stop_way = matchstr(a:args, '\%(^\|\s\)--stop-way=\zs\S\+')
+    if empty(l:stop_way)
+        let l:stop_way = 'term'
+    endif
+
+    if !empty(l:id)
+        call s:StopAsyncJobWithId(l:id, l:stop_way)
+    endif
+
+    if !empty(l:key)
+        call s:StopAsyncJobWithKey(l:key, l:stop_way)
+    endif
+
+    if !empty(l:name)
+        call s:StopAsyncJobWithName(l:name, l:stop_way)
+    endif
+
+    if index(split(a:args), '--all') >= 0
+        call s:StopAsyncJobAll(l:stop_way)
+    endif
+endfunction
+
+" 定义补全函数
+function! s:AsyncStopComplete(arglead, cmdline, cursorpos) abort
+    " 检查是否正在补全 --stop-way= 的值
+    if a:arglead =~# '^--stop-way='
+        " 提取 = 后面的部分（用户已经输入的值前缀，比如 'k'）
+        let l:prefix = substitute(a:arglead, '^--stop-way=', '', '')
+        let l:stop_ways = ['term', 'hup', 'int', 'quit', 'kill']
+        " 过滤出匹配的项
+        let l:matches = filter(copy(l:stop_ways), 'stridx(v:val, l:prefix) == 0')
+        " 【关键】把前缀拼回去，返回完整的参数
+        return map(l:matches, '"--stop-way=" . v:val')
+    endif
+    " 否则补全选项名
+    let l:options = ['--id=', '--key=', '--name=', '--stop-way=', '--all']
+    return filter(copy(l:options), 'stridx(v:val, a:arglead) == 0')
 endfunction
 
 " TODO 根据命令获取默认参数的subjob, gerp/rg
@@ -1290,8 +1398,8 @@ function! s:AsyncTest(args) abort
 
     " let l:cmd = 'Async <o=1> grep -Rn vim .'
     " let l:cmd = 'Async sleep ' . l:ts
-    " let l:cmd = 'Async <len=14|o=1> grep -Rn vim . | sleep ' . l:ts
-    let l:cmd = 'Async <o=1> rg --vimgrep -H -n vim .'
+    " let l:cmd = 'Async <o=1> rg --vimgrep -H -n vim .'
+    let l:cmd = 'Async <len=14|o=1> grep -Rn vim . | sleep ' . l:ts
 
     execute l:cmd
     return l:cmd
@@ -1695,6 +1803,19 @@ function! s:GrepDone(lines, errs, cmd, code) abort
 
     echom "AsyncGrep done | " . len(l:lines) . " found"
 endfunction
+
+" 'term'    " 默认，正常终止
+" 'hup'     " 发送 HUP
+" 'int'     " 发送 INT，类似 Ctrl-C
+" 'quit'    " 发送 QUIT
+" 'kill'    " 强制杀死
+let s:stop_ways = [
+      \ 'term',
+      \ 'hup',
+      \ 'int',
+      \ 'quit',
+      \ 'kill',
+      \ ]
 
 function! s:StopGrep(...) abort
     let l:type = a:0 > 0 ? a:1 : s:stop_ways[0]
@@ -2245,153 +2366,3 @@ function! s:ConfigLspHeavy() abort
 endfunction
 " }}}
 " }}}
-
-
-" " 查找子字符串
-" " str: 原字符串
-" " i: 起始位置
-" " total: 原字符串字符数
-" " endchar: 结束字符
-" " exclude: 是否排除endchar字符
-" " 返回 {'n': steps, 's': substr}
-" function! s:FindSubstr(str, i, total, endchar, exclude) abort
-"     let l:e = a:i
-"     while l:e < a:total
-"         " 找到结束符，返回子串
-"         if strcharpart(a:str, l:e, 1) ==# '|'
-"             let n = exclude ? l:e - a:i : l:e - a:i + 1
-"             let cmd = trim(strcharpart(a:str, a:i, n))
-"             return {'n': l:e - a:i + 1, 's': cmd}
-"         endif
-"         let l:e += 1
-"     endwhile
-"     " 未找到结束符, 返回整个字符串
-"     let cmd = trim(strcharpart(a:str, a:i, l:e - a:i))
-"     return {'n': l:e - a:i, 's': cmd}
-" endfunction
-
-" " 分割async命令参数 [{pre_cmd=<...> cmd=...}]
-" function! s:SplitAsyncArgs(args) abort
-"     let l:s = a:args
-"     let l:total = strchars(l:s)
-"     let l:i = 0
-"     let l:result = []
-
-"     while l:i < l:total
-"         " " 1. 找到第一个非空字符
-"         " while l:i < l:total && strcharpart(l:s, l:i, 1) =~# '^\s$'
-"         " 1. 找到第一个非空且不是|的字符
-"         while l:i < l:total && strcharpart(l:s, l:i, 1) =~# '\(\s\||\)'
-"             let l:i += 1
-"         endwhile
-"         if l:i >= l:total
-"             break
-"         endif
-
-"         " 不以 < 开头：从当前位置查找下一个|分隔符，作为cmd
-"         if strcharpart(l:s, l:i, 1) !=# '<'
-"             " 往后查找到|分隔符，作为cmd
-"             let l:res = s:FindSubstr(l:s, l:i, l:total, '|', v:true)
-"             if !empty(l:res.s)
-"                 call add(l:result, {
-"                             \ 'pre_cmd': '',
-"                             \ 'cmd': l:res.s
-"                             \ })
-"             endif
-"             " 移动指针
-"             let l:i += l:res.n
-"             if l:i >= l:total
-"                 break
-"             endif
-            
-"             " 进入下一个循环
-"             continue
-"         endif
-
-"         " 2. 读取整个 <...>，作为 pre_cmd
-"         let l:pre_start = l:i
-"         while l:i < l:total && strcharpart(l:s, l:i, 1) !=# '>'
-"             let l:i += 1
-"         endwhile
-"         if l:i >= l:total
-"             throw 'SplitAsyncArgs: 缺少 >'
-"         endif
-
-"         let l:pre_cmd = strcharpart(l:s, l:pre_start, l:i - l:pre_start + 1)
-"         let l:options = strcharpart(l:s, l:pre_start + 1, l:i - l:pre_start - 1)
-"         let l:i += 1
-
-"         " 按 | 分割 <...> 的内容，查找 len=数字
-"         let l:len_text = ''
-"         for l:field in split(l:options, '|', 1)
-"             let l:value = matchstr(l:field, '^len=\zs[0-9]\+$')
-"             if !empty(l:value)
-"                 let l:len_text = l:value
-"                 break
-"             endif
-"         endfor
-
-"         " 3. 找到 <...> 之后 cmd 的第一个非空字符
-"         while l:i < l:total && strcharpart(l:s, l:i, 1) =~# '^\s$'
-"             let l:i += 1
-"         endwhile
-"         if l:i >= l:total
-"             throw 'SplitAsyncArgs: <...> 之后缺少命令'
-"         endif
-
-"         " 没有 len：从当前位置查找下一个|分隔符，作为cmd
-"         if empty(l:len_text)
-"             " 往后查找到|分隔符，作为cmd
-"             let l:res = s:FindSubstr(l:s, l:i, l:total, '|', v:true)
-"             if !empty(l:res.s)
-"                 call add(l:result, {
-"                             \ 'pre_cmd': '',
-"                             \ 'cmd': l:res.s
-"                             \ })
-"             endif
-"             " 移动指针
-"             let l:i += l:res.n
-"             if l:i >= l:total
-"                 break
-"             endif
-
-"             " 进入下一个循环
-"             continue
-"         endif
-
-"         " 有 len：按指定字符数截取 cmd
-"         let l:cmd_len = str2nr(l:len_text)
-"         if l:cmd_len <= 0 || l:i + l:cmd_len > l:total
-"             throw 'SplitAsyncArgs: len 无效或命令长度不足'
-"         endif
-
-"         call add(l:result, {
-"                     \ 'pre_cmd': l:pre_cmd,
-"                     \ 'cmd': strcharpart(l:s, l:i, l:cmd_len)
-"                     \ })
-"         let l:i += l:cmd_len
-
-"         " 4. 截取完 cmd 后，跳过空白并查找分隔符 |
-"         while l:i < l:total && strcharpart(l:s, l:i, 1) =~# '^\s$'
-"             let l:i += 1
-"         endwhile
-"         if l:i >= l:total
-"             break
-"         endif
-"         if strcharpart(l:s, l:i, 1) !=# '|'
-"             throw 'SplitAsyncArgs: 命令之后缺少分隔符 |'
-"         endif
-"         let l:i += 1
-
-"         " 分隔符后不能只有空白
-"         let l:next = l:i
-"         while l:next < l:total && strcharpart(l:s, l:next, 1) =~# '^\s$'
-"             let l:next += 1
-"         endwhile
-"         if l:next >= l:total
-"             throw 'SplitAsyncArgs: 分隔符 | 之后缺少命令'
-"         endif
-"     endwhile
-
-"     return l:result
-" endfunction
