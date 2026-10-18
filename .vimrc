@@ -203,6 +203,7 @@ inoremap <C-f> <C-r>=<SID>ToggleCase("WORD")<CR><C-r>=<SID>DeleteToggleWord()<CR
 " beacuse it will be difficult to use f to find where you want to go
 
 let g:c_jkhl_binary_called = 0
+let g:c_jkhl_col = 0
 
 let g:v_beg = 0
 let g:v_mid = 0
@@ -367,12 +368,14 @@ function! s:BinaryClearFast() abort
     call <SID>ResetV()
     call <SID>ResetH()
     let g:c_jkhl_binary_called = 0
+    let g:c_jkhl_col = 0
 endfunction
 
 function! s:BinaryClear(quiet) abort
     call <SID>ResetV()
     call <SID>ResetH()
     let g:c_jkhl_binary_called = 0
+    let g:c_jkhl_col = 0
     if a:quiet !=? 'true'
         echo "Binary location has been cleared!"
     endif
@@ -383,12 +386,17 @@ function! s:VisualMark()
 endfunction
 
 function! s:BinaryLocationV(direction, type) abort
+    if g:c_jkhl_binary_called == 0
+        let g:c_jkhl_col = col('.')
+    endif
     let g:c_jkhl_binary_called += 1
 
+    " 窗口可见第一行变化，即窗口滚动，reset 
     let v_p = line('w0')
     if v_p != g:v_last_p
        call <SID>ResetV()
-       call cursor(g:v_mid, 0)
+       let g:c_jkhl_col = col('.')
+       call cursor(g:v_mid, g:c_jkhl_col)
        let g:v_last_p = v_p
        if a:type ==? 'visual'
            call <SID>VisualMark()
@@ -405,7 +413,7 @@ function! s:BinaryLocationV(direction, type) abort
 
    let g:v_mid = g:v_beg + (g:v_end - g:v_beg) / 2
 
-   call cursor(g:v_mid, 0)
+   call cursor(g:v_mid, g:c_jkhl_col)
 
    if a:type ==? 'visual'
        call <SID>VisualMark()
@@ -417,6 +425,7 @@ endfunction
 function! s:BinaryLocationH(direction, type) abort
     let g:c_jkhl_binary_called += 1
 
+    " 光标行发生变化，即上下移动了，reset
     let h_p = line('.')
     if h_p != g:h_last_p
         call <SID>ResetH()
