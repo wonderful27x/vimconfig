@@ -11,23 +11,26 @@ Hello, welcome to the god of editor VIM !**
 #### This is a vim setting through `.vimrc` for most useful skills with the traditional faster way
 - [x] [Window control](#window-control)
 - [x] Blinking cursor insert mode
-- [x] System clipboard for yank
-- [x] Fast `:lcd %%`
 - [x] Binary cursor move
 - [x] Cursor move insert mode
 - [x] Case conversion insert mode
+- [x] System clipboard for yank
+- [x] Fast `lcd`
 - [x] Fast fold
-- [x] Grep
 - [x] Hex format
 - [x] Document format
 - [x] Section jump: [[、]]、[]、][
+- [x] Async command for anny
+- [x] Custom schedule window
+- [x] Grep
+- [x] ctags
+- [x] cscope
 - [x] Macro for log
 - [x] Code comments
 - [x] Git tool
 - [x] Highlight cpp
 - [x] Preview markdown
 - [x] Translator
-- [x] Jump with ctags
 - [x] [LSP](#lsp)
 - [ ] Make
 
