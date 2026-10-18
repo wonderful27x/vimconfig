@@ -449,8 +449,55 @@ endfunction
 " }}}
 " }}}
 
-" ==========nocore settings========== {{{
-" ==========ctags========== {{{
+" ==========tools========== {{{
+" ==========schedule window========== {{{
+" 全局保存 timer 和 buffer 的映射
+let s:custom_schedule_window = {}
+
+" 打开窗口并初始化, titile: 窗口标题 timer_fun: timer回调函数名 time刷新时间
+function! s:OpenCustomScheduleWindow(title, timer_fun, time) abort
+    " 在下方开一个 10 行的分屏
+    execute 'botright 10split'
+
+    " 创建一个无关联的 scratch buffer
+    enew
+    " 设置 buffer 属性：不关联文件、不保存、关闭窗口时自动销毁(wipe)
+    setlocal buftype=nofile bufhidden=wipe noswapfile
+    " 禁止修改
+    setlocal nomodifiable
+    " 设置 buffer 名称
+    execute 'file [' . a:title . ']'
+
+    let l:bufnr = bufnr('%')
+
+    " 启动 timer 刷新内容
+    let l:timer = timer_start(a:time, function(a:timer_fun, [l:bufnr]), {'repeat': -1})
+    let s:custom_schedule_window[l:bufnr] = l:timer
+    " 立即执行一次回调，不然会等待time的时间间隔
+    call call(function(a:timer_fun), [l:bufnr, l:timer])
+
+    " 监听 buffer 销毁（窗口关闭时自动触发）
+    augroup WindowAutoCleanup
+        autocmd!
+        execute 'autocmd BufWipeout <buffer=' . l:bufnr . '> call s:OnCustomScheduleWindowClosed(' . l:bufnr . ')'
+    augroup END
+
+    " 映射 q 关闭窗口
+    nnoremap <buffer> <silent> q :close<CR>
+endfunction
+
+" 窗口关闭时的清理逻辑
+function! s:OnCustomScheduleWindowClosed(bufnr) abort
+    if has_key(s:custom_schedule_window, a:bufnr)
+        call timer_stop(s:custom_schedule_window[a:bufnr])
+        call remove(s:custom_schedule_window, a:bufnr)
+    endif
+    " 可以在这里写其他清理逻辑
+    " echom "自定义窗口已关闭，timer 已停止"
+endfunction
+" }}}
+"
+" ==========async========== {{{
 let s:async_tick_ctr = {
     \ 'index': 0,
     \ 'static_count': 0,
@@ -496,14 +543,48 @@ let s:async_jobs = {}
 "     \ 'subjob_id': 0        "当前子任务索引
 " \ }
 
+" Async异步命令，可以执行任意外部命令
+" 格式: Async <...> cmd1 [...] | <...> cmd2 [...]
+" | : 多条命令用|分隔, 形成一个有先后顺序的子任务的整体
+" <>: 是命令前缀，可以指定命令执行后的一些行为, 如o=1表示结束后打开quickfix
+"     当有多条命令时用len=num指定命令的长度，<>指定的不同行为也用|隔开，如<len=27|o=1>
+" 下面是一条生成cscope的完整命令：
+" Async <len=42> find . -name "*.cpp" -print > cscope.files | cscope -b -q -k -i cscope.files
+"
+" AsyncQuery命令用于查询正在执行的异步命令，--table以表格形式实时显示
+"
+" AsyncStop命令用于停止异步命令
+" --id=: 任务id
+" --name=: 任务的程序名
+" --key=: Async的完整命令
+" --all=: 停止所有任务
+" --stop-way=: 停止方式['term', 'hup', 'int', 'quit', 'kill']
 command! -nargs=+ Async call s:Async(<q-args>)
-command! -nargs=* GenTags call s:GenTagsAsync(<q-args>)
-command! -nargs=* GenCscope call s:GenCscopeAsync(<q-args>)
-command! -nargs=1 AsyncSleep call s:AsyncSleep(<q-args>)
-command! -nargs=* AsyncTest call s:AsyncTest(<q-args>)
 command! -nargs=* AsyncQuery call s:AsyncQuery(<q-args>)
 command! -nargs=+ -complete=customlist,s:AsyncStopComplete AsyncStop call s:AsyncStop(<q-args>)
+" ------------------------------------------------------
+command! -nargs=1 AsyncSleep call s:AsyncSleep(<q-args>)
+command! -nargs=* AsyncTest call s:AsyncTest(<q-args>)
 
+function! s:AsyncTest(args) abort
+    let l:ts = empty(a:args) ? '10' : a:args
+
+    " let l:cmd = 'Async <o=1> grep -Rn vim .'
+    " let l:cmd = 'Async sleep ' . l:ts
+    " let l:cmd = 'Async <o=1> rg --vimgrep -H -n vim .'
+    let l:cmd = 'Async <len=14|o=1> grep -Rn vim . | sleep ' . l:ts
+
+    execute l:cmd
+    return l:cmd
+endfunction
+
+function! s:AsyncSleep(args) abort
+    let l:cmd = 'Async sleep ' . a:args
+    execute l:cmd
+    return l:cmd
+endfunction
+
+" 异步命令主函数
 function! s:Async(args) abort
     let l:cmd = a:args
     let l:subjobs = s:ParseAsyncArgs(a:args)
@@ -579,28 +660,56 @@ function! s:IsLastSubJob(key) abort
     return s:async_jobs[a:key].subjob_id == l:subjob_size - 1
 endfunction
 
-function! s:AsyncQuery(args) abort
-    if index(split(a:args), '--table') >= 0
-        call s:OpenCustomTimerWindow('Async jobs', 's:ScheduleAsyncQuery', 200)
-    else
-        " simple模式
-        let l:msg = ''
-        for [l:key, l:data] in items(s:async_jobs)
-            let l:msg = l:msg . l:data.id . '-' . s:GetCurrSubjobProgram(l:key) . ' '
-        endfor
-        if !empty(l:msg)
-            call s:PauseAsyncTick(5000)
-            echom 'Async jobs [id-name]: ' . l:msg
-        else
-            echom 'No async job running!'
-        endif
-    endif
-endfunction
-
 function! s:OnJobOut(key, ch, msg) abort
     call add(s:async_jobs[a:key].outs, a:msg)
 endfunction
 
+" ==========async的启动========== {{{
+" 启动一个timer
+function! s:StartAsyncTimer(key, tms) abort
+    let l:timer = timer_start(
+        \ a:tms,
+        \ function('s:AsyncTick', [a:key]),
+        \ {'repeat': -1}
+        \ )
+
+    let s:async_jobs[a:key].timer = l:timer
+endfunction
+
+" 启动一个子任务
+function! s:StartAsyncSubjob(key) abort
+    let l:curr_subjob = s:GetCurrSubjob(a:key)
+    let l:shell_cmd = [&shell, &shellcmdflag, l:curr_subjob.cmd]
+
+    let l:curr_subjob.ts = reltime()
+
+    " 异步任务
+    " out_mode/err_mode: nl: 按换行符切分输出，否则可能是半行
+    " out_cb : 标准输出回调
+    " err_cb : 标准错误回调
+    " exit_cb: 进程退出回调
+    let l:job = job_start(l:shell_cmd, {
+            \ 'out_mode': 'nl',
+            \ 'err_mode': 'nl',
+            \ 'out_cb': {ch, msg -> s:OnJobOut(a:key, ch, msg)},
+            \ 'err_cb': {ch, msg -> s:OnJobErr(a:key, ch, msg)},
+            \ 'exit_cb': {job, code -> s:OnJobExit(a:key, job, code)}
+            \ })
+
+    " 把 job 对象填进字典
+    " 由于OnJobExit可以在job返回前结束，所以使用一个状态来控制
+    " OnJobExit是在vim进行执行的，所以和下面的逻辑是同步的
+    if s:async_jobs[a:key].state != 'done' && s:async_jobs[a:key].state != 'xdone'
+        let s:async_jobs[a:key].job = l:job
+        let s:async_jobs[a:key].state = 'running'
+        let l:curr_subjob.sts = 'running'
+    endif
+
+    call s:UpdateTickCtr()
+endfunction
+" }}}
+
+" ==========async的回调及后处理========== {{{
 function! s:OnJobErr(key, ch, msg) abort
     call add(s:async_jobs[a:key].errs, a:msg)
 
@@ -662,53 +771,18 @@ function! s:OnJobExit(key, job, code) abort
     endtry
 endfunction
 
-" 启动一个timer
-function! s:StartAsyncTimer(key, tms) abort
-    let l:timer = timer_start(
-        \ a:tms,
-        \ function('s:AsyncTick', [a:key]),
-        \ {'repeat': -1}
-        \ )
+function! s:AsyncJobDone(key, code) abort
+    echom "Async-" . s:GetCurrSubjobProgram(a:key) . " finish(" . a:code . "). Processing data ..."
 
-    let s:async_jobs[a:key].timer = l:timer
-endfunction
+    " call s:EchoMsg(s:async_jobs[a:key].outs)
+    " call s:EchoMsg(s:async_jobs[a:key].errs)
 
-" 启动一个子任务
-function! s:StartAsyncSubjob(key) abort
-    let l:curr_subjob = s:GetCurrSubjob(a:key)
-    let l:shell_cmd = [&shell, &shellcmdflag, l:curr_subjob.cmd]
+    let l:num = s:AsyncDataProcess(a:key, a:code)
+    let l:finish_type = s:async_jobs[a:key].state ==# 'stopping' ? ' xdone | ' : ' done | '
+    let l:subjob = s:GetCurrSubjob(a:key)
+    let l:time = printf('%.1f', reltimefloat(reltime(l:subjob.ts)))
 
-    let l:curr_subjob.ts = reltime()
-
-    " 异步任务
-    " out_mode/err_mode: nl: 按换行符切分输出，否则可能是半行
-    " out_cb : 标准输出回调
-    " err_cb : 标准错误回调
-    " exit_cb: 进程退出回调
-    let l:job = job_start(l:shell_cmd, {
-            \ 'out_mode': 'nl',
-            \ 'err_mode': 'nl',
-            \ 'out_cb': {ch, msg -> s:OnJobOut(a:key, ch, msg)},
-            \ 'err_cb': {ch, msg -> s:OnJobErr(a:key, ch, msg)},
-            \ 'exit_cb': {job, code -> s:OnJobExit(a:key, job, code)}
-            \ })
-
-    " 把 job 对象填进字典
-    " 由于OnJobExit可以在job返回前结束，所以使用一个状态来控制
-    " OnJobExit是在vim进行执行的，所以和下面的逻辑是同步的
-    if s:async_jobs[a:key].state != 'done' && s:async_jobs[a:key].state != 'xdone'
-        let s:async_jobs[a:key].job = l:job
-        let s:async_jobs[a:key].state = 'running'
-        let l:curr_subjob.sts = 'running'
-    endif
-
-    call s:UpdateTickCtr()
-endfunction
-
-function! s:EchoMsg(lines) abort
-    for l:line in a:lines
-        echom l:line
-    endfor
+    echom "Async-" . s:GetCurrSubjobProgram(a:key) . l:finish_type . l:num.n_outs . " outs + " . l:num.n_errs . ' errs | ' . l:time . 's'
 endfunction
 
 function! s:AsyncDataProcess(key, code) abort
@@ -781,20 +855,14 @@ function! s:AsyncDataProcess(key, code) abort
     return {'n_outs': len(l:outs), 'n_errs': len(l:errs)}
 endfunction
 
-function! s:AsyncJobDone(key, code) abort
-    echom "Async-" . s:GetCurrSubjobProgram(a:key) . " finish(" . a:code . "). Processing data ..."
-
-    " call s:EchoMsg(s:async_jobs[a:key].outs)
-    " call s:EchoMsg(s:async_jobs[a:key].errs)
-
-    let l:num = s:AsyncDataProcess(a:key, a:code)
-    let l:finish_type = s:async_jobs[a:key].state ==# 'stopping' ? ' xdone | ' : ' done | '
-    let l:subjob = s:GetCurrSubjob(a:key)
-    let l:time = printf('%.1f', reltimefloat(reltime(l:subjob.ts)))
-
-    echom "Async-" . s:GetCurrSubjobProgram(a:key) . l:finish_type . l:num.n_outs . " outs + " . l:num.n_errs . ' errs | ' . l:time . 's'
+function! s:EchoMsg(lines) abort
+    for l:line in a:lines
+        echom l:line
+    endfor
 endfunction
+" }}}
 
+" ==========timer tick进度状态========== {{{
 function! s:UpdateTickCtr() abort
     " 更新最大最小值
     let l:ids = map(values(s:async_jobs), 'v:val.id')
@@ -822,6 +890,12 @@ function! s:AsyncTick(key, timer) abort
 
     " 检查 Vim 是否处于 more-prompt 或 hit-enter prompt 状态
     if state('s') != ''
+        return
+    endif
+
+    " mode() ==# 'c' 表示正在命令行模式
+    " 或者 getcmdline() 非空表示已经在输入内容
+    if mode() ==# 'c' || !empty(getcmdline())
         return
     endif
 
@@ -884,7 +958,9 @@ function! s:AsyncTick(key, timer) abort
     " 在timer的回调中，echo后面不要有任何代码，否则光标会闪烁!!!
     echo 'Async-' . s:GetCurrSubjobProgram(a:key) . ' running ... ' . chars[s:async_tick_ctr.index]
 endfunction
+" }}}
 
+" ==========async的停止========== {{{
 function! s:StopTimer(timer, stop_way) abort
     " 1. 检查 timer 是否存在且有效
     if a:timer is v:null
@@ -1018,7 +1094,9 @@ function! s:AsyncStopComplete(arglead, cmdline, cursorpos) abort
     let l:options = ['--id=', '--key=', '--name=', '--stop-way=', '--all']
     return filter(copy(l:options), 'stridx(v:val, a:arglead) == 0')
 endfunction
+" }}}
 
+" ==========async 命令参数处理========== {{{
 " 根据命令获取默认参数的subjob
 function! s:GetDefaultSubJob(cmd, last) abort
     let l:default_job = {
@@ -1242,6 +1320,141 @@ function! s:MergeAsyncCmd(cmds) abort
 
     return l:merge_cmd
 endfunction
+" }}}
+
+" ==========async 任务查询========== {{{
+function! s:AsyncQuery(args) abort
+    let l:time = matchstr(a:args, '\%(^\|\s\)--time=\zs\S\+')
+    if empty(l:time)
+        let l:time = 1000
+    endif
+
+    if index(split(a:args), '--table') >= 0
+                \ || index(split(a:args), '--tab') >= 0
+        call s:OpenCustomScheduleWindow('Async jobs', 's:ScheduleAsyncQuery', l:time)
+    else
+        " simple模式
+        let l:msg = ''
+        for [l:key, l:data] in items(s:async_jobs)
+            let l:msg = l:msg . l:data.id . '-' . s:GetCurrSubjobProgram(l:key) . ' '
+        endfor
+        if !empty(l:msg)
+            call s:PauseAsyncTick(5000)
+            echom 'Async jobs [id-name]: ' . l:msg
+        else
+            echom 'No async job running!'
+        endif
+    endif
+endfunction
+
+" command! -nargs=0 AsyncQ call s:OpenCustomScheduleWindow('Async jobs', 's:ScheduleAsyncQuery', 200)
+" 查询Async异步任务
+function! s:ScheduleAsyncQuery(bufnr, timer) abort
+    " 如果 buffer 已经不存在了，停掉 timer
+    if !bufexists(a:bufnr)
+        call timer_stop(a:timer)
+        return
+    endif
+
+    " 如果 buffer 不在任何窗口显示了，也可以停掉 timer
+    if empty(win_findbuf(a:bufnr))
+        call timer_stop(a:timer)
+        return
+    endif
+
+    " if empty(s:async_jobs)
+    "     return
+    " endif
+
+    let l:async_job_msg = []
+    let l:msg = printf("id  subjob-id   name        state       time(s)    cmd")
+    call add(l:async_job_msg, l:msg)
+    for [l:key, l:data] in items(s:async_jobs)
+        for i in range(len(l:data.subjobs))
+            let l:subjob = l:data.subjobs[i]
+
+            let l:time = l:subjob.te
+            if empty(l:time)
+                let l:time = printf('%.1f', reltimefloat(reltime(l:subjob.ts)))
+            endif
+
+            let l:msg = printf("%-2d\t\t%-2d\t\t%-8s\t%-8s\t%-5s\t\t%s",
+                        \ l:data.id, i, split(l:subjob.cmd)[0], l:subjob.sts, l:time, l:subjob.cmd)
+
+            call add(l:async_job_msg, l:msg)
+        endfor
+    endfor
+    call sort(l:async_job_msg, 's:SortByIdStr')
+
+    " 临时解除不可修改状态，填入内容
+    call setbufvar(a:bufnr, '&modifiable', 1)
+
+    " 清空并写入新内容
+    silent call deletebufline(a:bufnr, 1, '$')
+    call setbufline(a:bufnr, 1, l:async_job_msg)
+
+    " 恢复不可修改状态
+    call setbufvar(a:bufnr, '&modifiable', 0)
+endfunction
+
+function! s:SortByIdStr(item1, item2) abort
+    " 提取第一段作为 id，转成数字比较
+    let l:id1 = str2nr(split(a:item1)[0])
+    let l:id2 = str2nr(split(a:item2)[0])
+    return l:id1 - l:id2
+endfunction
+" }}}
+" }}}
+" }}}
+
+" ==========nocore settings========== {{{
+" ==========ctags/cscope========== {{{
+command! -nargs=* GenTags call s:GenTagsAsync(<q-args>)
+command! -nargs=* GenCscope call s:GenCscopeAsync(<q-args>)
+
+function! s:GenTagsAsync(args) abort
+    let l:lang = matchstr(a:args, '\%(^\|\s\)--lang=\zs\S\+')
+
+    " language
+    if empty(l:lang) || l:lang ==? 'auto'
+        if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
+            let l:lang = '--languages=C,C++ '
+        elseif &l:filetype ==# 'python'
+            let l:lang = '--languages=Python '
+        else
+            let l:lang = ''
+        endif
+    else
+        let l:lang = '--languages=' . l:lang . ' '
+    endif
+
+    " exclude dirs
+    let l:exc =
+        \ '--exclude=.git '
+        \ . '--exclude=build '
+
+    " build ctags command
+    let l:cmd =
+        \ 'Async ctags -R '
+        \ . l:lang
+        \ . l:exc
+
+    " 有--no_run命令
+    " if match(a:args, '\%(^\|\s\)--no_run\%(\s\|$\)') >= 0
+    if index(split(a:args), '--no_run') >= 0
+        return l:cmd
+    endif
+
+    " 有--f命令
+    " if match(a:args, '\%(^\|\s\)--f\%(\s\|$\)') >= 0
+    if index(split(a:args), '--f') >= 0
+        call feedkeys(':' . l:cmd . "\<C-f>", 'n')
+    else
+        execute l:cmd
+    endif
+
+    return l:cmd
+endfunction
 
 function! s:GenCscopeAsync(args) abort
     let l:cmd_genf = s:GenCscopeFilesAsync(a:args . " --no_run")
@@ -1298,24 +1511,6 @@ function! s:GenCscopeFromFilesAsync(args) abort
     return l:cmd
 endfunction
 
-function! s:ExtractPath(s) abort
-    " 1. 双引号包裹
-    let path = matchstr(a:s, '--path="\zs[^"]\+')
-    if !empty(path)
-        return path
-    endif
-
-    " 2. 单引号包裹
-    let path = matchstr(a:s, "--path='\\zs[^']\\+")
-    if !empty(path)
-        return path
-    endif
-
-    " 3. 无引号（到空格或结尾）
-    let path = matchstr(a:s, '--path=\zs\S\+')
-    return path
-endfunction
-
 function! s:GenCscopeFilesAsync(args) abort
     let l:lang = matchstr(a:args, '\%(^\|\s\)--lang=\zs\S\+')
 
@@ -1370,211 +1565,22 @@ function! s:GenCscopeFilesAsync(args) abort
     return l:cmd
 endfunction
 
-" " 测试数据
-" " 定义基础模板，每个任务使用 copy() 避免共享
-" let s:sub_job1 = {
-"     \ 'org': 'Grep -Rn vim .',
-"     \ 'cmd': 'Grep -Rn vim .',
-"     \ 'len': 14,
-"     \ 'fmt': '%f:%l:%m',
-"     \ 'fil': 'all',
-"     \ 'o': v:false,
-"     \ 'ts': 0,
-"     \ 'te': 0,
-"     \ 'sts': 'running'
-" \ }
-
-" let s:sub_job2 = {
-"     \ 'org': '<len=31|o=1> cscope -b -q -i -i cscope.files',
-"     \ 'cmd': 'cscope -b -q -i -i cscope',
-"     \ 'len': 31,
-"     \ 'fmt': '%f:%l:%m',
-"     \ 'fil': 'all',
-"     \ 'o': v:false,
-"     \ 'ts': 0,
-"     \ 'te': 0,
-"     \ 'sts': 'xdone'
-" \ }
-
-" " 使用 copy() 隔离，防止 abc 和 xyz 互相影响
-" let s:asyncjobs = {}
-" let s:asyncjobs['abc'] = {
-"     \ 'id': 0,
-"     \ 'job': v:null,
-"     \ 'timer': v:null,
-"     \ 'state': 'running',
-"     \ 'outs': [],
-"     \ 'errs': [],
-"     \ 'prog_idx': 0,
-"     \ 'subjobs': [copy(s:sub_job1), copy(s:sub_job2)],
-"     \ 'subjob_id': 1
-" \ }
-
-" let s:asyncjobs['xyz'] = {
-"     \ 'id': 1,
-"     \ 'job': v:null,
-"     \ 'timer': v:null,
-"     \ 'state': 'running',
-"     \ 'outs': [],
-"     \ 'errs': [],
-"     \ 'prog_idx': 0,
-"     \ 'subjobs': [copy(s:sub_job1)],
-"     \ 'subjob_id': 0
-" \ }
-
-" command! -nargs=0 AsyncQ call s:OpenCustomTimerWindow('Async jobs', 's:ScheduleAsyncQuery', 200)
-
-" 查询Async异步任务
-function! s:ScheduleAsyncQuery(bufnr, timer) abort
-    " 如果 buffer 已经不存在了，停掉 timer
-    if !bufexists(a:bufnr)
-        call timer_stop(a:timer)
-        return
+function! s:ExtractPath(s) abort
+    " 1. 双引号包裹
+    let path = matchstr(a:s, '--path="\zs[^"]\+')
+    if !empty(path)
+        return path
     endif
 
-    " 如果 buffer 不在任何窗口显示了，也可以停掉 timer
-    if empty(win_findbuf(a:bufnr))
-        call timer_stop(a:timer)
-        return
+    " 2. 单引号包裹
+    let path = matchstr(a:s, "--path='\\zs[^']\\+")
+    if !empty(path)
+        return path
     endif
 
-    " if empty(s:async_jobs)
-    "     return
-    " endif
-
-    let l:async_job_msg = []
-    let l:msg = printf("id  subjob-id   name        state       time(s)    cmd")
-    call add(l:async_job_msg, l:msg)
-    for [l:key, l:data] in items(s:async_jobs)
-        for i in range(len(l:data.subjobs))
-            let l:subjob = l:data.subjobs[i]
-
-            let l:time = l:subjob.te
-            if empty(l:time)
-                let l:time = printf('%.1f', reltimefloat(reltime(l:subjob.ts)))
-            endif
-
-            let l:msg = printf("%-2d\t\t%-2d\t\t%-8s\t%-8s\t%-5s\t\t%s",
-                        \ l:data.id, i, split(l:subjob.cmd)[0], l:subjob.sts, l:time, l:subjob.cmd)
-
-            call add(l:async_job_msg, l:msg)
-        endfor
-    endfor
-
-    " 临时解除不可修改状态，填入内容
-    call setbufvar(a:bufnr, '&modifiable', 1)
-
-    " 清空并写入新内容
-    silent call deletebufline(a:bufnr, 1, '$')
-    call setbufline(a:bufnr, 1, l:async_job_msg)
-
-    " 恢复不可修改状态
-    call setbufvar(a:bufnr, '&modifiable', 0)
-endfunction
-
-" 全局保存 timer 和 buffer 的映射
-let s:custom_schedule_window = {}
-
-" 打开窗口并初始化, titile: 窗口标题 timer_fun: timer回调函数名 time刷新时间
-function! s:OpenCustomTimerWindow(title, timer_fun, time) abort
-    " 在下方开一个 10 行的分屏
-    execute 'botright 10split'
-
-    " 创建一个无关联的 scratch buffer
-    enew
-    " 设置 buffer 属性：不关联文件、不保存、关闭窗口时自动销毁(wipe)
-    setlocal buftype=nofile bufhidden=wipe noswapfile
-    " 禁止修改
-    setlocal nomodifiable
-    " 设置 buffer 名称
-    execute 'file [' . a:title . ']'
-
-    let l:bufnr = bufnr('%')
-
-    " 启动 timer 刷新内容
-    let l:timer = timer_start(a:time, function(a:timer_fun, [l:bufnr]), {'repeat': -1})
-    let s:custom_schedule_window[l:bufnr] = l:timer
-
-    " 监听 buffer 销毁（窗口关闭时自动触发）
-    augroup WindowAutoCleanup
-        autocmd!
-        execute 'autocmd BufWipeout <buffer=' . l:bufnr . '> call s:OnCustomScheduleWindowClosed(' . l:bufnr . ')'
-    augroup END
-
-    " 映射 q 关闭窗口
-    nnoremap <buffer> <silent> q :close<CR>
-endfunction
-
-" 窗口关闭时的清理逻辑
-function! s:OnCustomScheduleWindowClosed(bufnr) abort
-    if has_key(s:custom_schedule_window, a:bufnr)
-        call timer_stop(s:custom_schedule_window[a:bufnr])
-        call remove(s:custom_schedule_window, a:bufnr)
-    endif
-    " 可以在这里写其他清理逻辑
-    " echom "自定义窗口已关闭，timer 已停止"
-endfunction
-
-function! s:GenTagsAsync(args) abort
-    let l:lang = matchstr(a:args, '\%(^\|\s\)--lang=\zs\S\+')
-
-    " language
-    if empty(l:lang) || l:lang ==? 'auto'
-        if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
-            let l:lang = '--languages=C,C++ '
-        elseif &l:filetype ==# 'python'
-            let l:lang = '--languages=Python '
-        else
-            let l:lang = ''
-        endif
-    else
-        let l:lang = '--languages=' . l:lang . ' '
-    endif
-
-    " exclude dirs
-    let l:exc =
-        \ '--exclude=.git '
-        \ . '--exclude=build '
-
-    " build ctags command
-    let l:cmd =
-        \ 'Async ctags -R '
-        \ . l:lang
-        \ . l:exc
-
-    " 有--no_run命令
-    " if match(a:args, '\%(^\|\s\)--no_run\%(\s\|$\)') >= 0
-    if index(split(a:args), '--no_run') >= 0
-        return l:cmd
-    endif
-
-    " 有--f命令
-    " if match(a:args, '\%(^\|\s\)--f\%(\s\|$\)') >= 0
-    if index(split(a:args), '--f') >= 0
-        call feedkeys(':' . l:cmd . "\<C-f>", 'n')
-    else
-        execute l:cmd
-    endif
-
-    return l:cmd
-endfunction
-
-function! s:AsyncTest(args) abort
-    let l:ts = empty(a:args) ? '10' : a:args
-
-    " let l:cmd = 'Async <o=1> grep -Rn vim .'
-    " let l:cmd = 'Async sleep ' . l:ts
-    " let l:cmd = 'Async <o=1> rg --vimgrep -H -n vim .'
-    let l:cmd = 'Async <len=14|o=1> grep -Rn vim . | sleep ' . l:ts
-
-    execute l:cmd
-    return l:cmd
-endfunction
-
-function! s:AsyncSleep(args) abort
-    let l:cmd = 'Async sleep ' . a:args
-    execute l:cmd
-    return l:cmd
+    " 3. 无引号（到空格或结尾）
+    let path = matchstr(a:s, '--path=\zs\S\+')
+    return path
 endfunction
 " }}}
 
