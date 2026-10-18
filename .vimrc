@@ -1829,10 +1829,6 @@ vnoremap <silent> <leader>G :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
 nnoremap <silent> <leader><leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
 vnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
 
-" command! -nargs=+ AsyncGrep call s:AsyncGrep(<q-args>)
-" command! -nargs=? -complete=customlist,s:StopGrepComplete StopGrep
-"       \ call s:StopGrep(<f-args>)
-
 function! s:GrepOperatorR(type)
     call s:GrepOperatorAsync(a:type, 1)
 endfunction
@@ -1846,7 +1842,6 @@ function! s:GrepDetect() abort
         let l:tool = s:grep_tools[i]
         if executable(l:tool)
             let g:grep_tool = l:tool
-            let g:grep_format = s:grep_tools_format[i]
             return
         endif
     endfor
@@ -1857,165 +1852,15 @@ function! SetGrep(name) abort
         let l:tool = s:grep_tools[i]
         if l:tool ==# a:name && executable(l:tool)
             let g:grep_tool = l:tool
-            let g:grep_format = s:grep_tools_format[i]
             break
         endif
     endfor
-    echo 'grep_tool = ' . g:grep_tool . ' | ' . 'grep_format = ' . g:grep_format
-endfunction
-
-function! s:GetGrepFmt(name) abort
-    for i in range(len(s:grep_tools))
-        let l:tool = s:grep_tools[i]
-        if l:tool ==# a:name
-            return s:grep_tools_format[i]
-        endif
-    endfor
-    return ''
+    echo 'grep_tool = ' . g:grep_tool
 endfunction
 " --------------------------------------------------
 let s:grep_tools = ['rg', 'grep']
-let s:grep_tools_format = ['%f:%l:%c:%m', '%f:%l:%m']
 let g:grep_tool = 'grep'
-let g:grep_format = '%f:%l:%m'
 call s:GrepDetect()
-
-" ==========grep job========== {{{
-" let g:grep_job = -1
-" let g:grep_timer = -1
-" let g:grep_index = 0
-
-" function! s:GetProgramFromShellCmd(cmd) abort
-"     let l:program = ''
-"     if !empty(a:cmd)
-"         let l:program = matchstr(l:cmd[2], '^\s*\zs\S\+')
-"     endif
-"     return l:program
-" endfunction
-
-" " 异步grep, 注意job_start执行的是外部命令
-" " 而RunGrep中的execute 'silent grep! ' . a:args执行的是vim的包装命令
-" function! s:AsyncGrep(args) abort
-"     let l:cmd = a:args
-"     let l:shell_cmd = [&shell, &shellcmdflag, a:args]
-
-"     " 异步任务
-"     let l:outs = []
-"     let l:errs = []
-"     " out_mode/err_mode: nl: 按换行符切分输出，否则可能是半行
-"     " exit_cb: 进程退出回调，copy一下防止直接修改内容
-"     let g:grep_index = 0
-"     let g:grep_job = job_start(l:shell_cmd, {
-"             \ 'out_mode': 'nl',
-"             \ 'err_mode': 'nl',
-"             \ 'out_cb': {ch, msg -> !empty(msg) ? add(l:outs, msg) : 0},
-"             \ 'err_cb': {ch, msg -> !empty(msg) ? add(l:errs, msg) : 0},
-"             \ 'exit_cb': {job, code -> s:GrepDone(copy(l:outs), copy(l:errs), l:cmd, code)}
-"             \ })
-
-"   " 每 200 毫秒更新一次状态
-"   let g:grep_timer = timer_start(
-"         \ 200,
-"         \ 's:GrepTick',
-"         \ {'repeat': -1}
-"         \ )
-
-"     echo "AsyncGrep running ... |"
-" endfunction
-
-" function! s:GrepTick(timer) abort
-"     let chars = ['|', '/', '-', '\']
-"     let g:grep_index = (g:grep_index + 1) % len(chars)
-"     echo 'AsyncGrep running ... ' . chars[g:grep_index]
-" endfunction
-
-" function! s:GrepDone(lines, errs, cmd, code) abort
-"     " 停止timer
-"     if g:grep_timer != -1
-"         call timer_stop(g:grep_timer)
-"         let g:grep_timer = -1
-"     endif
-
-"     echom "AsyncGrep finish(" . a:code . "). Filling quickfix ..."
-
-"     if !empty(a:errs)
-"         echom join(a:errs, "\n")
-"     endif
-
-"     " if !empty(a:lines)
-"     "     echom join(a:lines, "\n")
-"     " endif
-
-"     " 过滤空项
-"     let l:lines = filter(a:lines, '!empty(v:val)')
-"     " 填入quickfix
-"     " 使用第三个参数更新，因为l:lines需要解析成quickfix的格式
-"     " 如果l:lines直接就是解析好的格式，可以直接用第一个参数
-"     " efm: errorformat
-"     " %f: 文件名
-"     " %l: 行号
-"     " %m: message
-"     " 这里的解析必须配合grep输出格式，如果是其他如rg就需要相应修改解析
-"     call setqflist([], ' ', {
-"                 \ 'title': a:cmd,
-"                 \ 'lines': l:lines,
-"                 \ 'efm': s:GetGrepFmt(split(a:cmd)[0])
-"                 \ })
-
-"     " 打开窗口
-"     if !empty(l:lines)
-"         botright copen
-"     endif
-
-"     echom "AsyncGrep done | " . len(l:lines) . " found"
-" endfunction
-
-" " 'term'    " 默认，正常终止
-" " 'hup'     " 发送 HUP
-" " 'int'     " 发送 INT，类似 Ctrl-C
-" " 'quit'    " 发送 QUIT
-" " 'kill'    " 强制杀死
-" let s:stop_ways = [
-"       \ 'term',
-"       \ 'hup',
-"       \ 'int',
-"       \ 'quit',
-"       \ 'kill',
-"       \ ]
-
-" function! s:StopGrep(...) abort
-"     let l:type = a:0 > 0 ? a:1 : s:stop_ways[0]
-"     if index(s:stop_ways, l:type) < 0
-"         echom '无效的停止方式: ' . l:type
-"         return
-"     endif
-
-"     " 停止timer
-"     if exists('g:grep_timer') && g:grep_timer != -1
-"         call timer_stop(g:grep_timer)
-"         let g:grep_timer = -1
-"     endif
-
-"     " 停止job
-"     if exists('g:grep_job') && job_status(g:grep_job) ==# 'run'
-"         call job_stop(g:grep_job, l:type)
-"     endif
-" endfunction
-
-" " 命令补全函数
-" function! s:StopGrepComplete(ArgLead, CmdLine, CursorPos) abort
-"     let l:styles = s:stop_ways
-"     let l:result = []
-
-"     for l:style in l:styles
-"         if strpart(l:style, 0, strlen(a:ArgLead)) ==# a:ArgLead
-"             call add(l:result, l:style)
-"         endif
-"     endfor
-
-"     return l:result
-" endfunction
-" }}}
 
 " ==========grep 路由========== {{{
 " 增强异步版本的grep，预填基础信息允许用户修改, 尤其是填充exclude信息
