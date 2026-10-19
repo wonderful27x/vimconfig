@@ -509,16 +509,17 @@ let s:async_jobs = {}
 
 " " 子任务
 " let s:subjob = {
-"     \ 'org': '',    "原始async命令
-"     \ 'cmd': '',    "真正的program命令
-"     \ 'len': '',    "cmd的长度
-"     \ 'fmt': '',    "输出格式
-"     \ 'fil': '',    "填充类型，none/all/out/err
-"     \ 'o': v:false, "命令结束后是否打开quickfix
-"     \ 'm': v:true,  "是否显示过程和状态信息, 如果m=0, out/err会被打印
-"     \ 'ts': '',     "命令执行起始时间
-"     \ 'te': '',     "命令执行结束时间
-"     \ 'sts': '',    "状态信息
+"     \ 'org': '',      "原始async命令
+"     \ 'cmd': '',      "真正的program命令
+"     \ 'len': '',      "cmd的长度
+"     \ 'fmt': '',      "输出格式
+"     \ 'fil': '',      "填充类型，none/all/out/err
+"     \ 'env': '',      "是否继承vim终端env，模拟tty
+"     \ 'o': v:false,   "命令结束后是否打开quickfix
+"     \ 'm': v:true,    "是否显示过程和状态信息, 如果m=0, out/err会被打印
+"     \ 'ts': '',       "命令执行起始时间
+"     \ 'te': '',       "命令执行结束时间
+"     \ 'sts': '',      "状态信息
 " }
 
 " " 每个AsyncJob包含一个subjobs列表，里面包含具体的命令参数，
@@ -627,7 +628,7 @@ function! s:Async(args) abort
 endfunction
 
 function! s:AsyncComplete(ArgLead, CmdLine, CursorPos) abort
-    let options = ['<m=0>', '<o=1>', '<len=', '<fil=', '<fmt=']
+    let options = ['<m=0>', '<o=1>', '<m=0|env=1>', '<o=1|env=1>', '<len=', '<fil=', '<fmt=']
     return filter(options, 'stridx(v:val, a:ArgLead) == 0')
 endfunction
 
@@ -686,13 +687,27 @@ function! s:StartAsyncSubjob(key) abort
     " out_cb : 标准输出回调
     " err_cb : 标准错误回调
     " exit_cb: 进程退出回调
-    let l:job = job_start(l:shell_cmd, {
-            \ 'out_mode': 'nl',
-            \ 'err_mode': 'nl',
-            \ 'out_cb': {ch, msg -> s:OnJobOut(a:key, ch, msg)},
-            \ 'err_cb': {ch, msg -> s:OnJobErr(a:key, ch, msg)},
-            \ 'exit_cb': {job, code -> s:OnJobExit(a:key, job, code)}
-            \ })
+    if l:curr_subjob.env
+        " echom "has env: " . l:curr_subjob.env
+        let l:job = job_start(l:shell_cmd, {
+                \ 'env': environ(),
+                \ 'pty': 1,
+                \ 'out_mode': 'nl',
+                \ 'err_mode': 'nl',
+                \ 'out_cb': {ch, msg -> s:OnJobOut(a:key, ch, msg)},
+                \ 'err_cb': {ch, msg -> s:OnJobErr(a:key, ch, msg)},
+                \ 'exit_cb': {job, code -> s:OnJobExit(a:key, job, code)}
+                \ })
+    else
+        " echom "no env: " . l:curr_subjob.env
+        let l:job = job_start(l:shell_cmd, {
+                \ 'out_mode': 'nl',
+                \ 'err_mode': 'nl',
+                \ 'out_cb': {ch, msg -> s:OnJobOut(a:key, ch, msg)},
+                \ 'err_cb': {ch, msg -> s:OnJobErr(a:key, ch, msg)},
+                \ 'exit_cb': {job, code -> s:OnJobExit(a:key, job, code)}
+                \ })
+    endif
 
     " 把 job 对象填进字典
     " 由于OnJobExit可以在job返回前结束，所以使用一个状态来控制
@@ -1140,6 +1155,7 @@ function! s:GetDefaultSubJob(cmd, last) abort
         \ 'len': strchars(a:cmd),
         \ 'fmt': &errorformat,
         \ 'fil': 'all',
+        \ 'env': '',
         \ 'o': v:false,
         \ 'm': v:true,
         \ 'ts': '',
@@ -1189,6 +1205,9 @@ function! s:ParseAsyncArgs(args) abort
                 echom "Warning: only support fil=[none/out/err/all], but is ". subjob.fil
             endif
         endif
+        if !empty(cmd_ctr.env)
+            let subjob.env = cmd_ctr.env
+        endif
         if !empty(cmd_ctr.o)
             let subjob.o = cmd_ctr.o ==# '0' ? v:false : v:true
         endif
@@ -1205,7 +1224,7 @@ endfunction
 
 " 从<...|...>中解析出fmt、o等参数
 function! s:GetCtrFromPrecmd(pre_cmd) abort
-    let l:cmd_ctr = {'fmt': '', 'fil': '', 'o': '', 'm': ''}
+    let l:cmd_ctr = {'fmt': '', 'fil': '', 'env': '', 'o': '', 'm': ''}
 
     if a:pre_cmd !~# '^<.*>$'
         return l:cmd_ctr
@@ -1219,6 +1238,8 @@ function! s:GetCtrFromPrecmd(pre_cmd) abort
             let l:cmd_ctr.fmt = strpart(l:field, strlen('fmt='))
         elseif l:field =~# '^fil='
             let l:cmd_ctr.fil = strpart(l:field, strlen('fil='))
+        elseif l:field =~# '^env='
+            let l:cmd_ctr.env = strpart(l:field, strlen('env='))
         elseif l:field =~# '^o='
             let l:cmd_ctr.o = strpart(l:field, strlen('o='))
         elseif l:field =~# '^m='
