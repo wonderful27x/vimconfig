@@ -184,7 +184,7 @@ nnoremap <S-Right> :<c-u>vertical resize +1<CR>
 " inoremap <C-f> *<esc>vB~gi<backspace>
 " 上面的版本也有问题，那就是会打断.的记录，导致后续执行.命令不能获得完整表达
 " 终终极版本: (1.先获取和转换单词 2.用<C-h>删除要转换的单词 " 3.重新插入转换的单词 全程没有离开插入模式，.能完美重放)
-let g:toggle_case_word = ''
+let s:toggle_case_word = ''
 inoremap <C-y> <C-r>=<SID>ToggleCase("word")<CR><C-r>=<SID>DeleteToggleWord()<CR><C-r>=<SID>InsertToggleWord()<CR>
 inoremap <C-f> <C-r>=<SID>ToggleCase("WORD")<CR><C-r>=<SID>DeleteToggleWord()<CR><C-r>=<SID>InsertToggleWord()<CR>
 " }}}
@@ -199,18 +199,18 @@ inoremap <C-f> <C-r>=<SID>ToggleCase("WORD")<CR><C-r>=<SID>DeleteToggleWord()<CR
 " The binary location is especially useful when edit with which is not English,
 " beacuse it will be difficult to use f to find where you want to go
 
-let g:c_jkhl_binary_called = 0
-let g:c_jkhl_col = 0
+let s:c_jkhl_binary_called = 0
+let s:c_jkhl_col = 0
 
-let g:v_beg = 0
-let g:v_mid = 0
-let g:v_end = 0
-let g:v_last_p = 0
+let s:v_beg = 0
+let s:v_mid = 0
+let s:v_end = 0
+let s:v_last_p = 0
 
-let g:h_beg = 0
-let g:h_mid = 0
-let g:h_end = 0
-let g:h_last_p = 0
+let s:h_beg = 0
+let s:h_mid = 0
+let s:h_end = 0
+let s:h_last_p = 0
 
 " 映射成<Plug>方便别的地方用
 nnoremap <Plug>(N_BinaryLocationDown)   :<c-u>call <SID>BinaryLocationV("down", "null")<CR>
@@ -266,18 +266,18 @@ endfunction
 " ==========functions for toggle case========== {{{
 " 插入转换单词
 function! s:InsertToggleWord() abort
-    return g:toggle_case_word
+    return s:toggle_case_word
 endfunction
 
 " 删除转换处单词
 function! s:DeleteToggleWord() abort
-    let len = strlen(g:toggle_case_word)
+    let len = strlen(s:toggle_case_word)
     return repeat("\<C-h>", len)
 endfunction
 
 " 光标前单词大小写转换
 function! s:ToggleCase(mode) abort
-    let g:toggle_case_word = ''
+    let s:toggle_case_word = ''
 
     let line = getline('.')
     let pos = col('.') - 1
@@ -298,9 +298,9 @@ function! s:ToggleCase(mode) abort
 
     for char in split(word, '\zs')
         if char =~ '\u'
-            let g:toggle_case_word .= tolower(char)
+            let s:toggle_case_word .= tolower(char)
         else
-            let g:toggle_case_word .= toupper(char)
+            let s:toggle_case_word .= toupper(char)
         endif
     endfor
 
@@ -332,34 +332,34 @@ function! s:KEY_H(count) abort
 endfunction
 
 function! s:ResetV() abort
-    let g:v_beg = line('w0')
-    let g:v_end = line('w$') + 1
-    let g:v_mid = g:v_beg + (g:v_end - g:v_beg) / 2
-    let g:v_last_p = 0
+    let s:v_beg = line('w0')
+    let s:v_end = line('w$') + 1
+    let s:v_mid = s:v_beg + (s:v_end - s:v_beg) / 2
+    let s:v_last_p = 0
 endfunction
 
 function! s:ResetH() abort
-    let g:h_beg = 1
-    let g:h_end = col('$')
-    let g:h_mid = g:h_beg + (g:h_end - g:h_beg) / 2
-    let g:h_last_p = 0
+    let s:h_beg = 1
+    let s:h_end = col('$')
+    let s:h_mid = s:h_beg + (s:h_end - s:h_beg) / 2
+    let s:h_last_p = 0
 endfunction
 
 function! s:BinaryClearFast() abort
-    if g:c_jkhl_binary_called == 0
+    if s:c_jkhl_binary_called == 0
         return
     endif
     call <SID>ResetV()
     call <SID>ResetH()
-    let g:c_jkhl_binary_called = 0
-    let g:c_jkhl_col = 0
+    let s:c_jkhl_binary_called = 0
+    let s:c_jkhl_col = 0
 endfunction
 
 function! s:BinaryClear(quiet) abort
     call <SID>ResetV()
     call <SID>ResetH()
-    let g:c_jkhl_binary_called = 0
-    let g:c_jkhl_col = 0
+    let s:c_jkhl_binary_called = 0
+    let s:c_jkhl_col = 0
     if a:quiet !=? 'true'
         echo "Binary location has been cleared!"
     endif
@@ -370,73 +370,73 @@ function! s:VisualMark()
 endfunction
 
 function! s:BinaryLocationV(direction, type) abort
-    if g:c_jkhl_binary_called == 0
-        let g:c_jkhl_col = col('.')
+    if s:c_jkhl_binary_called == 0
+        let s:c_jkhl_col = col('.')
     endif
-    let g:c_jkhl_binary_called += 1
+    let s:c_jkhl_binary_called += 1
 
     " 窗口可见第一行变化，即窗口滚动，reset 
     let v_p = line('w0')
-    if v_p != g:v_last_p
+    if v_p != s:v_last_p
        call <SID>ResetV()
-       let g:c_jkhl_col = col('.')
-       call cursor(g:v_mid, g:c_jkhl_col)
-       let g:v_last_p = v_p
+       let s:c_jkhl_col = col('.')
+       call cursor(s:v_mid, s:c_jkhl_col)
+       let s:v_last_p = v_p
        if a:type ==? 'visual'
            call <SID>VisualMark()
        endif
-       " echo "call BinaryLocationV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
+       " echo "call BinaryLocationV(\"" . a:direction . "\")" . " -> beg: " .  s:v_beg . " end: " . s:v_end . " mid: " . s:v_mid
        return
    endif
 
    if a:direction ==? 'down'
-       let g:v_beg = g:v_mid
+       let s:v_beg = s:v_mid
    elseif a:direction ==? 'up'
-       let g:v_end = g:v_mid
+       let s:v_end = s:v_mid
    endif
 
-   let g:v_mid = g:v_beg + (g:v_end - g:v_beg) / 2
+   let s:v_mid = s:v_beg + (s:v_end - s:v_beg) / 2
 
-   call cursor(g:v_mid, g:c_jkhl_col)
+   call cursor(s:v_mid, s:c_jkhl_col)
 
    if a:type ==? 'visual'
        call <SID>VisualMark()
    endif
 
-   " echo "call BinaryLocationV(\"" . a:direction . "\")" . " -> beg: " .  g:v_beg . " end: " . g:v_end . " mid: " . g:v_mid
+   " echo "call BinaryLocationV(\"" . a:direction . "\")" . " -> beg: " .  s:v_beg . " end: " . s:v_end . " mid: " . s:v_mid
 endfunction
 
 function! s:BinaryLocationH(direction, type) abort
-    let g:c_jkhl_binary_called += 1
+    let s:c_jkhl_binary_called += 1
 
     " 光标行发生变化，即上下移动了，reset
     let h_p = line('.')
-    if h_p != g:h_last_p
+    if h_p != s:h_last_p
         call <SID>ResetH()
-        call cursor(0, g:h_mid)
-        let g:h_last_p = h_p
+        call cursor(0, s:h_mid)
+        let s:h_last_p = h_p
         if a:type ==? 'visual'
            call <SID>VisualMark()
         endif
-        " echo "call BinaryLocationH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
+        " echo "call BinaryLocationH(\"" . a:direction . "\")" . " -> beg: " .  s:h_beg . " end: " . s:h_end . " mid: " . s:h_mid
         return
     endif
 
     if a:direction ==? 'left'
-        let g:h_end = g:h_mid
+        let s:h_end = s:h_mid
     elseif a:direction ==? 'right'
-        let g:h_beg = g:h_mid
+        let s:h_beg = s:h_mid
     endif
 
-    let g:h_mid = g:h_beg + (g:h_end - g:h_beg) / 2
+    let s:h_mid = s:h_beg + (s:h_end - s:h_beg) / 2
 
-    call cursor(0, g:h_mid)
+    call cursor(0, s:h_mid)
 
     if a:type ==? 'visual'
        call <SID>VisualMark()
     endif
 
-    " echo "call BinaryLocationH(\"" . a:direction . "\")" . " -> beg: " .  g:h_beg . " end: " . g:h_end . " mid: " . g:h_mid
+    " echo "call BinaryLocationH(\"" . a:direction . "\")" . " -> beg: " .  s:h_beg . " end: " . s:h_end . " mid: " . s:h_mid
 endfunction
 " }}}
 " }}}
@@ -1755,18 +1755,18 @@ nnoremap <leader>N :setlocal number!<CR>
 
 " toggle open/close quickfix window
 " learn what is wincmd w、winnr()
-" TODO bug: when use command 'copen' g:quickfix_is_open cannot be updated
+" TODO bug: when use command 'copen' s:quickfix_is_open cannot be updated
 nnoremap <leader>q :call QuickfixToggle()<cr>
-let g:quickfix_is_open = 0
+let s:quickfix_is_open = 0
 function! QuickfixToggle()
-    if g:quickfix_is_open
+    if s:quickfix_is_open
         cclose
-        let g:quickfix_is_open = 0
-        execute g:quickfix_return_to_window . "wincmd w"
+        let s:quickfix_is_open = 0
+        execute s:quickfix_return_to_window . "wincmd w"
     else
-        let g:quickfix_return_to_window = winnr()
+        let s:quickfix_return_to_window = winnr()
         botright copen
-        let g:quickfix_is_open = 1
+        let s:quickfix_is_open = 1
     endif
 endfunction
 " }}}
@@ -1830,7 +1830,7 @@ function! s:GrepDetect() abort
     for i in range(len(s:grep_tools))
         let l:tool = s:grep_tools[i]
         if executable(l:tool)
-            let g:grep_tool = l:tool
+            let s:grep_tool = l:tool
             return
         endif
     endfor
@@ -1840,15 +1840,15 @@ function! SetGrep(name) abort
     for i in range(len(s:grep_tools))
         let l:tool = s:grep_tools[i]
         if l:tool ==# a:name && executable(l:tool)
-            let g:grep_tool = l:tool
+            let s:grep_tool = l:tool
             break
         endif
     endfor
-    echo 'grep_tool = ' . g:grep_tool
+    echo 'grep_tool = ' . s:grep_tool
 endfunction
 " --------------------------------------------------
 let s:grep_tools = ['rg', 'grep']
-let g:grep_tool = 'grep'
+let s:grep_tool = 'grep'
 call s:GrepDetect()
 
 " ==========grep 路由========== {{{
@@ -1868,12 +1868,12 @@ function! s:GrepOperatorAsync(type, recursion) abort
         endif
 
         let l:grep_cmd = ''
-        if g:grep_tool ==# 'rg'
+        if s:grep_tool ==# 'rg'
             let l:grep_cmd = s:BuildCmdRipGrep(shellescape(@@), a:recursion)
-        elseif g:grep_tool ==# 'grep'
+        elseif s:grep_tool ==# 'grep'
             let l:grep_cmd = s:BuildCmdGnuGrep(shellescape(@@), a:recursion)
         else
-            echo "Unsupported grep tool: " . g:grep_tool
+            echo "Unsupported grep tool: " . s:grep_tool
             return
         endif
 
@@ -2291,19 +2291,19 @@ inoremap <silent><expr> <TAB>
 inoremap <expr><S-TAB> pumvisible() ? "\<C-p>" : "\<C-h>"
 
 " 使用<C-j>/<C-k>上下滚动popup window
-let g:CJ_cmd_nmap = maparg('<C-j>', 'n')
-let g:CK_cmd_nmap = maparg('<C-k>', 'n')
-if exists('*popup_list') && g:CJ_cmd_nmap =~# '^<Plug>' && g:CK_cmd_nmap =~# '^<Plug>'
+let g:cj_cmd_nmap = maparg('<C-j>', 'n')
+let g:ck_cmd_nmap = maparg('<C-k>', 'n')
+if exists('*popup_list') && g:cj_cmd_nmap =~# '^<Plug>' && g:ck_cmd_nmap =~# '^<Plug>'
     " 如果 maparg 返回的是 <Plug>(...)，把它变成可执行的特殊键形式："\<Plug>(...)"
-    let g:CJ_cmd_nmap = "\<Plug>" . g:CJ_cmd_nmap[6:]
-    let g:CK_cmd_nmap = "\<Plug>" . g:CK_cmd_nmap[6:]
+    let g:cj_cmd_nmap = "\<Plug>" . g:cj_cmd_nmap[6:]
+    let g:ck_cmd_nmap = "\<Plug>" . g:ck_cmd_nmap[6:]
     nnoremap <silent><expr> <C-j>
         \ empty(popup_list())
-        \ ? g:CJ_cmd_nmap
+        \ ? g:cj_cmd_nmap
         \ : lsp#scroll(+1)
     nnoremap <silent><expr> <C-k>
         \ empty(popup_list())
-        \ ? g:CK_cmd_nmap
+        \ ? g:ck_cmd_nmap
         \ : lsp#scroll(-1)
 endif
 " 使用<C-u>/<C-d>上下滚动popup window
@@ -2340,16 +2340,16 @@ function! s:LspSemanticClear() abort
   endfor
 endfunction
 
-let g:_lsp_saved_signcolumn = &signcolumn
+let s:_lsp_saved_signcolumn = &signcolumn
 function! s:LspEnable() abort
-    let g:_lsp_saved_signcolumn = &signcolumn
+    let s:_lsp_saved_signcolumn = &signcolumn
     call lsp#enable()
     set signcolumn=yes
 endfunction
 
 function! s:LspDisable() abort
     call lsp#disable()
-    let &signcolumn = get(g:, '_lsp_saved_signcolumn', 'auto')
+    let &signcolumn = get(s:, '_lsp_saved_signcolumn', 'auto')
     call s:LspSemanticClear()
     LspStopServer
 endfunction
