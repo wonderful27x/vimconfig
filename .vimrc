@@ -514,6 +514,7 @@ let s:async_jobs = {}
 "     \ 'fmt': '',    "输出格式
 "     \ 'fil': '',    "填充类型，none/all/out/err
 "     \ 'o': v:false, "命令结束后是否打开quickfix
+"     \ 'm': v:true,  "是否显示过程和状态信息, 如果m=0, out/err会被打印
 "     \ 'ts': '',     "命令执行起始时间
 "     \ 'te': '',     "命令执行结束时间
 "     \ 'sts': '',    "状态信息
@@ -552,7 +553,7 @@ let s:async_jobs = {}
 " --key=: Async的完整命令
 " --all=: 停止所有任务
 " --stop-way=: 停止方式['term', 'hup', 'int', 'quit', 'kill']
-command! -nargs=+ Async call s:Async(<q-args>)
+command! -nargs=+ -complete=customlist,s:AsyncComplete Async call s:Async(<q-args>)
 command! -nargs=* AsyncQuery call s:AsyncQuery(<q-args>)
 command! -nargs=+ -complete=customlist,s:AsyncStopComplete AsyncStop call s:AsyncStop(<q-args>)
 " ------------------------------------------------------
@@ -616,14 +617,17 @@ function! s:Async(args) abort
         \ 'subjob_id': 0
     \ }
 
-    echo "Async-" . s:GetCurrSubjobProgram(l:cmd) . " running ... |"
-
     " 先把timer启动起来，防止job结束过快timer还没创建
     " 每 200 毫秒更新一次状态
     call s:StartAsyncTimer(l:cmd, 200)
 
     " 启动异步任务
     call s:StartAsyncSubjob(l:cmd)
+endfunction
+
+function! s:AsyncComplete(ArgLead, CmdLine, CursorPos) abort
+    let options = ['<m=0>', '<o=1>', '<len=', '<fil=', '<fmt=']
+    return filter(options, 'stridx(v:val, a:ArgLead) == 0')
 endfunction
 
 function! s:GenJobID() abort
@@ -653,13 +657,13 @@ function! s:IsLastSubJob(key) abort
     return s:async_jobs[a:key].subjob_id == l:subjob_size - 1
 endfunction
 
-function! s:OnJobOut(key, ch, msg) abort
-    call add(s:async_jobs[a:key].outs, a:msg)
-endfunction
-
 " ==========async的启动========== {{{
 " 启动一个timer
 function! s:StartAsyncTimer(key, tms) abort
+    if s:GetCurrSubjob(a:key).m
+        echo "Async-" . s:GetCurrSubjobProgram(a:key) . " running ... |"
+    endif
+
     let l:timer = timer_start(
         \ a:tms,
         \ function('s:AsyncTick', [a:key]),
@@ -703,13 +707,37 @@ endfunction
 " }}}
 
 " ==========async的回调及后处理========== {{{
+function! s:OnJobOut(key, ch, msg) abort
+    " OnJobExit后仍可能收到OnJobOut和OnJobErr
+    if !has_key(s:async_jobs, a:key)
+        return
+    endif
+
+    call add(s:async_jobs[a:key].outs, a:msg)
+
+    " 如果out不会填充到quickfix，就打印它
+    " 如果m=0也打印，因为过程信息没有了
+    let l:subjob = s:GetCurrSubjob(a:key)
+    if !l:subjob.m || (l:subjob.fil !=# 'out' && l:subjob.fil !=# 'all')
+        " echom s:GetCurrSubjobProgram(a:key) . ": " . a:msg
+        echom a:msg
+    endif
+endfunction
+
 function! s:OnJobErr(key, ch, msg) abort
+    " OnJobExit后仍可能收到OnJobOut和OnJobErr
+    if !has_key(s:async_jobs, a:key)
+        return
+    endif
+
     call add(s:async_jobs[a:key].errs, a:msg)
 
     " 如果err不会填充到quickfix，就打印它
-    let l:fil = s:GetCurrSubjob(a:key).fil
-    if l:fil !=# 'err' && l:fil !=# 'all'
-        echom "Error: " . a:msg
+    " 如果m=0也打印，因为过程信息没有了
+    let l:subjob = s:GetCurrSubjob(a:key)
+    if !l:subjob.m || (l:subjob.fil !=# 'err' && l:subjob.fil !=# 'all')
+        " echom s:GetCurrSubjobProgram(a:key) . ": " . a:msg
+        echom a:msg
     endif
 endfunction
 
@@ -758,31 +786,35 @@ function! s:OnJobExit(key, job, code) abort
             let s:async_jobs[a:key].prog_idx = 0
             let s:async_jobs[a:key].subjob_id += 1
 
-            echo "Async-" . s:GetCurrSubjobProgram(a:key) . " running ... |"
+            if l:curr_subjob.m
+                echo "Async-" . s:GetCurrSubjobProgram(a:key) . " running ... |"
+            endif
             call s:StartAsyncSubjob(a:key)
         endif
     endtry
 endfunction
 
 function! s:AsyncJobDone(key, code) abort
-    echom "Async-" . s:GetCurrSubjobProgram(a:key) . " finish(" . a:code . "). Processing data ..."
+    let l:subjob = s:GetCurrSubjob(a:key)
+
+    if l:subjob.m
+        echom "Async-" . s:GetCurrSubjobProgram(a:key) . " finish(" . a:code . "). Processing data ..."
+    endif
 
     " call s:EchoMsg(s:async_jobs[a:key].outs)
     " call s:EchoMsg(s:async_jobs[a:key].errs)
 
     let l:num = s:AsyncDataProcess(a:key, a:code)
     let l:finish_type = s:async_jobs[a:key].state ==# 'stopping' ? ' xdone | ' : ' done | '
-    let l:subjob = s:GetCurrSubjob(a:key)
     let l:time = printf('%.1f', reltimefloat(reltime(l:subjob.ts)))
 
-    echom "Async-" . s:GetCurrSubjobProgram(a:key) . l:finish_type . l:num.n_outs . " outs + " . l:num.n_errs . ' errs | ' . l:time . 's'
+    if l:subjob.m
+        echom "Async-" . s:GetCurrSubjobProgram(a:key) . l:finish_type . l:num.n_outs . " outs + " . l:num.n_errs . ' errs | ' . l:time . 's'
+    endif
 endfunction
 
 function! s:AsyncDataProcess(key, code) abort
     let l:subjob = s:GetCurrSubjob(a:key)
-    if l:subjob.fil ==? 'none'
-        return
-    endif
 
     let l:format = &errorformat
     " 如果指定了具体格式, 过滤空项
@@ -793,6 +825,10 @@ function! s:AsyncDataProcess(key, code) abort
     else
         let l:errs = s:async_jobs[a:key].errs
         let l:outs = s:async_jobs[a:key].outs
+    endif
+
+    if l:subjob.fil ==? 'none'
+        return {'n_outs': len(l:outs), 'n_errs': len(l:errs)}
     endif
 
     let l:filled = v:false
@@ -945,11 +981,16 @@ function! s:AsyncTick(key, timer) abort
 
     " let s:async_jobs[a:key].prog_idx = (s:async_jobs[a:key].prog_idx + 1) % len(chars)
     " " 在timer的回调中，echo后面不要有任何代码，否则光标会闪烁!!!
-    " echo 'Async-' . s:GetCurrSubjobProgram(a:key) . ' running ... ' . chars[s:async_jobs[a:key].prog_idx]
+    " if s:GetCurrSubjob(a:key).m
+    "     echo 'Async-' . s:GetCurrSubjobProgram(a:key) . ' running ... ' . chars[s:async_jobs[a:key].prog_idx]
+    " endif
 
     let s:async_tick_ctr.index = (s:async_tick_ctr.index + 1) % len(chars)
     " 在timer的回调中，echo后面不要有任何代码，否则光标会闪烁!!!
-    echo 'Async-' . s:GetCurrSubjobProgram(a:key) . ' running ... ' . chars[s:async_tick_ctr.index]
+
+    if s:GetCurrSubjob(a:key).m
+        echo 'Async-' . s:GetCurrSubjobProgram(a:key) . ' running ... ' . chars[s:async_tick_ctr.index]
+    endif
 endfunction
 " }}}
 
@@ -1099,6 +1140,7 @@ function! s:GetDefaultSubJob(cmd, last) abort
         \ 'fmt': &errorformat,
         \ 'fil': 'all',
         \ 'o': v:false,
+        \ 'm': v:true,
         \ 'ts': '',
         \ 'te': '',
         \ 'sts': 'uinit'
@@ -1138,10 +1180,19 @@ function! s:ParseAsyncArgs(args) abort
             let subjob.fmt = cmd_ctr.fmt
         endif
         if !empty(cmd_ctr.fil)
-            let subjob.fil = cmd_ct.fil
+            let subjob.fil = cmd_ctr.fil
+            if cmd_ctr.fil !=# 'none'
+                        \ && cmd_ctr.fil !=# 'out'
+                        \ && cmd_ctr.fil !=# 'err'
+                        \ && cmd_ctr.fil !=# 'all'
+                echom "Warning: only support fil=[none/out/err/all], but is ". subjob.fil
+            endif
         endif
         if !empty(cmd_ctr.o)
             let subjob.o = cmd_ctr.o ==# '0' ? v:false : v:true
+        endif
+        if !empty(cmd_ctr.m)
+            let subjob.m = cmd_ctr.m ==# '0' ? v:false : v:true
         endif
 
         " 加入到列表
@@ -1153,7 +1204,7 @@ endfunction
 
 " 从<...|...>中解析出fmt、o等参数
 function! s:GetCtrFromPrecmd(pre_cmd) abort
-    let l:cmd_ctr = {'fmt': '', 'fil': '', 'o': ''}
+    let l:cmd_ctr = {'fmt': '', 'fil': '', 'o': '', 'm': ''}
 
     if a:pre_cmd !~# '^<.*>$'
         return l:cmd_ctr
@@ -1169,6 +1220,8 @@ function! s:GetCtrFromPrecmd(pre_cmd) abort
             let l:cmd_ctr.fil = strpart(l:field, strlen('fil='))
         elseif l:field =~# '^o='
             let l:cmd_ctr.o = strpart(l:field, strlen('o='))
+        elseif l:field =~# '^m='
+            let l:cmd_ctr.m = strpart(l:field, strlen('m='))
         endif
     endfor
 
@@ -1521,23 +1574,22 @@ function! s:GenCscopeFilesAsync(args) abort
     " include
     let l:inc = ''
     if l:lang =~? '^\(c\|c++\|c,c++\)$'
-        let l:inc = '"(" -name "*.c" -o -name "*.cc" -o -name "*.cpp" -o -name "*.h" -o -name "*.hpp" ")" '
+        let l:inc = '-type f "(" -name "*.c" -o -name "*.cc" -o -name "*.cpp" -o -name "*.h" -o -name "*.hpp" ")" '
     elseif l:lang ==? 'python'
-        let l:inc = '"(" -name "*.py" ")" '
+        let l:inc = '-type f "(" -name "*.py" ")" '
     endif
 
     " exclude dirs
     let l:exc =
-        \ '"(" '
+        \ '"(" -type d "(" '
         \ . '-name ".git" '
         \ . '-o -name "build" '
-        \ . '")" -prune -o '
+        \ . '")" ")" -prune -o '
 
     " build ctags command
     let l:cmd =
         \ 'Async find . '
         \ . l:exc
-        \ . '-type f '
         \ . l:inc
         \ . '-print > cscope.files'
 
