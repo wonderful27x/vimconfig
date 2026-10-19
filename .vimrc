@@ -349,15 +349,15 @@ function! s:BinaryClearFast() abort
     if s:c_jkhl_binary_called == 0
         return
     endif
-    call <SID>ResetV()
-    call <SID>ResetH()
+    call s:ResetV()
+    call s:ResetH()
     let s:c_jkhl_binary_called = 0
     let s:c_jkhl_col = 0
 endfunction
 
 function! s:BinaryClear(quiet) abort
-    call <SID>ResetV()
-    call <SID>ResetH()
+    call s:ResetV()
+    call s:ResetH()
     let s:c_jkhl_binary_called = 0
     let s:c_jkhl_col = 0
     if a:quiet !=? 'true'
@@ -378,12 +378,12 @@ function! s:BinaryLocationV(direction, type) abort
     " 窗口可见第一行变化，即窗口滚动，reset 
     let v_p = line('w0')
     if v_p != s:v_last_p
-       call <SID>ResetV()
+       call s:ResetV()
        let s:c_jkhl_col = col('.')
        call cursor(s:v_mid, s:c_jkhl_col)
        let s:v_last_p = v_p
        if a:type ==? 'visual'
-           call <SID>VisualMark()
+           call s:VisualMark()
        endif
        " echo "call BinaryLocationV(\"" . a:direction . "\")" . " -> beg: " .  s:v_beg . " end: " . s:v_end . " mid: " . s:v_mid
        return
@@ -400,7 +400,7 @@ function! s:BinaryLocationV(direction, type) abort
    call cursor(s:v_mid, s:c_jkhl_col)
 
    if a:type ==? 'visual'
-       call <SID>VisualMark()
+       call s:VisualMark()
    endif
 
    " echo "call BinaryLocationV(\"" . a:direction . "\")" . " -> beg: " .  s:v_beg . " end: " . s:v_end . " mid: " . s:v_mid
@@ -412,11 +412,11 @@ function! s:BinaryLocationH(direction, type) abort
     " 光标行发生变化，即上下移动了，reset
     let h_p = line('.')
     if h_p != s:h_last_p
-        call <SID>ResetH()
+        call s:ResetH()
         call cursor(0, s:h_mid)
         let s:h_last_p = h_p
         if a:type ==? 'visual'
-           call <SID>VisualMark()
+           call s:VisualMark()
         endif
         " echo "call BinaryLocationH(\"" . a:direction . "\")" . " -> beg: " .  s:h_beg . " end: " . s:h_end . " mid: " . s:h_mid
         return
@@ -433,7 +433,7 @@ function! s:BinaryLocationH(direction, type) abort
     call cursor(0, s:h_mid)
 
     if a:type ==? 'visual'
-       call <SID>VisualMark()
+       call s:VisualMark()
     endif
 
     " echo "call BinaryLocationH(\"" . a:direction . "\")" . " -> beg: " .  s:h_beg . " end: " . s:h_end . " mid: " . s:h_mid
