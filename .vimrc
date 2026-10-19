@@ -110,15 +110,12 @@ nnoremap <silent> <leader><C-l> :<C-u>nohlsearch<CR><C-l>
 " map Y to yank text from cursor to the end of line
 nnoremap Y y$
 
-" 定义快捷键前缀<Leader>, todo: 有冲突
-" let mapleader=";"
 " 设置快捷键将选中文本复制到系统剪切板
-vnoremap <Leader>y "+y
+nnoremap <leader>y "+y
+xnoremap <leader>y "+y
 nnoremap <Leader>Y "+y$
-nnoremap <Leader>yy "+yy
 nnoremap <Leader><Leader>y "+yy
-nnoremap <silent> <leader>y :set operatorfunc=<SID>Yank2Clipboard<CR>g@
-" " 设置快捷键将系统剪切板内容粘贴至vim
+" 设置快捷键将系统剪切板内容粘贴至vim
 nnoremap <Leader>p "+p
 nnoremap <Leader>P "+P
 
@@ -221,10 +218,10 @@ nnoremap <Plug>(N_BinaryLocationUp)     :<c-u>call <SID>BinaryLocationV("up", "n
 nnoremap <Plug>(N_BinaryLocationLeft)   :<c-u>call <SID>BinaryLocationH("left", "null")<CR>
 nnoremap <Plug>(N_BinaryLocationRight)  :<c-u>call <SID>BinaryLocationH("right", "null")<CR>
 " -------------------------------------------------
-vnoremap <Plug>(V_BinaryLocationDown)   :<c-u>call <SID>BinaryLocationV("down", "visual")<CR>
-vnoremap <Plug>(V_BinaryLocationUp)     :<c-u>call <SID>BinaryLocationV("up", "visual")<CR>
-vnoremap <Plug>(V_BinaryLocationLeft)   :<c-u>call <SID>BinaryLocationH("left", "visual")<CR>
-vnoremap <Plug>(V_BinaryLocationRight)  :<c-u>call <SID>BinaryLocationH("right", "visual")<CR>
+xnoremap <Plug>(V_BinaryLocationDown)   :<c-u>call <SID>BinaryLocationV("down", "visual")<CR>
+xnoremap <Plug>(V_BinaryLocationUp)     :<c-u>call <SID>BinaryLocationV("up", "visual")<CR>
+xnoremap <Plug>(V_BinaryLocationLeft)   :<c-u>call <SID>BinaryLocationH("left", "visual")<CR>
+xnoremap <Plug>(V_BinaryLocationRight)  :<c-u>call <SID>BinaryLocationH("right", "visual")<CR>
 " ------------------------------------------
 nmap <silent> <C-j> <Plug>(N_BinaryLocationDown)
 nmap <silent> <C-k> <Plug>(N_BinaryLocationUp)
@@ -232,10 +229,10 @@ nmap <silent> <C-h> <Plug>(N_BinaryLocationLeft)
 nmap <silent> <C-l> <Plug>(N_BinaryLocationRight)
 " -------------------------------------------------
 nnoremap v vmv
-vmap <silent> <C-j> <Plug>(V_BinaryLocationDown)
-vmap <silent> <C-k> <Plug>(V_BinaryLocationUp)
-vmap <silent> <C-h> <Plug>(V_BinaryLocationLeft)
-vmap <silent> <C-l> <Plug>(V_BinaryLocationRight)
+xmap <silent> <C-j> <Plug>(V_BinaryLocationDown)
+xmap <silent> <C-k> <Plug>(V_BinaryLocationUp)
+xmap <silent> <C-h> <Plug>(V_BinaryLocationLeft)
+xmap <silent> <C-l> <Plug>(V_BinaryLocationRight)
 " ------------------------------------------
 " nnoremap <silent> j j:<c-u>call <SID>BinaryClearFast()<CR>
 " nnoremap <silent> k k:<c-u>call <SID>BinaryClearFast()<CR>
@@ -251,7 +248,8 @@ nnoremap <silent> j :<c-u>call <SID>KEY_J(v:count1)<CR>
 nnoremap <silent> k :<c-u>call <SID>KEY_K(v:count1)<CR>
 nnoremap <silent> l :<c-u>call <SID>KEY_L(v:count1)<CR>
 nnoremap <silent> h :<c-u>call <SID>KEY_H(v:count1)<CR>
-noremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
+nnoremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
+xnoremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
 " }}}
 
 " ================functions================ {{{
@@ -263,20 +261,6 @@ function! s:VSetSearch(cmdtype) abort
     let @s = temp
 endfunction
 " }}}
-
-" ==========functions for clipboard yank========== {{{
-function! s:Yank2Clipboard(type) abort
-    " yank selected text
-    if a:type ==# 'v'
-        normal! `<v`>"+y
-    elseif a:type ==# 'char'
-        normal! `[v`]"+y
-    elseif a:type ==# 'line'
-        normal! `[V`]"+y
-    else
-        return
-    endif
-endfunction
 " }}}
 
 " ==========functions for toggle case========== {{{
@@ -382,7 +366,7 @@ function! s:BinaryClear(quiet) abort
 endfunction
 
 function! s:VisualMark()
-    silent execute "normal! mw`vv`w"
+    silent execute "normal! `vv``"
 endfunction
 
 function! s:BinaryLocationV(direction, type) abort
@@ -1787,19 +1771,9 @@ function! QuickfixToggle()
 endfunction
 " }}}
 
-" ==========hex show========== {{{
-let g:hex_show = 0
-nnoremap <silent> <F6> :call <SID>HexShowToggle()<CR>
-function! s:HexShowToggle() abort
-    let g:hex_show = !g:hex_show
-    if g:hex_show
-        silent execute "%!xxd"
-        echo "hex show"
-    else
-        silent execute "%!xxd -r"
-        echo "restore from hex"
-    endif
-endfunction
+" ==========hex format========== {{{
+command! Hex %!xxd
+command! Uhex %!xxd -r
 " }}}
 
 " ==========convenient map for file finding========== {{{
@@ -1837,12 +1811,12 @@ nnoremap <leader><leader>ss :silent! vimgrep /<C-r><C-w>/gj ./**/* \| botright c
 " the two map below are for nomal mode, visual mode
 " how to use: <localleader>giw, viw<localleader>g ...
 nnoremap <silent> <leader>g :set operatorfunc=<SID>GrepOperatorR<CR>g@
-vnoremap <silent> <leader>g :<c-u>call <SID>GrepOperatorR(visualmode())<CR>
+xnoremap <silent> <leader>g :<c-u>call <SID>GrepOperatorR(visualmode())<CR>
 nnoremap <silent> <leader>G :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-vnoremap <silent> <leader>G :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
+xnoremap <silent> <leader>G :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
 " better use than <leader>G
 nnoremap <silent> <leader><leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-vnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
+xnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
 
 function! s:GrepOperatorR(type)
     call s:GrepOperatorAsync(a:type, 1)
@@ -2105,7 +2079,7 @@ Plug 'mhinz/vim-signify'                          "git工具
 Plug 'voldikss/vim-translator'                    "vim翻译工具
 " ------------------------------------------------------------
 Plug 'prabirshrestha/vim-lsp'                     "LSP core
-Plug 'mattn/vim-lsp-settings'                     "LSP语言服务配置
+" Plug 'mattn/vim-lsp-settings'                     "LSP语言服务配置
 Plug 'prabirshrestha/asyncomplete.vim'            "lsp自动补全
 Plug 'prabirshrestha/asyncomplete-lsp.vim'        "lsp自动补全
 " ------------------------------------------------------------
@@ -2137,16 +2111,32 @@ let g:signify_disable_by_default = 1
 " ==========vim-translator settings========== {{{
 " translator variable
 " let g:translator_proxy_url = 'socks5://127.0.0.1:1080'
-let g:translator_default_engines = ['bing', 'haici']
+" let g:translator_default_engines = ['bing', 'haici']
+" let g:translator_default_engines = ['bing', 'haici', 'youdao']
 " convenient map for translating
-nnoremap <leader>t :Translate <C-r><C-w>
-nnoremap <leader><leader>t :Translate! 
-vnoremap <leader>t :Translate
-vnoremap <leader><leader>t :Translate!
-" nnoremap <leader>t :TranslateW <C-r><C-w>
-" nnoremap <leader><leader>t :TranslateW! 
-" vnoremap <leader>t :TranslateW
-" vnoremap <leader><leader>t :TranslateW!
+" Echo translation in the cmdline
+nnoremap <leader>tt :Translate <C-r><C-w>
+xnoremap <leader>tt :Translate
+nnoremap <leader><leader>tt :Translate!
+xnoremap <leader><leader>tt :Translate!
+" -----------------------------------------
+" Display translation in a window
+nnoremap <leader>tw :TranslateW <C-r><C-w>
+xnoremap <leader>tw :TranslateW
+nnoremap <leader><leader>tw :TranslateW!
+xnoremap <leader><leader>tw :TranslateW!
+" -----------------------------------------
+" Replace the text with translation
+nnoremap <leader>tr :TranslateR <C-r><C-w>
+xnoremap <leader>tr :TranslateR
+nnoremap <leader><leader>tr :TranslateR!
+xnoremap <leader><leader>tr :TranslateR!
+" -----------------------------------------
+" Translate the text in clipboard
+nnoremap <leader>tx :TranslateX <C-r><C-w>
+xnoremap <leader>tx :TranslateX
+nnoremap <leader><leader>tx :TranslateX!
+xnoremap <leader><leader>tx :TranslateX!
 " }}}
 
 " ==========vim-lsp settings========== {{{
@@ -2157,33 +2147,33 @@ vnoremap <leader><leader>t :Translate!
 " \   }
 " \}
 
-" " PYTHON LSP
-" " 若无法忍受vim-lsp-settings插件在打开文件时的卡顿
-" " 手动配置LSP语言服务, 请注释: Plug 'mattn/vim-lsp-settings'
-" if executable('ty')
-"     " pip install ty
-"     au User lsp_setup call lsp#register_server({
-"         \ 'name': 'ty',
-"         \ 'cmd': {server_info->['ty', 'server']},
-"         \ 'allowlist': ['python'],
-"         \ })
-" endif
+" PYTHON LSP
+" 若无法忍受vim-lsp-settings插件在打开文件时的卡顿
+" 手动配置LSP语言服务, 请注释: Plug 'mattn/vim-lsp-settings'
+if executable('ty')
+    " pip install ty
+    au User lsp_setup call lsp#register_server({
+        \ 'name': 'ty',
+        \ 'cmd': {server_info->['ty', 'server']},
+        \ 'allowlist': ['python'],
+        \ })
+endif
 
-" " C/C++ LSP
-" " 若WSL下无法识别std，加入下面这条命令
-" \   '--query-driver=/usr/bin/c++*,/usr/bin/g++*',
-" if executable('clangd')
-"     " sudo apt install clangd
-"     au User lsp_setup call lsp#register_server({
-"         \ 'name': 'clangd',
-"         \ 'cmd': {server_info->[
-"         \   'clangd',
-"         \   '--background-index',
-"         \   '--clang-tidy',
-"         \ ]},
-"         \ 'allowlist': ['c', 'cpp'],
-"         \ })
-" endif
+" C/C++ LSP
+" 若WSL下无法识别std，加入下面这条命令
+\   '--query-driver=/usr/bin/c++*,/usr/bin/g++*',
+if executable('clangd')
+    " sudo apt install clangd
+    au User lsp_setup call lsp#register_server({
+        \ 'name': 'clangd',
+        \ 'cmd': {server_info->[
+        \   'clangd',
+        \   '--background-index',
+        \   '--clang-tidy',
+        \ ]},
+        \ 'allowlist': ['c', 'cpp'],
+        \ })
+endif
 
 
 " 启用原生LSP
@@ -2310,11 +2300,22 @@ if exists('*popup_list') && g:CJ_cmd_nmap =~# '^<Plug>' && g:CK_cmd_nmap =~# '^<
     nnoremap <silent><expr> <C-j>
         \ empty(popup_list())
         \ ? g:CJ_cmd_nmap
-        \ : lsp#scroll(+4)
+        \ : lsp#scroll(+1)
     nnoremap <silent><expr> <C-k>
         \ empty(popup_list())
         \ ? g:CK_cmd_nmap
-        \ : lsp#scroll(-4)
+        \ : lsp#scroll(-1)
+endif
+" 使用<C-u>/<C-d>上下滚动popup window
+if exists('*popup_list')
+    nnoremap <silent><expr> <C-u>
+            \ empty(popup_list())
+            \ ? "<C-u>"
+            \ : lsp#scroll(-4)
+    nnoremap <silent><expr> <C-d>
+            \ empty(popup_list())
+            \ ? "<C-d>"
+            \ : lsp#scroll(+4)
 endif
 
 " 重启服务
