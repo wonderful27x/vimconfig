@@ -86,7 +86,7 @@ Recommend compile source code
 **custom skills**
 * `\o` : max window size
 * `\x` : min window horizontal
-* `\\x`: min window vertical
+* `\X` : min window vertical
 * `<S-Up>`   : window size +1 horizontal
 * `<S-Down>` : window size -1 horizontal
 * `<S-Left>` : window size -1 vertical

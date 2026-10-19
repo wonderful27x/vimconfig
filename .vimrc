@@ -114,7 +114,7 @@ nnoremap Y y$
 nnoremap <leader>y "+y
 xnoremap <leader>y "+y
 nnoremap <Leader>Y "+y$
-nnoremap <Leader><Leader>y "+yy
+" nnoremap <Leader><Leader>y "+yy
 " 设置快捷键将系统剪切板内容粘贴至vim
 nnoremap <Leader>p "+p
 nnoremap <Leader>P "+P
@@ -152,7 +152,8 @@ endif
 "==========window settings========== {{{
 " set window size to 0 but not close
 nnoremap <leader>x :<c-u>vertical resize 0<CR>
-nnoremap <leader><leader>x :<c-u>resize 0<CR>
+nnoremap <leader>X :<c-u>resize 0<CR>
+" nnoremap <leader><leader>x :<c-u>resize 0<CR>
 " max window size
 nnoremap <leader>o :<c-u>resize 9999<CR>:<c-u>vertical resize 9999<CR>:echo "max window size"<CR>
 " increase/decrease window size
@@ -1828,11 +1829,6 @@ command! Hex %!xxd
 command! Uhex %!xxd -r
 " }}}
 
-" ==========convenient map for file finding========== {{{
-nnoremap <leader>f :find ./**/
-nnoremap <leader><leader>f :find ./**/<C-r><C-w>
-" }}}
-
 " ==========convenient map for grep searching========== {{{
 " ==========vim grep========== {{{
 " command completement of search
@@ -1840,19 +1836,19 @@ nnoremap <leader><leader>f :find ./**/<C-r><C-w>
 " j: 不跳转到第一个匹配
 " botright cwindow: 如果结果不为空最底部打开quickfix window
 " <S-Left>/<Left>: 用于修改光标位置
-nnoremap <leader>sw :vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<S-Left><S-Left><S-Left><S-Left><Left><Left><Left><Left><Left><Left>
-nnoremap <leader><leader>sw :vimgrep /<C-r><C-w>/gj % \| botright cwindow<S-Left><S-Left><S-Left><S-Left><Left><Left><Left><Left>
+nnoremap <leader>vw :vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<S-Left><S-Left><S-Left><S-Left><Left><Left><Left><Left><Left><Left>
+nnoremap <leader>Vw :vimgrep /<C-r><C-w>/gj % \| botright cwindow<S-Left><S-Left><S-Left><S-Left><Left><Left><Left><Left>
 
 " command completement of grep
-nnoremap <leader>sc :silent! vimgrep /\<<C-r><C-w>\>/gj ./**/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
-nnoremap <leader>sh :silent! vimgrep /\<<C-r><C-w>\>/gj ./**/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
-nnoremap <leader>s% :silent! vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<C-f>BBBBhhhhhh
-nnoremap <leader>ss :silent! vimgrep /\<<C-r><C-w>\>/gj ./**/* \| botright cwindow<C-f>BBBh
+nnoremap <leader>vc :silent! vimgrep /\<<C-r><C-w>\>/gj ./**/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader>vh :silent! vimgrep /\<<C-r><C-w>\>/gj ./**/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader>v% :silent! vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader>vv :silent! vimgrep /\<<C-r><C-w>\>/gj ./**/* \| botright cwindow<C-f>BBBh
 " -----------------------------------------------------------------------------------------------------------
-nnoremap <leader><leader>sc :silent! vimgrep /<C-r><C-w>/gj ./**/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhh
-nnoremap <leader><leader>sh :silent! vimgrep /<C-r><C-w>/gj ./**/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhh
-nnoremap <leader><leader>s% :silent! vimgrep /<C-r><C-w>/gj % \| botright cwindow<C-f>BBBBhhhh
-nnoremap <leader><leader>ss :silent! vimgrep /<C-r><C-w>/gj ./**/* \| botright cwindow<C-f>BBBh
+nnoremap <leader>Vc :silent! vimgrep /<C-r><C-w>/gj ./**/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader>Vh :silent! vimgrep /<C-r><C-w>/gj ./**/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader>V% :silent! vimgrep /<C-r><C-w>/gj % \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader>Vs :silent! vimgrep /<C-r><C-w>/gj ./**/* \| botright cwindow<C-f>BBBh
 " }}}
 
 " ==========async grep========== {{{
@@ -1867,8 +1863,8 @@ xnoremap <silent> <leader>g :<c-u>call <SID>GrepOperatorR(visualmode())<CR>
 nnoremap <silent> <leader>G :set operatorfunc=<SID>GrepOperatorNR<CR>g@
 xnoremap <silent> <leader>G :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
 " better use than <leader>G
-nnoremap <silent> <leader><leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-xnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
+" nnoremap <silent> <leader><leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
+" xnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
 
 function! s:GrepOperatorR(type)
     call s:GrepOperatorAsync(a:type, 1)
@@ -2135,6 +2131,8 @@ Plug 'prabirshrestha/vim-lsp'                     "LSP core
 Plug 'prabirshrestha/asyncomplete.vim'            "lsp自动补全
 Plug 'prabirshrestha/asyncomplete-lsp.vim'        "lsp自动补全
 " ------------------------------------------------------------
+" Plug 'easymotion/vim-easymotion'                  "跳转
+" ------------------------------------------------------------
 " Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app && npx --yes yarn install' }
 " ------------------------------------------------------------
 " Plug 'weirongxu/plantuml-previewer.vim'           "plantuml预览, need sudo apt-get install graphviz
@@ -2169,26 +2167,26 @@ let g:signify_disable_by_default = 1
 " Echo translation in the cmdline
 nnoremap <leader>tt :Translate <C-r><C-w>
 xnoremap <leader>tt :Translate
-nnoremap <leader><leader>tt :Translate!
-xnoremap <leader><leader>tt :Translate!
+nnoremap <leader>Tt :Translate!
+xnoremap <leader>Tt :Translate!
 " -----------------------------------------
 " Display translation in a window
 nnoremap <leader>tw :TranslateW <C-r><C-w>
 xnoremap <leader>tw :TranslateW
-nnoremap <leader><leader>tw :TranslateW!
-xnoremap <leader><leader>tw :TranslateW!
+nnoremap <leader>Tw :TranslateW!
+xnoremap <leader>Tw :TranslateW!
 " -----------------------------------------
 " Replace the text with translation
 nnoremap <leader>tr :TranslateR <C-r><C-w>
 xnoremap <leader>tr :TranslateR
-nnoremap <leader><leader>tr :TranslateR!
-xnoremap <leader><leader>tr :TranslateR!
+nnoremap <leader>Tr :TranslateR!
+xnoremap <leader>Tr :TranslateR!
 " -----------------------------------------
 " Translate the text in clipboard
 nnoremap <leader>tx :TranslateX <C-r><C-w>
 xnoremap <leader>tx :TranslateX
-nnoremap <leader><leader>tx :TranslateX!
-xnoremap <leader><leader>tx :TranslateX!
+nnoremap <leader>Tx :TranslateX!
+xnoremap <leader>Tx :TranslateX!
 " }}}
 
 " ==========vim-lsp settings========== {{{
