@@ -2121,346 +2121,351 @@ enddef
 
 
 
-#" ==========plugin settings========== {{{
-#" ==========vim plugin manager========== {{{
-#" any issues see github!!!
-#call plug#begin()
-#" The default plugin directory will be as follows:
-#"   - Vim (Linux/macOS): '~/.vim/plugged'
-#"   - Vim (Windows): '~/vimfiles/plugged'
-#"   - Neovim (Linux/macOS/Windows): stdpath('data') . '/plugged'
-#" You can specify a custom plugin directory by passing it as the argument
-#"   - e.g. `call plug#begin('~/.vim/plugged')`
-#"   - Avoid using standard Vim directory names like 'plugin'
-#Plug 'rhysd/vim-healthcheck'                      "plugin helth check
-#" ------------------------------------------------------------
-#Plug 'tpope/vim-surround'                         "可使块surroud, 如给word -> {word}
-#Plug 'tpope/vim-unimpaired'                       "缓冲区、参数、quickfix、位置、标签列表的遍历快捷键
-#Plug 'tpope/vim-commentary'                       "代码注释gc
-#" ------------------------------------------------------------
-#Plug 'octol/vim-cpp-enhanced-highlight'           "cpp语法高亮
-#Plug 'tikhomirov/vim-glsl'                        "opengl着色器语言语法高亮
-#Plug 'plasticboy/vim-markdown'                    "markdown语法高亮
-#Plug 'aklt/plantuml-syntax'                       "plantuml语法高亮
-#" ------------------------------------------------------------
-#Plug 'mhinz/vim-signify'                          "git工具
-#Plug 'voldikss/vim-translator'                    "vim翻译工具
-#" ------------------------------------------------------------
-#Plug 'prabirshrestha/vim-lsp'                     "LSP core
-#" Plug 'mattn/vim-lsp-settings'                     "LSP语言服务配置
-#Plug 'prabirshrestha/asyncomplete.vim'            "lsp自动补全
-#Plug 'prabirshrestha/asyncomplete-lsp.vim'        "lsp自动补全
-#" ------------------------------------------------------------
-#" Plug 'easymotion/vim-easymotion'                  "跳转
-#" ------------------------------------------------------------
-#Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app && npx --yes yarn install' }
-#" ------------------------------------------------------------
-#Plug 'weirongxu/plantuml-previewer.vim'           "plantuml预览, need sudo apt-get install graphviz
-#Plug 'tyru/open-browser.vim'                      "浏览器预览渲染图, plantuml用
-#call plug#end()            " required
-#" }}}
+# ==========plugin settings========== {{{
+# ==========vim plugin manager========== {{{
+# any issues see github!!!
+call plug#begin()
+# The default plugin directory will be as follows:
+#   - Vim (Linux/macOS): '~/.vim/plugged'
+#   - Vim (Windows): '~/vimfiles/plugged'
+#   - Neovim (Linux/macOS/Windows): stdpath('data') . '/plugged'
+# You can specify a custom plugin directory by passing it as the argument
+#   - e.g. `call plug#begin('~/.vim/plugged')`
+#   - Avoid using standard Vim directory names like 'plugin'
+Plug 'rhysd/vim-healthcheck'                      # plugin helth check
+# ------------------------------------------------------------
+Plug 'tpope/vim-surround'                         # 可使块surroud, 如给word -> {word}
+Plug 'tpope/vim-unimpaired'                       # 缓冲区、参数、quickfix、位置、标签列表的遍历快捷键
+Plug 'tpope/vim-commentary'                       # 代码注释gc
+# ------------------------------------------------------------
+Plug 'octol/vim-cpp-enhanced-highlight'           # cpp语法高亮
+Plug 'tikhomirov/vim-glsl'                        # opengl着色器语言语法高亮
+Plug 'plasticboy/vim-markdown'                    # markdown语法高亮
+Plug 'aklt/plantuml-syntax'                       # plantuml语法高亮
+# ------------------------------------------------------------
+Plug 'mhinz/vim-signify'                          # git工具
+Plug 'voldikss/vim-translator'                    # vim翻译工具
+# ------------------------------------------------------------
+Plug 'prabirshrestha/vim-lsp'                     # LSP core
+# Plug 'mattn/vim-lsp-settings'                     # LSP语言服务配置
+Plug 'prabirshrestha/asyncomplete.vim'            # lsp自动补全
+Plug 'prabirshrestha/asyncomplete-lsp.vim'        # lsp自动补全
+# ------------------------------------------------------------
+# Plug 'easymotion/vim-easymotion'                  "跳转
+# ------------------------------------------------------------
+# Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app && npx --yes yarn install' }
+# ------------------------------------------------------------
+# Plug 'weirongxu/plantuml-previewer.vim'           #plantuml预览, need sudo apt-get install graphviz
+# Plug 'tyru/open-browser.vim'                      #浏览器预览渲染图, plantuml用
+call plug#end()
+# }}}
 
 
-#" 插件特性设置: >>>
+# 插件特性设置: >>>
 
-#" ==========vim-cpp-enhanced-highlight settings========== {{{
-#let g:cpp_class_scope_highlight = 1
-#let g:cpp_member_variable_highlight = 1
-#let g:cpp_class_decl_highlight = 1
-#let g:cpp_posix_standard = 1
-#let g:cpp_experimental_simple_template_highlight = 0    " 性能太差
-#let g:cpp_concepts_highlight = 1
-#let g:cpp_no_function_highlight = 0                     " Disable highlighting of user defined functions
-#" }}}
+# ==========vim-cpp-enhanced-highlight settings========== {{{
+g:cpp_class_scope_highlight = 1
+g:cpp_member_variable_highlight = 1
+g:cpp_class_decl_highlight = 1
+g:cpp_posix_standard = 1
+g:cpp_experimental_simple_template_highlight = 0    # 性能太差
+g:cpp_concepts_highlight = 1
+g:cpp_no_function_highlight = 0                     # Disable highlighting of user defined functions
+# }}}
 
-#" ==========vim-signify settings========== {{{
-#" 默认禁用, 使用:SignifyEnable手动开启
-#let g:signify_disable_by_default = 1
-#" }}}
+# ==========vim-signify settings========== {{{
+# 默认禁用, 使用:SignifyEnable手动开启
+g:signify_disable_by_default = 1
+# }}}
 
-#" ==========vim-translator settings========== {{{
-#" translator variable
-#" let g:translator_proxy_url = 'socks5://127.0.0.1:1080'
-#" let g:translator_default_engines = ['bing', 'haici']
-#" let g:translator_default_engines = ['bing', 'haici', 'youdao']
-#" convenient map for translating
-#" Echo translation in the cmdline
-#nnoremap <leader>tt :Translate <C-r><C-w>
-#xnoremap <leader>tt :Translate
-#nnoremap <leader>Tt :Translate!
-#xnoremap <leader>Tt :Translate!
-#" -----------------------------------------
-#" Display translation in a window
-#nnoremap <leader>tw :TranslateW <C-r><C-w>
-#xnoremap <leader>tw :TranslateW
-#nnoremap <leader>Tw :TranslateW!
-#xnoremap <leader>Tw :TranslateW!
-#" -----------------------------------------
-#" Replace the text with translation
-#nnoremap <leader>tr :TranslateR <C-r><C-w>
-#xnoremap <leader>tr :TranslateR
-#nnoremap <leader>Tr :TranslateR!
-#xnoremap <leader>Tr :TranslateR!
-#" -----------------------------------------
-#" Translate the text in clipboard
-#nnoremap <leader>tx :TranslateX <C-r><C-w>
-#xnoremap <leader>tx :TranslateX
-#nnoremap <leader>Tx :TranslateX!
-#xnoremap <leader>Tx :TranslateX!
-#" }}}
+# ==========vim-translator settings========== {{{
+# translator variable
+# let g:translator_proxy_url = 'socks5://127.0.0.1:1080'
+# let g:translator_default_engines = ['bing', 'haici']
+# let g:translator_default_engines = ['bing', 'haici', 'youdao']
+# convenient map for translating
+# Echo translation in the cmdline
+nnoremap <leader>tt :Translate <C-r><C-w>
+xnoremap <leader>tt :Translate
+nnoremap <leader>Tt :Translate!
+xnoremap <leader>Tt :Translate!
+# -----------------------------------------
+# Display translation in a window
+nnoremap <leader>tw :TranslateW <C-r><C-w>
+xnoremap <leader>tw :TranslateW
+nnoremap <leader>Tw :TranslateW!
+xnoremap <leader>Tw :TranslateW!
+# -----------------------------------------
+# Replace the text with translation
+nnoremap <leader>tr :TranslateR <C-r><C-w>
+xnoremap <leader>tr :TranslateR
+nnoremap <leader>Tr :TranslateR!
+xnoremap <leader>Tr :TranslateR!
+# -----------------------------------------
+# Translate the text in clipboard
+nnoremap <leader>tx :TranslateX <C-r><C-w>
+xnoremap <leader>tx :TranslateX
+nnoremap <leader>Tx :TranslateX!
+xnoremap <leader>Tx :TranslateX!
+# }}}
 
-#" ==========vim-lsp settings========== {{{
-#" 设置c++查找路径，若WSL下无法识别std，请打开该设置
-#" let g:lsp_settings = {
-#" \   'clangd': {
-#" \   'args': ['--query-driver=/usr/bin/c++*,/usr/bin/g++*'],
-#" \   }
-#" \}
+# ==========vim-lsp settings========== {{{
+# 设置c++查找路径，若WSL下无法识别std，请打开该设置
+# g:lsp_settings = {
+#     'clangd': {
+#     'args': ['--query-driver=/usr/bin/c++*,/usr/bin/g++*'],
+#     }
+# }
 
-#" PYTHON LSP
-#" 若无法忍受vim-lsp-settings插件在打开文件时的卡顿
-#" 手动配置LSP语言服务, 请注释: Plug 'mattn/vim-lsp-settings'
-#if executable('ty')
-#    " pip install ty
-#    au User lsp_setup call lsp#register_server({
-#        \ 'name': 'ty',
-#        \ 'cmd': {server_info->['ty', 'server']},
-#        \ 'allowlist': ['python'],
-#        \ })
-#endif
+# PYTHON LSP
+# 若无法忍受vim-lsp-settings插件在打开文件时的卡顿
+# 手动配置LSP语言服务, 请注释: Plug 'mattn/vim-lsp-settings'
+def RegisterPython()
+    lsp#register_server({
+        name: 'ty',
+        cmd: (server_info) => ['ty', 'server'],
+        allowlist: ['python'],
+    })
+enddef
+if executable('ty')
+    # pip install ty
+    au User lsp_setup call RegisterPython()
+endif
 
-#" C/C++ LSP
-#" 若WSL下无法识别std，加入下面这条命令
-#" \   '--query-driver=/usr/bin/c++*,/usr/bin/g++*',
-#if executable('clangd')
-#    " sudo apt install clangd
-#    au User lsp_setup call lsp#register_server({
-#        \ 'name': 'clangd',
-#        \ 'cmd': {server_info->[
-#        \   'clangd',
-#        \   '--background-index',
-#        \   '--clang-tidy',
-#    	\   '--query-driver=/usr/bin/c++*,/usr/bin/g++*',
-#        \ ]},
-#        \ 'allowlist': ['c', 'cpp'],
-#        \ })
-#endif
+# C/C++ LSP
+# 若WSL下无法识别std，加入下面这条命令
+# \   '--query-driver=/usr/bin/c++*,/usr/bin/g++*',
+def RegisterC()
+    lsp#register_server({
+        name: 'clangd',
+        cmd: (server_info) => [
+            'clangd',
+            '--background-index',
+            '--clang-tidy',
+        ],
+        allowlist: ['c', 'cpp'],
+    })
+enddef
+if executable('clangd')
+    # sudo apt install clangd
+    au User lsp_setup call RegisterC()
+endif
 
 
-#" 启用原生LSP
-#let g:lsp_use_native_client = 1
+# 启用原生LSP
+g:lsp_use_native_client = 1
 
-#" 启动时禁用lsp
-#let g:lsp_auto_enable = 0
+# 启动时禁用lsp
+g:lsp_auto_enable = 0
 
-#" 语义高亮, 速度有些慢
-#let g:lsp_semantic_enabled = 1
-#let g:lsp_semantic_delay = 500
+# 语义高亮, 速度有些慢
+g:lsp_semantic_enabled = 1
+g:lsp_semantic_delay = 500
 
-#" 禁止光标停留自动高亮
-#let g:lsp_document_highlight_enabled = 0
+# 禁止光标停留自动高亮
+g:lsp_document_highlight_enabled = 0
 
-#" 禁止函数签名提示自动弹出在输入模式下
-#let g:lsp_signature_help_enabled = 0
+# 禁止函数签名提示自动弹出在输入模式下
+g:lsp_signature_help_enabled = 0
 
-#" 补全额外信息显示
-#let g:lsp_completion_documentation_enabled = 1
+# 补全额外信息显示
+g:lsp_completion_documentation_enabled = 1
 
-#" 诊断信息
-#let g:lsp_diagnostics_enabled = 1                           " 启用诊断信息
-#let g:lsp_diagnostics_echo_cursor = 1                       " 命令行中输出错误信息
-#let g:lsp_diagnostics_echo_delay  = 0                       " 延迟显示
-#let g:lsp_diagnostics_float_cursor = 0                      " 悬浮窗口显示诊断信息
-#let g:lsp_diagnostics_float_delay = 500                     " 延迟显示
-#let g:lsp_diagnostics_float_insert_mode_enabled = 0         " 插入模式关闭悬浮
-#let g:lsp_diagnostics_highlights_enabled = 1                " 错误诊断高亮
-#let g:lsp_diagnostics_highlights_delay = 500                " 延迟高亮
-#let g:lsp_diagnostics_highlights_insert_mode_enabled = 1    " 插入模式高亮
-#let g:lsp_diagnostics_signs_enabled = 1                     " 启用侧边栏符号
-#let g:lsp_diagnostics_signs_delay = 500                     " 延迟符号显示
-#let g:lsp_diagnostics_signs_insert_mode_enabled = 1         " 插入模式侧边符号显示
-#" 设置符号样式
-#" let g:lsp_diagnostics_signs_error = {'text': '✗', 'texthl': 'DiagnosticSignError'}
-#" let g:lsp_diagnostics_signs_warning = {'text': '⚠', 'texthl': 'DiagnosticSignWarn'}
-#" 关闭错误诊断虚拟文本
-#let g:lsp_diagnostics_virtual_text_enabled = 0
-#let g:lsp_diagnostics_virtual_text_insert_mode_enabled = 0
+# 诊断信息
+g:lsp_diagnostics_enabled = 1                           # 启用诊断信息
+g:lsp_diagnostics_echo_cursor = 1                       # 命令行中输出错误信息
+g:lsp_diagnostics_echo_delay  = 0                       # 延迟显示
+g:lsp_diagnostics_float_cursor = 0                      # 悬浮窗口显示诊断信息
+g:lsp_diagnostics_float_delay = 500                     # 延迟显示
+g:lsp_diagnostics_float_insert_mode_enabled = 0         # 插入模式关闭悬浮
+g:lsp_diagnostics_highlights_enabled = 1                # 错误诊断高亮
+g:lsp_diagnostics_highlights_delay = 500                # 延迟高亮
+g:lsp_diagnostics_highlights_insert_mode_enabled = 1    # 插入模式高亮
+g:lsp_diagnostics_signs_enabled = 1                     # 启用侧边栏符号
+g:lsp_diagnostics_signs_delay = 500                     # 延迟符号显示
+g:lsp_diagnostics_signs_insert_mode_enabled = 1         # 插入模式侧边符号显示
+# 设置符号样式
+# g:lsp_diagnostics_signs_error = {'text': '✗', 'texthl': 'DiagnosticSignError'}
+# g:lsp_diagnostics_signs_warning = {'text': '⚠', 'texthl': 'DiagnosticSignWarn'}
+# 关闭错误诊断虚拟文本
+g:lsp_diagnostics_virtual_text_enabled = 0
+g:lsp_diagnostics_virtual_text_insert_mode_enabled = 0
 
-#" 禁止补全弹窗自动弹出
-#let g:asyncomplete_auto_popup = 0
+# 禁止补全弹窗自动弹出
+g:asyncomplete_auto_popup = 0
 
-#" allow modifying the completeopt variable, or it will
-#" be overridden all the time
-#" 不自动设置补全行为
-#let g:asyncomplete_auto_completeopt = 0
+# allow modifying the completeopt variable, or it will
+# be overridden all the time
+# 不自动设置补全行为
+g:asyncomplete_auto_completeopt = 0
 
-#" lsp log
-#" let g:lsp_log_verbose = 1
-#" let g:lsp_log_file = expand('~/logs/vim-lsp.log')
-#" let g:asyncomplete_log_file = expand('~/logs/asyncomplete.log')
+# lsp log
+# g:lsp_log_verbose = 1
+# g:lsp_log_file = expand('~/logs/vim-lsp.log')
+# g:asyncomplete_log_file = expand('~/logs/asyncomplete.log')
 
-#" 设置手动开关命令
-#command! LspEnable call s:LspEnable()
-#command! LspEnableFast call s:LspEnableFast()
-#command! LspEnableHeavy call s:LspEnableHeavy()
-#command! LspDisable call s:LspDisable()
-#command! LspRestart call s:LspRestartServer()
-#" -----------------------------------
-#command! LspFast call s:LspFast()
-#command! LspHeavy call s:LspHeavy()
+# 设置手动开关命令
+command! LspEnable call <SID>LspEnable()
+command! LspEnableFast call <SID>LspEnableFast()
+command! LspEnableHeavy call <SID>LspEnableHeavy()
+command! LspDisable call <SID>LspDisable()
+command! LspRestart call <SID>LspRestartServer()
+# -----------------------------------
+command! LspFast call <SID>LspFast()
+command! LspHeavy call <SID>LspHeavy()
 
-#" 设置快捷键
-#def on_lsp_buffer_enabled()
-#    setlocal omnifunc=lsp#complete
-#    " setlocal signcolumn=yes
-#    if exists('+tagfunc') | setlocal tagfunc=lsp#tagfunc | endif
-#    nmap <buffer> gF <plug>(lsp-definition)
-#    nmap <buffer> gD <plug>(lsp-definition)
-#    nmap <buffer> gT <plug>(lsp-type-definition)
-#    nmap <buffer> gI <plug>(lsp-implementation)
-#    nmap <buffer> gR <plug>(lsp-references)
-#    nmap <buffer> gC <plug>(lsp-call-hierarchy-incoming)
-#    nmap <buffer> gs <plug>(lsp-document-symbol-search)
-#    nmap <buffer> gS <plug>(lsp-workspace-symbol-search)
-#    nmap <buffer> gH <plug>(lsp-type-hierarchy)
-#    " ----------------------------------------------
-#    nmap <buffer> [g <plug>(lsp-previous-diagnostic)
-#    nmap <buffer> ]g <plug>(lsp-next-diagnostic)
-#    nmap <buffer> K <plug>(lsp-hover-float)
-#    nmap <buffer> gK <plug>(lsp-hover-preview)
-#    " ----------------------------------------------
-#    nmap <buffer> <leader>rn <plug>(lsp-rename)
-#    nmap <buffer> <leader>a <plug>(lsp-code-action-float)
-#    " refer to doc to add more commands
-#enddef
+# 设置快捷键
+def OnLspBufferEnabled()
+    setlocal omnifunc=lsp#complete
+    # setlocal signcolumn=yes
+    if exists('+tagfunc') | setlocal tagfunc=lsp#tagfunc | endif
+    nmap <buffer> gF <plug>(lsp-definition)
+    nmap <buffer> gD <plug>(lsp-definition)
+    nmap <buffer> gT <plug>(lsp-type-definition)
+    nmap <buffer> gI <plug>(lsp-implementation)
+    nmap <buffer> gR <plug>(lsp-references)
+    nmap <buffer> gC <plug>(lsp-call-hierarchy-incoming)
+    nmap <buffer> gs <plug>(lsp-document-symbol-search)
+    nmap <buffer> gS <plug>(lsp-workspace-symbol-search)
+    nmap <buffer> gH <plug>(lsp-type-hierarchy)
+    # ----------------------------------------------
+    nmap <buffer> [g <plug>(lsp-previous-diagnostic)
+    nmap <buffer> ]g <plug>(lsp-next-diagnostic)
+    nmap <buffer> K <plug>(lsp-hover-float)
+    nmap <buffer> gK <plug>(lsp-hover-preview)
+    # ----------------------------------------------
+    nmap <buffer> <leader>rn <plug>(lsp-rename)
+    nmap <buffer> <leader>a <plug>(lsp-code-action-float)
+    # refer to doc to add more commands
+enddef
 
-#augroup lsp_install
-#    au!
-#    " call s:on_lsp_buffer_enabled only for languages that has the server registered.
-#    autocmd User lsp_buffer_enabled call s:on_lsp_buffer_enabled()
-#augroup END
+augroup lsp_install
+    au!
+    # call OnLspBufferEnabled only for languages that has the server registered.
+    autocmd User lsp_buffer_enabled call OnLspBufferEnabled()
+augroup END
 
-#" 手动弹出，用<C-i>就可以了
-#" imap <c-space> <Plug>(asyncomplete_force_refresh)
-#" For Vim 8 (<c-@> corresponds to <c-space>):
-#" imap <c-@> <Plug>(asyncomplete_force_refresh)
+# 手动弹出，用<C-i>就可以了
+# imap <c-space> <Plug>(asyncomplete_force_refresh)
+# For Vim 8 (<c-@> corresponds to <c-space>):
+# imap <c-@> <Plug>(asyncomplete_force_refresh)
 
-#" 补全弹窗列表选择
-#" inoremap <expr> <Tab>   pumvisible() ? "\<C-n>" : "\<Tab>"
-#" inoremap <expr> <S-Tab> pumvisible() ? "\<C-p>" : "\<S-Tab>"
-#inoremap <expr> <cr> pumvisible() ? asyncomplete#close_popup() : "\<cr>"
+# 补全弹窗列表选择
+# inoremap <expr> <Tab>   pumvisible() ? "\<C-n>" : "\<Tab>"
+# inoremap <expr> <S-Tab> pumvisible() ? "\<C-p>" : "\<S-Tab>"
+inoremap <expr> <cr> pumvisible() ? asyncomplete#close_popup() : "\<cr>"
 
-#def check_back_space()
-#    let col = col('.') - 1
-#    return !col || getline('.')[col - 1]  =~ '\s'
-#enddef
+def CheckBackspace(): bool
+    var col = col('.') - 1
+    return !col || getline('.')[col - 1]  =~ '\s'
+enddef
 
-#inoremap <silent><expr> <TAB>
-#  \ pumvisible() ? "\<C-n>" :
-#  \ <SID>check_back_space() ? "\<TAB>" :
-#  \ asyncomplete#force_refresh()
-#inoremap <expr><S-TAB> pumvisible() ? "\<C-p>" : "\<C-h>"
+inoremap <silent><expr> <TAB>
+  \ pumvisible() ? "\<C-n>" :
+  \ <SID>CheckBackspace() ? "\<TAB>" :
+  \ asyncomplete#force_refresh()
+inoremap <expr><S-TAB> pumvisible() ? "\<C-p>" : "\<C-h>"
 
-#" 使用<C-j>/<C-k>上下滚动popup window
-#let g:cj_cmd_nmap = maparg('<C-j>', 'n')
-#let g:ck_cmd_nmap = maparg('<C-k>', 'n')
-#if exists('*popup_list') && g:cj_cmd_nmap =~# '^<Plug>' && g:ck_cmd_nmap =~# '^<Plug>'
-#    " 如果 maparg 返回的是 <Plug>(...)，把它变成可执行的特殊键形式："\<Plug>(...)"
-#    let g:cj_cmd_nmap = "\<Plug>" . g:cj_cmd_nmap[6:]
-#    let g:ck_cmd_nmap = "\<Plug>" . g:ck_cmd_nmap[6:]
-#    nnoremap <silent><expr> <C-j>
-#        \ empty(popup_list())
-#        \ ? g:cj_cmd_nmap
-#        \ : lsp#scroll(+1)
-#    nnoremap <silent><expr> <C-k>
-#        \ empty(popup_list())
-#        \ ? g:ck_cmd_nmap
-#        \ : lsp#scroll(-1)
-#endif
-#" 使用<C-u>/<C-d>上下滚动popup window
-#if exists('*popup_list')
-#    nnoremap <silent><expr> <C-u>
-#            \ empty(popup_list())
-#            \ ? "<C-u>"
-#            \ : lsp#scroll(-4)
-#    nnoremap <silent><expr> <C-d>
-#            \ empty(popup_list())
-#            \ ? "<C-d>"
-#            \ : lsp#scroll(+4)
-#endif
+# 使用<C-j>/<C-k>上下滚动popup window
+g:cj_cmd_nmap = maparg('<C-j>', 'n')
+g:ck_cmd_nmap = maparg('<C-k>', 'n')
+if exists('*popup_list') && g:cj_cmd_nmap =~# '^<Plug>' && g:ck_cmd_nmap =~# '^<Plug>'
+    # 如果 maparg 返回的是 <Plug>(...)，把它变成可执行的特殊键形式："\<Plug>(...)"
+    g:cj_cmd_nmap = "\<Plug>" .. g:cj_cmd_nmap[6 : ]
+    g:ck_cmd_nmap = "\<Plug>" .. g:ck_cmd_nmap[6 : ]
+    nnoremap <silent><expr> <C-j>
+        \ empty(popup_list())
+        \ ? g:cj_cmd_nmap
+        \ : lsp#scroll(+1)
+    nnoremap <silent><expr> <C-k>
+        \ empty(popup_list())
+        \ ? g:ck_cmd_nmap
+        \ : lsp#scroll(-1)
+endif
+# 使用<C-u>/<C-d>上下滚动popup window
+if exists('*popup_list')
+    nnoremap <silent><expr> <C-u>
+            \ empty(popup_list())
+            \ ? "<C-u>"
+            \ : lsp#scroll(-4)
+    nnoremap <silent><expr> <C-d>
+            \ empty(popup_list())
+            \ ? "<C-d>"
+            \ : lsp#scroll(+4)
+endif
 
-#" 重启服务
-#def LspRestartServer()
-#    if &modified
-#        echo "No write since last change!"
-#    else
-#        LspStopServer
-#        sleep 100m
-#        view = winsaveview()
-#        edit
-#        call winrestview(l:view)
-#    endif
-#enddef
+# 重启服务
+def LspRestartServer()
+    if &modified
+        echo "No write since last change!"
+    else
+        LspStopServer
+        sleep 100m
+        var view = winsaveview()
+        edit
+        call winrestview(view)
+    endif
+enddef
 
-#" 清理语义高亮, lsp#disable时不会自动清理
-#def LspSemanticClear()
-#  for t in prop_type_list()
-#    if t =~ '^vim-lsp-semantic-'
-#      call prop_remove({'type': t, 'all': 1}, 1, line('$'))
-#    endif
-#  endfor
-#enddef
+# 清理语义高亮, lsp#disable时不会自动清理
+def LspSemanticClear()
+  for t in prop_type_list()
+    if t =~ '^vim-lsp-semantic-'
+      call prop_remove({'type': t, 'all': 1}, 1, line('$'))
+    endif
+  endfor
+enddef
 
-#S__lsp_saved_signcolumn = &signcolumn
-#def LspEnable()
-#    S__lsp_saved_signcolumn = &signcolumn
-#    call lsp#enable()
-#    set signcolumn=yes
-#enddef
+var S_lsp_saved_signcolumn = &signcolumn
+def LspEnable()
+    S_lsp_saved_signcolumn = &signcolumn
+    call lsp#enable()
+    set signcolumn=yes
+enddef
 
-#def LspDisable()
-#    call lsp#disable()
-#    let &signcolumn = get(s:, '_lsp_saved_signcolumn', 'auto')
-#    call s:LspSemanticClear()
-#    LspStopServer
-#enddef
+def LspDisable()
+    call lsp#disable()
+    &signcolumn = S_lsp_saved_signcolumn
+    call LspSemanticClear()
+    LspStopServer
+enddef
 
-#def LspEnableFast()
-#    call s:ConfigLspFast()
-#    call s:LspEnable()
-#enddef
+def LspEnableFast()
+    call ConfigLspFast()
+    call LspEnable()
+enddef
 
-#def LspEnableHeavy()
-#    call s:ConfigLspHeavy()
-#    call s:LspEnable()
-#enddef
+def LspEnableHeavy()
+    call ConfigLspHeavy()
+    call LspEnable()
+enddef
 
-#def LspFast()
-#    call s:ConfigLspFast()
-#    call s:LspRestartServer()
-#enddef
+def LspFast()
+    call ConfigLspFast()
+    call LspRestartServer()
+enddef
 
-#def LspHeavy()
-#    call s:ConfigLspHeavy()
-#    call s:LspRestartServer()
-#enddef
+def LspHeavy()
+    call ConfigLspHeavy()
+    call LspRestartServer()
+enddef
 
-#" 这个设置有bug，在重启服务后会变得特别慢
-#" 如果想使用fast设置，启动时调用:LspEnableFast
-#def ConfigLspFast()
-#    let g:lsp_semantic_enabled = 0                              " 语义高亮
-#    let g:lsp_diagnostics_highlights_delay = 0                  " 诊断信息-延迟高亮
-#    let g:lsp_diagnostics_highlights_insert_mode_enabled = 0    " 诊断信息-插入模式高亮
-#    let g:lsp_diagnostics_signs_delay = 0                       " 诊断信息-延迟符号显示
-#    let g:lsp_diagnostics_signs_insert_mode_enabled = 0         " 诊断信息-插入模式侧边符号显示
-#enddef
+# 这个设置有bug，在重启服务后会变得特别慢
+# 如果想使用fast设置，启动时调用:LspEnableFast
+def ConfigLspFast()
+    g:lsp_semantic_enabled = 0                              # 语义高亮
+    g:lsp_diagnostics_highlights_delay = 0                  # 诊断信息-延迟高亮
+    g:lsp_diagnostics_highlights_insert_mode_enabled = 0    # 诊断信息-插入模式高亮
+    g:lsp_diagnostics_signs_delay = 0                       # 诊断信息-延迟符号显示
+    g:lsp_diagnostics_signs_insert_mode_enabled = 0         # 诊断信息-插入模式侧边符号显示
+enddef
 
-#def ConfigLspHeavy()
-#    let g:lsp_semantic_enabled = 1                              " 语义高亮
-#    let g:lsp_diagnostics_highlights_delay = 500                " 诊断信息-延迟高亮
-#    let g:lsp_diagnostics_highlights_insert_mode_enabled = 1    " 诊断信息-插入模式高亮
-#    let g:lsp_diagnostics_signs_delay = 500                     " 诊断信息-延迟符号显示
-#    let g:lsp_diagnostics_signs_insert_mode_enabled = 1         " 诊断信息-插入模式侧边符号显示
-#enddef
-#" }}}
-#" }}}
+def ConfigLspHeavy()
+    g:lsp_semantic_enabled = 1                              # 语义高亮
+    g:lsp_diagnostics_highlights_delay = 500                # 诊断信息-延迟高亮
+    g:lsp_diagnostics_highlights_insert_mode_enabled = 1    # 诊断信息-插入模式高亮
+    g:lsp_diagnostics_signs_delay = 500                     # 诊断信息-延迟符号显示
+    g:lsp_diagnostics_signs_insert_mode_enabled = 1         # 诊断信息-插入模式侧边符号显示
+enddef
+# }}}
+# }}}
