@@ -450,7 +450,7 @@ var S_custom_schedule_window = {}
 # 打开窗口并初始化, titile: 窗口标题 timer_fun: timer回调函数名 time刷新时间
 def OpenCustomScheduleWindow(title: string, timer_fun: string, time: number)
     # 在下方开一个 10 行的分屏
-    execute 'botright 10split'
+    execute 'botright :10split'
 
     # 创建一个无关联的 scratch buffer
     enew
@@ -481,884 +481,895 @@ enddef
 
 # 窗口关闭时的清理逻辑
 def OnCustomScheduleWindowClosed(bufnr: number)
-    if has_key(custom_schedule_window, bufnr)
-        call timer_stop(custom_schedule_window[bufnr])
-        call remove(custom_schedule_window, bufnr)
+    if has_key(S_custom_schedule_window, bufnr)
+        call timer_stop(S_custom_schedule_window[bufnr])
+        call remove(S_custom_schedule_window, bufnr)
     endif
     # 可以在这里写其他清理逻辑
     # echom "自定义窗口已关闭，timer 已停止"
 enddef
 # }}}
 
-#" ==========async========== {{{
-#S_async_tick_ctr = {
-#    \ 'index': 0,
-#    \ 'static_count': 0,
-#    \ 'max_loop_times': 12,
-#    \ 'curr_loop_times': 0,
-#    \ 'loop_id': 0,
-#    \ 'min_id': 0,
-#    \ 'max_id': 0,
-#    \ 'timeout': 0,
-#    \ 'start_time': '',
-#    \}
-
-#S_async_job_id = -1
-#S_async_jobs = {}
-
-#" " 子任务
-#" S_subjob = {
-#"     \ 'org': '',      "原始async命令
-#"     \ 'cmd': '',      "真正的program命令
-#"     \ 'len': '',      "cmd的长度
-#"     \ 'fmt': '',      "输出格式
-#"     \ 'fil': '',      "填充类型，none/all/out/err
-#"     \ 'env': '',      "是否继承vim终端env，模拟tty
-#"     \ 'o': v:false,   "命令结束后是否打开quickfix
-#"     \ 'm': v:true,    "是否显示过程和状态信息, 如果m=0, out/err会被打印
-#"     \ 'ts': '',       "命令执行起始时间
-#"     \ 'te': '',       "命令执行结束时间
-#"     \ 'sts': '',      "状态信息
-#" }
-
-#" " 每个AsyncJob包含一个subjobs列表，里面包含具体的命令参数，
-#" " subjob_id是当前job对象正在执行的子任务索引，当一个子任务执行结束后，
-#" " 如果subjobs里还有未执行的子任务，会重新创建一个job对象，同时subjob_id++
-#" " 注意id不会变，id是和AsyncJob绑定的，即一个AsyncJob + id + subjobs
-#" " 这样做是因为，有的工作可能需要多条命令才能完成，且这些命令有先后顺序
-#" S_async_jobs[key] = {
-#"     \ 'id': -1,             "job id, 每个AsyncJob对应一个id，从0开始增长
-#"     \ 'job': v:null,        "job对象, 真正执行外部命令的对象
-#"     \ 'timer': v:null,      "计时器, 用于更新进度等信息
-#"     \ 'state': 'uninit',    "状态, 分为uninit/running/stopping/done/xdone, 用于时序控制
-#"     \ 'outs': [],           "标准输出
-#"     \ 'errs': [],           "错误输出
-#"     \ 'prog_idx': 0,        "进度索引
-#"     \ 'subjobs': [],        "子任务列表
-#"     \ 'subjob_id': 0        "当前子任务索引
-#" \ }
-
-#" Async异步命令，可以执行任意外部命令
-#" 格式: Async <...> cmd1 [...] | <...> cmd2 [...]
-#" | : 多条命令用|分隔, 形成一个有先后顺序的子任务的整体
-#" <>: 是命令前缀，可以指定命令执行后的一些行为, 如o=1表示结束后打开quickfix
-#"     当有多条命令时用len=num指定命令的长度，<>指定的不同行为也用|隔开，如<len=27|o=1>
-#" 下面是一条生成cscope的完整命令：
-#" Async <len=42> find . -name "*.cpp" -print > cscope.files | cscope -b -q -k -i cscope.files
-#"
-#" AsyncQuery命令用于查询正在执行的异步命令，--table以表格形式实时显示
-#"
-#" AsyncStop命令用于停止异步命令
-#" --id=: 任务id
-#" --name=: 任务的程序名
-#" --key=: Async的完整命令
-#" --all=: 停止所有任务
-#" --stop-way=: 停止方式['term', 'hup', 'int', 'quit', 'kill']
-#command! -nargs=+ -complete=customlist,s:AsyncComplete Async call s:Async(<q-args>)
-#command! -nargs=* AsyncQuery call s:AsyncQuery(<q-args>)
-#command! -nargs=+ -complete=customlist,s:AsyncStopComplete AsyncStop call s:AsyncStop(<q-args>)
-#" ------------------------------------------------------
-#command! -nargs=1 AsyncSleep call s:AsyncSleep(<q-args>)
-#command! -nargs=* AsyncTest call s:AsyncTest(<q-args>)
-
-#def AsyncTest(args)
-#    ts = empty(args) ? '10' : args
-
-#    " cmd = 'Async <o=1> grep -Rn vim .'
-#    " cmd = 'Async sleep ' . l:ts
-#    " cmd = 'Async <o=1> rg --vimgrep -H -n vim .'
-#    cmd = 'Async <len=14|o=1> grep -Rn vim . | sleep ' . l:ts
-
-#    execute l:cmd
-#    return l:cmd
-#enddef
-
-#def AsyncSleep(args)
-#    cmd = 'Async sleep ' . args
-#    execute l:cmd
-#    return l:cmd
-#enddef
-
-#" 异步命令主函数
-#def Async(args)
-#    cmd = args
-#    subjobs = s:ParseAsyncArgs(args)
-#    shell_cmd = [&shell, &shellcmdflag, l:subjobs[0].cmd]
-
-#    echom 'Async ' . l:cmd
-#    redraw
-#    if len(l:subjobs) == 0
-#        echom 'Async no subjobs to run!'
-#        return
-#    endif
-
-#    " " test
-#    " echom 'Async cmd: ' . l:cmd
-#    " echom 'Async subjobs: '
-#    " echom l:subjobs
-#    " echom 'Async subjobs[0].shell_cmd: ' . string(l:shell_cmd)
-#    " return
-
-#    if has_key(s:async_jobs, l:cmd)
-#        echom 'job for [' . s:async_jobs[l:cmd].job . "] 已存在!"
-#        return
-#    endif
-
-#    " 建字典
-#    job_id = s:GenJobID()
-#    S_async_jobs[l:cmd] = {
-#        \ 'id': job_id,
-#        \ 'job': v:null,
-#        \ 'timer': v:null,
-#        \ 'state': 'uninit',
-#        \ 'outs': [],
-#        \ 'errs': [],
-#        \ 'prog_idx': 0,
-#        \ 'subjobs': l:subjobs,
-#        \ 'subjob_id': 0
-#    \ }
-
-#    " 先把timer启动起来，防止job结束过快timer还没创建
-#    " 每 200 毫秒更新一次状态
-#    call s:StartAsyncTimer(l:cmd, 200)
-
-#    " 启动异步任务
-#    call s:StartAsyncSubjob(l:cmd)
-#enddef
-
-#def AsyncComplete(ArgLead, CmdLine, CursorPos)
-#    let options = ['<m=0>', '<o=1>', '<m=0|env=1>', '<o=1|env=1>', '<len=', '<fil=', '<fmt=']
-#    return filter(options, 'stridx(v:val, ArgLead) == 0')
-#enddef
-
-#def GenJobID()
-#    S_async_job_id += 1
-#    return s:async_job_id
-#enddef
-
-#def GetSubjobs(key)
-#    return s:async_jobs[key].subjobs
-#enddef
-
-#def GetCurrSubjob(key)
-#    id = s:async_jobs[key].subjob_id
-#    return s:async_jobs[key].subjobs[id]
-#enddef
-
-#def GetCurrSubjobCmd(key)
-#    return s:GetCurrSubjob(key).cmd
-#enddef
-
-#def GetCurrSubjobProgram(key)
-#    return split(s:GetCurrSubjobCmd(key))[0]
-#enddef
-
-#def IsLastSubJob(key)
-#    subjob_size = len(s:GetSubjobs(key))
-#    return s:async_jobs[key].subjob_id == l:subjob_size - 1
-#enddef
-
-#" ==========async的启动========== {{{
-#" 启动一个timer
-#def StartAsyncTimer(key, tms)
-#    if s:GetCurrSubjob(key).m
-#        echo "Async-" . s:GetCurrSubjobProgram(key) . " running ... |"
-#    endif
-
-#    timer = timer_start(
-#        \ tms,
-#        \ function('s:AsyncTick', [key]),
-#        \ {'repeat': -1}
-#        \ )
-
-#    S_async_jobs[key].timer = l:timer
-#enddef
-
-#" 启动一个子任务
-#def StartAsyncSubjob(key)
-#    curr_subjob = s:GetCurrSubjob(key)
-#    shell_cmd = [&shell, &shellcmdflag, l:curr_subjob.cmd]
-
-#    curr_subjob.ts = reltime()
-
-#    " 异步任务
-#    " out_mode/err_mode: nl: 按换行符切分输出，否则可能是半行
-#    " out_cb : 标准输出回调
-#    " err_cb : 标准错误回调
-#    " exit_cb: 进程退出回调
-#    if l:curr_subjob.env
-#        " echom "has env: " . l:curr_subjob.env
-#        job = job_start(l:shell_cmd, {
-#                \ 'env': environ(),
-#                \ 'pty': 1,
-#                \ 'out_mode': 'nl',
-#                \ 'err_mode': 'nl',
-#                \ 'out_cb': {ch, msg -> s:OnJobOut(key, ch, msg)},
-#                \ 'err_cb': {ch, msg -> s:OnJobErr(key, ch, msg)},
-#                \ 'exit_cb': {job, code -> s:OnJobExit(key, job, code)}
-#                \ })
-#    else
-#        " echom "no env: " . l:curr_subjob.env
-#        job = job_start(l:shell_cmd, {
-#                \ 'out_mode': 'nl',
-#                \ 'err_mode': 'nl',
-#                \ 'out_cb': {ch, msg -> s:OnJobOut(key, ch, msg)},
-#                \ 'err_cb': {ch, msg -> s:OnJobErr(key, ch, msg)},
-#                \ 'exit_cb': {job, code -> s:OnJobExit(key, job, code)}
-#                \ })
-#    endif
-
-#    " 把 job 对象填进字典
-#    " 由于OnJobExit可以在job返回前结束，所以使用一个状态来控制
-#    " OnJobExit是在vim进行执行的，所以和下面的逻辑是同步的
-#    if s:async_jobs[key].state != 'done' && s:async_jobs[key].state != 'xdone'
-#        S_async_jobs[key].job = l:job
-#        S_async_jobs[key].state = 'running'
-#        curr_subjob.sts = 'running'
-#    endif
-
-#    call s:UpdateTickCtr()
-#enddef
-#" }}}
-
-#" ==========async的回调及后处理========== {{{
-#def OnJobOut(key, ch, msg)
-#    " OnJobExit后仍可能收到OnJobOut和OnJobErr
-#    if !has_key(s:async_jobs, key)
-#        return
-#    endif
-
-#    call add(s:async_jobs[key].outs, msg)
-
-#    " 如果out不会填充到quickfix，就打印它
-#    " 如果m=0也打印，因为过程信息没有了
-#    subjob = s:GetCurrSubjob(key)
-#    if !l:subjob.m || (l:subjob.fil !=# 'out' && l:subjob.fil !=# 'all')
-#        " echom s:GetCurrSubjobProgram(key) . ": " . msg
-#        echom msg
-#    endif
-#enddef
-
-#def OnJobErr(key, ch, msg)
-#    " OnJobExit后仍可能收到OnJobOut和OnJobErr
-#    if !has_key(s:async_jobs, key)
-#        return
-#    endif
-
-#    call add(s:async_jobs[key].errs, msg)
-
-#    " 如果err不会填充到quickfix，就打印它
-#    " 如果m=0也打印，因为过程信息没有了
-#    subjob = s:GetCurrSubjob(key)
-#    if !l:subjob.m || (l:subjob.fil !=# 'err' && l:subjob.fil !=# 'all')
-#        " echom s:GetCurrSubjobProgram(key) . ": " . msg
-#        echom msg
-#    endif
-#enddef
-
-#def OnJobExit(key, job, code)
-#    if !has_key(s:async_jobs, key)
-#        echom 'job for [' . key .'] not exist!'
-#        return
-#    endif
-
-#    curr_subjob = s:GetCurrSubjob(key)
-
-#    S_async_jobs[key].job = job
-#    if s:async_jobs[key].state ==# 'uinit'
-#        S_async_jobs[key].state = 'running'
-#        curr_subjob.sts = 'running'
-#    endif
-
-#    try
-#        " 如果是最后一个subjob或发送了stopping信号才停止timer
-#        if s:IsLastSubJob(key) || s:async_jobs[key].state ==# 'stopping'
-#            timer = get(s:async_jobs[key], 'timer', v:null)
-#            call s:StopTimer(l:timer, 'term')
-#            S_async_jobs[key].timer = v:null
-#        endif
-
-#        " 执行后期处理任务
-#        call s:AsyncJobDone(key, code)
-#    finally
-
-#        " 更新状态
-#        finish_type = s:async_jobs[key].state ==# 'stopping' ? 'xdone' : 'done'
-#        S_async_jobs[key].state = l:finish_type
-#        curr_subjob.sts = l:finish_type
-#        time = printf('%.1f', reltimefloat(reltime(l:curr_subjob.ts)))
-#        curr_subjob.te = l:time
-
-#        if s:IsLastSubJob(key) || s:async_jobs[key].state ==# 'stopping'
-#            " 如果是最后一个subjob或发送了停止命令清理整个AsyncJob
-#            call remove(s:async_jobs, key)
-#        else
-#            " 如果不是最后一个subjob，启动一个新的job执行后续任务
-#            " 先reset
-#            S_async_jobs[key].state = 'uninit'
-#            S_async_jobs[key].outs = []
-#            S_async_jobs[key].errs = []
-#            S_async_jobs[key].prog_idx = 0
-#            S_async_jobs[key].subjob_id += 1
-
-#            if l:curr_subjob.m
-#                echo "Async-" . s:GetCurrSubjobProgram(key) . " running ... |"
-#            endif
-#            call s:StartAsyncSubjob(key)
-#        endif
-#    endtry
-#enddef
-
-#def AsyncJobDone(key, code)
-#    subjob = s:GetCurrSubjob(key)
-
-#    if l:subjob.m
-#        echom "Async-" . s:GetCurrSubjobProgram(key) . " finish(" . code . "). Processing data ..."
-#    endif
-
-#    " call s:EchoMsg(s:async_jobs[key].outs)
-#    " call s:EchoMsg(s:async_jobs[key].errs)
-
-#    num = s:AsyncDataProcess(key, code)
-#    finish_type = s:async_jobs[key].state ==# 'stopping' ? ' xdone | ' : ' done | '
-#    time = printf('%.1f', reltimefloat(reltime(l:subjob.ts)))
-
-#    if l:subjob.m
-#        echom "Async-" . s:GetCurrSubjobProgram(key) . l:finish_type . l:num.n_outs . " outs + " . l:num.n_errs . ' errs | ' . l:time . 's'
-#    endif
-#enddef
-
-#def AsyncDataProcess(key, code)
-#    subjob = s:GetCurrSubjob(key)
-
-#    format = &errorformat
-#    " 如果指定了具体格式, 过滤空项
-#    if !empty(l:subjob.fmt)
-#        errs = filter(s:async_jobs[key].errs, '!empty(v:val)')
-#        outs = filter(s:async_jobs[key].outs, '!empty(v:val)')
-#        format = l:subjob.fmt
-#    else
-#        errs = s:async_jobs[key].errs
-#        outs = s:async_jobs[key].outs
-#    endif
-
-#    if l:subjob.fil ==? 'none'
-#        return {'n_outs': len(l:outs), 'n_errs': len(l:errs)}
-#    endif
-
-#    filled = v:false
-#    if l:subjob.fil ==? 'err' && !empty(l:errs)
-#        call setqflist([], ' ', {
-#                    \ 'title': l:subjob.cmd,
-#                    \ 'lines': l:errs,
-#                    \ 'efm': l:format
-#                    \ })
-#        filled = v:true
-#    elseif l:subjob.fil ==? 'out' && !empty(l:outs)
-#        call setqflist([], ' ', {
-#                    \ 'title': l:subjob.cmd,
-#                    \ 'lines': l:outs,
-#                    \ 'efm': l:format
-#                    \ })
-#        filled = v:true
-#    elseif l:subjob.fil ==? 'all' && (!empty(l:errs) || !empty(l:outs))
-#        call setqflist([], ' ', {
-#                    \ 'title': l:subjob.cmd,
-#                    \ 'lines': l:errs,
-#                    \ 'efm': l:format
-#                    \ })
-#        call setqflist([], 'a', {
-#                    \ 'lines': l:outs,
-#                    \ 'efm': l:format
-#                    \ })
-#        filled = v:true
-#    elseif l:subjob.fil ==? 'asp'
-#        if !empty(l:outs)
-#            call setqflist([], ' ', {
-#                        \ 'title': l:subjob.cmd,
-#                        \ 'lines': l:outs,
-#                        \ 'efm': l:format
-#                        \ })
-#            filled = v:true
-#        endif
-#        if !empty(l:errs)
-#            call setqflist([], ' ', {
-#                        \ 'title': l:subjob.cmd,
-#                        \ 'lines': l:errs,
-#                        \ 'efm': l:format
-#                        \ })
-#            filled = v:true
-#        endif
-#    endif
-
-#    " 打开窗口
-#    if l:subjob.o && l:filled
-#        botright copen
-#    endif
-
-#    return {'n_outs': len(l:outs), 'n_errs': len(l:errs)}
-#enddef
-
-#def EchoMsg(lines)
-#    for l:line in lines
-#        echom l:line
-#    endfor
-#enddef
-#" }}}
-
-#" ==========timer tick进度状态========== {{{
-#def UpdateTickCtr()
-#    " 更新最大最小值
-#    ids = map(values(s:async_jobs), 'v:val.id')
-#    S_async_tick_ctr.min_id = min(l:ids)
-#    S_async_tick_ctr.max_id = max(l:ids)
-#    " 限制范围
-#    if s:async_tick_ctr.loop_id < min(l:ids)
-#        S_async_tick_ctr.loop_id = min(l:ids)
-#    endif
-#    if s:async_tick_ctr.loop_id > max(l:ids)
-#        S_async_tick_ctr.loop_id = max(l:ids)
-#    endif
-#enddef
-
-#def PauseAsyncTick(timems)
-#    S_async_tick_ctr.timeout = timems
-#    S_async_tick_ctr.start_time = reltime()
-#enddef
-
-#def AsyncTick(key, timer)
-#    " stop and remove后可能仍然收到回调
-#    if !has_key(s:async_jobs, key)
-#        return
-#    endif
-
-#    " 检查 Vim 是否处于 more-prompt 或 hit-enter prompt 状态
-#    if state('s') != ''
-#        return
-#    endif
-
-#    " mode() ==# 'c' 表示正在命令行模式
-#    " 或者 getcmdline() 非空表示已经在输入内容
-#    if mode() ==# 'c' || !empty(getcmdline())
-#        return
-#    endif
-
-#    " 暂停控制
-#    if s:async_tick_ctr.timeout > 0
-#        time_ms = float2nr(reltimefloat(reltime(s:async_tick_ctr.start_time)) * 1000)
-#        if l:time_ms < s:async_tick_ctr.timeout
-#            return
-#        else
-#            S_async_tick_ctr.timeout = 0
-#        endif
-#    endif
-
-#    " ================================================================== 
-#    " 每个job都有一个timer，如果不加控制地更新状态
-#    " 不同job的信息会在命令快速交替显示，效果很差
-#    " 引入轮询循环控制，每个job完成一个循环显示后才切换到下一个job的显示
-#    " s:async_tick_ctr做的就是这件事
-#    " ------------------------------------------------------------------
-#    " echom "min_id: " . s:async_tick_ctr.min_id
-#    "             \ . " max_id: " . s:async_tick_ctr.max_id
-#    "             \ . " loop_id:" . s:async_tick_ctr.loop_id
-#    "             \ . " max_loop_times:" . s:async_tick_ctr.max_loop_times
-#    "             \ . " curr_loop_times:" . s:async_tick_ctr.curr_loop_times
-#    "             \ . " static_count:" . s:async_tick_ctr.static_count
-
-#    " 如果不是当前循环id
-#    if s:async_tick_ctr.loop_id != s:async_jobs[key].id
-#        S_async_tick_ctr.static_count += 1
-#        if s:async_tick_ctr.static_count > len(s:async_jobs)
-#            " 如何很久没有变化了，更新一下防止其中一个退出导致无法驱动loop
-#            call s:UpdateTickCtr()
-#        endif
-#        return
-#    endif
-
-#    " 驱动一次更新
-#    S_async_tick_ctr.static_count = 0
-#    call s:UpdateTickCtr()
-
-#    " 当前id循环结束，切换到下一个循环id
-#    S_async_tick_ctr.curr_loop_times += 1
-#    if s:async_tick_ctr.curr_loop_times == s:async_tick_ctr.max_loop_times - 1
-#        S_async_tick_ctr.curr_loop_times = 0
-#        S_async_tick_ctr.loop_id += 1
-#        if s:async_tick_ctr.loop_id > s:async_tick_ctr.max_id
-#            S_async_tick_ctr.loop_id = s:async_tick_ctr.min_id
-#        endif
-#    endif
-#    " ================================================================== 
-
-#    " 执行一次状态更新
-#    let chars = ['|', '/', '-', '\']
-
-#    " S_async_jobs[key].prog_idx = (s:async_jobs[key].prog_idx + 1) % len(chars)
-#    " " 在timer的回调中，echo后面不要有任何代码，否则光标会闪烁!!!
-#    " if s:GetCurrSubjob(key).m
-#    "     echo 'Async-' . s:GetCurrSubjobProgram(key) . ' running ... ' . chars[s:async_jobs[key].prog_idx]
-#    " endif
-
-#    S_async_tick_ctr.index = (s:async_tick_ctr.index + 1) % len(chars)
-#    " 在timer的回调中，echo后面不要有任何代码，否则光标会闪烁!!!
-
-#    if s:GetCurrSubjob(key).m
-#        echo 'Async-' . s:GetCurrSubjobProgram(key) . ' running ... ' . chars[s:async_tick_ctr.index]
-#    endif
-#enddef
-#" }}}
-
-#" ==========async的停止========== {{{
-#def StopTimer(timer, stop_way)
-#    " 1. 检查 timer 是否存在且有效
-#    if timer is v:null
-#        return
-#    endif
-
-#    " 2. 检查 timer 是否还在运行, 停止它
-#    try
-#        call timer_stop(timer)
-#    catch
-#        echohl ErrorMsg
-#        echomsg v:exception
-#        echohl None
-#    endtry
-#enddef
-
-#def StopJob(job, stop_way)
-#    " 1. 检查 job 是否存在且有效
-#    if job is v:null
-#        return
-#    endif
-
-#    " 2. 检查 job 是否还在运行, 停止它
-#    try
-#        if job_status(job) ==# 'run'
-#            call job_stop(job, stop_way)
-#        endif
-#    catch
-#        echohl ErrorMsg
-#        echomsg v:exception
-#        echohl None
-#    endtry
-#enddef
-
-#def StopAsyncJob(async_job, stop_way)
-#    if empty(async_job)
-#        return
-#    endif
-
-#    let async_job.state = 'stopping'
-
-#    " 停止timer
-#    timer = get(async_job, 'timer', v:null)
-#    call s:StopTimer(l:timer, stop_way)
-#    let async_job.timer = v:null
-
-#    " 停止job
-#    job = get(async_job, 'job', v:null)
-#    call s:StopJob(l:job, stop_way)
-#    let async_job.job = v:null
-
-#    " 清理字典条目, 不需要在这里清理，exit callback通常会执行，哪怕是kill
-#    " call remove(s:async_jobs, key)
-#enddef
-
-#def FindAsyncJobById(id)
-#    for [l:key, l:data] in items(s:async_jobs)
-#        if l:data.id ==# id
-#            return l:data
-#        endif
-#    endfor
-#    return {}
-#enddef
-
-#def StopAsyncJobAll(stop_way)
-#    for [l:key, l:data] in items(s:async_jobs)
-#        call s:StopAsyncJob(l:data, stop_way)
-#    endfor
-#enddef
-
-#def StopAsyncJobWithId(id, stop_way)
-#    async_job = s:FindAsyncJobById(id)
-#    call s:StopAsyncJob(l:async_job, stop_way)
-#enddef
-
-#def StopAsyncJobWithKey(key, stop_way)
-#    if !has_key(s:async_jobs, key)
-#        return
-#    endif
-#    call s:StopAsyncJob(s:async_jobs[key], stop_way)
-#enddef
-
-#def StopAsyncJobWithName(name, stop_way)
-#    for [l:key, l:data] in items(s:async_jobs)
-#        program = s:GetCurrSubjobProgram(l:key)
-#        if l:program ==# name
-#            call s:StopAsyncJob(l:data, stop_way)
-#        endif
-#    endfor
-#enddef
-
-#def AsyncStop(args)
-#    id = matchstr(args, '\%(^\|\s\)--id=\zs\S\+')
-#    key = matchstr(args, '\%(^\|\s\)--key=\zs\S\+')
-#    name = matchstr(args, '\%(^\|\s\)--name=\zs\S\+')
-#    stop_way = matchstr(args, '\%(^\|\s\)--stop-way=\zs\S\+')
-#    if empty(l:stop_way)
-#        stop_way = 'term'
-#    endif
-
-#    if !empty(l:id)
-#        call s:StopAsyncJobWithId(l:id, l:stop_way)
-#    endif
-
-#    if !empty(l:key)
-#        call s:StopAsyncJobWithKey(l:key, l:stop_way)
-#    endif
-
-#    if !empty(l:name)
-#        call s:StopAsyncJobWithName(l:name, l:stop_way)
-#    endif
-
-#    if index(split(args), '--all') >= 0
-#        call s:StopAsyncJobAll(l:stop_way)
-#    endif
-#enddef
-
-#" 定义补全函数
-#def AsyncStopComplete(arglead, cmdline, cursorpos)
-#    " 检查是否正在补全 --stop-way= 的值
-#    if arglead =~# '^--stop-way='
-#        " 提取 = 后面的部分（用户已经输入的值前缀，比如 'k'）
-#        prefix = substitute(arglead, '^--stop-way=', '', '')
-#        stop_ways = ['term', 'hup', 'int', 'quit', 'kill']
-#        " 过滤出匹配的项
-#        matches = filter(copy(l:stop_ways), 'stridx(v:val, l:prefix) == 0')
-#        " 【关键】把前缀拼回去，返回完整的参数
-#        return map(l:matches, '"--stop-way=" . v:val')
-#    endif
-#    " 否则补全选项名
-#    options = ['--id=', '--key=', '--name=', '--stop-way=', '--all']
-#    return filter(copy(l:options), 'stridx(v:val, arglead) == 0')
-#enddef
-#" }}}
-
-#" ==========async 命令参数处理========== {{{
-#" 根据命令获取默认参数的subjob
-#def GetDefaultSubJob(cmd, last)
-#    default_job = {
-#        \ 'org': '',
-#        \ 'cmd': cmd,
-#        \ 'len': strchars(cmd),
-#        \ 'fmt': &errorformat,
-#        \ 'fil': 'all',
-#        \ 'env': '',
-#        \ 'o': v:false,
-#        \ 'm': v:true,
-#        \ 'ts': '',
-#        \ 'te': '',
-#        \ 'sts': 'uinit'
-#        \ }
-
-#    program = split(cmd)[0]
-#    if l:program ==# 'grep'
-#        default_job.fmt = '%f:%l:%m'
-#        default_job.fil = 'out'
-#        default_job.o = last ? v:true : l:default_job.o
-#    elseif l:program ==# 'rg'
-#        default_job.fmt = '%f:%l:%c:%m'
-#        default_job.fil = 'out'
-#        default_job.o = last ? v:true : l:default_job.o
-#    endif
-#    return l:default_job
-#enddef
-
-#" 将async命令的参数解析成subjobs
-#def ParseAsyncArgs(args)
-#    subjobs = []
-#    cmdlist = s:SplitAsyncArgs(args)
-#    for i in range(len(l:cmdlist))
-#        let last = i == len(l:cmdlist) - 1
-#        let cmd = l:cmdlist[i]
-#        " 获取默认参数的subjob
-#        let subjob = s:GetDefaultSubJob(cmd.cmd, last)
-
-#        " 从设置的命令更新参数
-#        let org = empty(cmd.pre_cmd) ? cmd.cmd : cmd.pre_cmd . ' ' . cmd.cmd
-#        let cmd_ctr = s:GetCtrFromPrecmd(cmd.pre_cmd)
-#        " ---------------------------------------------
-#        let subjob.org = org
-#        let subjob.cmd = cmd.cmd
-#        let subjob.len = strchars(cmd.cmd)
-#        if !empty(cmd_ctr.fmt)
-#            let subjob.fmt = cmd_ctr.fmt
-#        endif
-#        if !empty(cmd_ctr.fil)
-#            let subjob.fil = cmd_ctr.fil
-#            if cmd_ctr.fil !=# 'none'
-#                        \ && cmd_ctr.fil !=# 'out'
-#                        \ && cmd_ctr.fil !=# 'err'
-#                        \ && cmd_ctr.fil !=# 'all'
-#                echom "Warning: only support fil=[none/out/err/all], but is ". subjob.fil
-#            endif
-#        endif
-#        if !empty(cmd_ctr.env)
-#            let subjob.env = cmd_ctr.env
-#        endif
-#        if !empty(cmd_ctr.o)
-#            let subjob.o = cmd_ctr.o ==# '0' ? v:false : v:true
-#        endif
-#        if !empty(cmd_ctr.m)
-#            let subjob.m = cmd_ctr.m ==# '0' ? v:false : v:true
-#        endif
-
-#        " 加入到列表
-#        call add(l:subjobs, subjob)
-#    endfor
-
-#    return l:subjobs
-#enddef
-
-#" 从<...|...>中解析出fmt、o等参数
-#def GetCtrFromPrecmd(pre_cmd)
-#    cmd_ctr = {'fmt': '', 'fil': '', 'env': '', 'o': '', 'm': ''}
-
-#    if pre_cmd !~# '^<.*>$'
-#        return l:cmd_ctr
-#    endif
-
-#    " 去掉首尾的 < >
-#    content = strcharpart(pre_cmd, 1, strchars(pre_cmd) - 2)
-
-#    for l:field in split(l:content, '|', 1)
-#        if l:field =~# '^fmt='
-#            cmd_ctr.fmt = strpart(l:field, strlen('fmt='))
-#        elseif l:field =~# '^fil='
-#            cmd_ctr.fil = strpart(l:field, strlen('fil='))
-#        elseif l:field =~# '^env='
-#            cmd_ctr.env = strpart(l:field, strlen('env='))
-#        elseif l:field =~# '^o='
-#            cmd_ctr.o = strpart(l:field, strlen('o='))
-#        elseif l:field =~# '^m='
-#            cmd_ctr.m = strpart(l:field, strlen('m='))
-#        endif
-#    endfor
-
-#    return l:cmd_ctr
-#enddef
-
-#" 分割async命令参数 [{pre_cmd=<...> cmd=...}]
-#def SplitAsyncArgs(args)
-#    s = args
-#    total = strchars(l:s)
-#    i = 0
-#    result = []
-
-#    while l:i < l:total
-#        " 1. 找到第一个非空字符
-#        while l:i < l:total && strcharpart(l:s, l:i, 1) =~# '^\s$'
-#            i += 1
-#        endwhile
-#        if l:i >= l:total
-#            break
-#        endif
-
-#        " 不以 < 开头：从当前位置到末尾，整体作为 cmd
-#        if strcharpart(l:s, l:i, 1) !=# '<'
-#            call add(l:result, {
-#                        \ 'pre_cmd': '',
-#                        \ 'cmd': strcharpart(l:s, l:i)
-#                        \ })
-#            break
-#        endif
-
-#        " 2. 读取整个 <...>，作为 pre_cmd
-#        pre_start = l:i
-#        while l:i < l:total && strcharpart(l:s, l:i, 1) !=# '>'
-#            i += 1
-#        endwhile
-#        if l:i >= l:total
-#            throw 'SplitAsyncArgs: 缺少 >'
-#        endif
-
-#        pre_cmd = strcharpart(l:s, l:pre_start, l:i - l:pre_start + 1)
-#        options = strcharpart(l:s, l:pre_start + 1, l:i - l:pre_start - 1)
-#        i += 1
-
-#        " 按 | 分割 <...> 的内容，查找 len=数字
-#        len_text = ''
-#        for l:field in split(l:options, '|', 1)
-#            value = matchstr(l:field, '^len=\zs[0-9]\+$')
-#            if !empty(l:value)
-#                len_text = l:value
-#                break
-#            endif
-#        endfor
-
-#        " 3. 找到 <...> 之后 cmd 的第一个非空字符
-#        while l:i < l:total && strcharpart(l:s, l:i, 1) =~# '^\s$'
-#            i += 1
-#        endwhile
-#        if l:i >= l:total
-#            throw 'SplitAsyncArgs: <...> 之后缺少命令'
-#        endif
-
-#        " 没有 len：cmd 一直取到末尾
-#        if empty(l:len_text)
-#            call add(l:result, {
-#                        \ 'pre_cmd': l:pre_cmd,
-#                        \ 'cmd': strcharpart(l:s, l:i)
-#                        \ })
-#            break
-#        endif
-
-#        " 有 len：按指定字符数截取 cmd
-#        cmd_len = str2nr(l:len_text)
-#        if l:cmd_len <= 0 || l:i + l:cmd_len > l:total
-#            throw 'SplitAsyncArgs: len 无效或命令长度不足'
-#        endif
-
-#        call add(l:result, {
-#                    \ 'pre_cmd': l:pre_cmd,
-#                    \ 'cmd': strcharpart(l:s, l:i, l:cmd_len)
-#                    \ })
-#        i += l:cmd_len
-
-#        " 4. 截取完 cmd 后，跳过空白并查找分隔符 |
-#        while l:i < l:total && strcharpart(l:s, l:i, 1) =~# '^\s$'
-#            i += 1
-#        endwhile
-#        if l:i >= l:total
-#            break
-#        endif
-#        if strcharpart(l:s, l:i, 1) !=# '|'
-#            throw 'SplitAsyncArgs: 命令之后缺少分隔符 |'
-#        endif
-#        i += 1
-
-#        " 分隔符后不能只有空白
-#        next = l:i
-#        while l:next < l:total && strcharpart(l:s, l:next, 1) =~# '^\s$'
-#            next += 1
-#        endwhile
-#        if l:next >= l:total
-#            throw 'SplitAsyncArgs: 分隔符 | 之后缺少命令'
-#        endif
-#    endwhile
-
-#    return l:result
-#enddef
-
-#" 将多条命令合并成一条
-#" 完整的async命令格式: Async <...> cmd1 [...] | <...> cmd2 [...]
-#" 如: Async <len=42> find . -name "*.cpp" -print > cscope.files | <len=31|fmt=%f:%l:%m,%f:%l:%c:%m|o=1> cscope -b -q -k -i cscope.files
-#" <...>是命令前缀，'<...> '后跟具体命令, 多条命令用|隔开
-#" 命令前缀用来指定命令额外的一些行为，多个行为也用|隔开, 其中:
-#" len: 指定了命令的长度, 多条命令拼接时需要
-#" fmt: 指定命令输出的格式
-#" o  : 指定命令结束后是否打开quickfix
+# ==========async========== {{{
+var S_async_tick_ctr = {
+     index: 0,
+     static_count: 0,
+     max_loop_times: 12,
+     curr_loop_times: 0,
+     loop_id: 0,
+     min_id: 0,
+     max_id: 0,
+     timeout: 0,
+     start_time: ''
+    }
+
+var S_async_job_id = -1
+var S_async_jobs = {}
+
+# " 子任务
+# S_subjob = {
+#     org: '',      "原始async命令
+#     cmd: '',      "真正的program命令
+#     len: '',      "cmd的长度
+#     fmt: '',      "输出格式
+#     fil: '',      "填充类型，none/all/out/err
+#     env: '',      "是否继承vim终端env，模拟tty
+#     o: '',        "命令结束后是否打开quickfix
+#     m: ''         "是否显示过程和状态信息, 如果m=0, out/err会被打印
+#     ts: '',       "命令执行起始时间
+#     te: '',       "命令执行结束时间
+#     sts: 'uninit',      "状态信息
+# }
+
+# " 每个AsyncJob包含一个subjobs列表，里面包含具体的命令参数，
+# " subjob_id是当前job对象正在执行的子任务索引，当一个子任务执行结束后，
+# " 如果subjobs里还有未执行的子任务，会重新创建一个job对象，同时subjob_id++
+# " 注意id不会变，id是和AsyncJob绑定的，即一个AsyncJob + id + subjobs
+# " 这样做是因为，有的工作可能需要多条命令才能完成，且这些命令有先后顺序
+# S_async_jobs[key] = {
+#     id: -1,             "job id, 每个AsyncJob对应一个id，从0开始增长
+#     job: v:null,        "job对象, 真正执行外部命令的对象
+#     timer: -1,          "计时器, 用于更新进度等信息
+#     state: 'uninit',    "状态, 分为uninit/running/stopping/done/xdone, 用于时序控制
+#     outs: [],           "标准输出
+#     errs: [],           "错误输出
+#     prog_idx: 0,        "进度索引
+#     subjobs: [],        "子任务列表
+#     subjob_id: 0        "当前子任务索引
+# }
+
+# Async异步命令，可以执行任意外部命令
+# 格式: Async <...> cmd1 [...] | <...> cmd2 [...]
+# | : 多条命令用|分隔, 形成一个有先后顺序的子任务的整体
+# <>: 是命令前缀，可以指定命令执行后的一些行为, 如o=1表示结束后打开quickfix
+#     当有多条命令时用len=num指定命令的长度，<>指定的不同行为也用|隔开，如<len=27|o=1>
+# 下面是一条生成cscope的完整命令：
+# Async <len=42> find . -name "*.cpp" -print > cscope.files | cscope -b -q -k -i cscope.files
+#
+# AsyncQuery命令用于查询正在执行的异步命令，--table以表格形式实时显示
+#
+# AsyncStop命令用于停止异步命令
+# --id=: 任务id
+# --name=: 任务的程序名
+# --key=: Async的完整命令
+# --all=: 停止所有任务
+# --stop-way=: 停止方式['term', 'hup', 'int', 'quit', 'kill']
+command! -nargs=+ -complete=customlist,AsyncComplete Async call <SID>Async(<q-args>)
+command! -nargs=* AsyncQuery call <SID>AsyncQuery(<q-args>)
+command! -nargs=+ -complete=customlist,AsyncStopComplete AsyncStop call <SID>AsyncStop(<q-args>)
+# ------------------------------------------------------
+command! -nargs=1 AsyncSleep call <SID>AsyncSleep(<q-args>)
+command! -nargs=* AsyncTest call <SID>AsyncTest(<q-args>)
+
+def AsyncTest(args: string): string
+    var ts = empty(args) ? '10' : args
+
+    # var cmd = 'Async <o=1> grep -Rn vim .'
+    # var cmd = 'Async sleep ' .. ts
+    # var cmd = 'Async <o=1> rg --vimgrep -H -n vim .'
+    var cmd = 'Async <len=14|o=1> grep -Rn vim . | sleep ' .. ts
+
+    execute cmd
+    return cmd
+enddef
+
+def AsyncSleep(args: string): string
+    var cmd = 'Async sleep ' .. args
+    execute cmd
+    return cmd
+enddef
+
+# 异步命令主函数
+def Async(args: string)
+    var cmd = args
+    var subjobs = ParseAsyncArgs(args)
+    var shell_cmd = [&shell, &shellcmdflag, subjobs[0].cmd]
+
+    echom 'Async ' .. cmd
+    redraw
+    if len(subjobs) == 0
+        echom 'Async no subjobs to run!'
+        return
+    endif
+
+    # test
+    # echom 'Async cmd: ' .. cmd
+    # echom 'Async subjobs: '
+    # echom subjobs
+    # echom 'Async subjobs[0].shell_cmd: ' .. string(shell_cmd)
+    # return
+
+    if has_key(S_async_jobs, cmd)
+        echom 'job for [' .. S_async_jobs[cmd].job .. "] 已存在!"
+        return
+    endif
+
+    # 建字典
+    var job_id = GenJobID()
+    S_async_jobs[cmd] = {
+        id: job_id,
+        job: v:null,
+        timer: -1,
+        state: 'uninit',
+        outs: [],
+        errs: [],
+        prog_idx: 0,
+        subjobs: subjobs,
+        subjob_id: 0
+    }
+
+    # 先把timer启动起来，防止job结束过快timer还没创建
+    # 每 200 毫秒更新一次状态
+    call StartAsyncTimer(cmd, 200)
+
+    # 启动异步任务
+    call StartAsyncSubjob(cmd)
+enddef
+
+def AsyncComplete(ArgLead: string, CmdLine: string, CursorPos: number): list<string>
+    var options = ['<m=0>', '<o=1>', '<m=0|env=1>', '<o=1|env=1>', '<len=', '<fil=', '<fmt=']
+    return filter(options, (_, v) => stridx(v, ArgLead) == 0)
+enddef
+
+def GenJobID(): number
+    S_async_job_id += 1
+    return S_async_job_id
+enddef
+
+def GetSubjobs(key: string): list<any>
+    return S_async_jobs[key].subjobs
+enddef
+
+def GetCurrSubjob(key: string): any
+    var id = S_async_jobs[key].subjob_id
+    return S_async_jobs[key].subjobs[id]
+enddef
+
+def GetCurrSubjobCmd(key: string): string
+    return GetCurrSubjob(key).cmd
+enddef
+
+def GetCurrSubjobProgram(key: string): string
+    return split(GetCurrSubjobCmd(key))[0]
+enddef
+
+def IsLastSubJob(key: string): bool
+    var subjob_size = len(GetSubjobs(key))
+    return S_async_jobs[key].subjob_id == subjob_size - 1
+enddef
+
+# ==========async的启动========== {{{
+# 启动一个timer
+def StartAsyncTimer(key: string, tms: number)
+    if GetCurrSubjob(key).m == '1'
+        echo "Async-" .. GetCurrSubjobProgram(key) .. " running ... |"
+    endif
+
+    var timer = timer_start(
+        tms,
+        function('AsyncTick', [key]),
+        {repeat: -1}
+        )
+
+    S_async_jobs[key].timer = timer
+enddef
+
+# 启动一个子任务
+def StartAsyncSubjob(key: string)
+    var curr_subjob = GetCurrSubjob(key)
+    var shell_cmd = [&shell, &shellcmdflag, curr_subjob.cmd]
+
+    curr_subjob.ts = string(reltime())
+
+    # 异步任务
+    # out_mode/err_mode: nl: 按换行符切分输出，否则可能是半行
+    # out_cb : 标准输出回调
+    # err_cb : 标准错误回调
+    # exit_cb: 进程退出回调
+    var async_job: any = v:null
+    if curr_subjob.env == '1'
+        # echom "has env: " .. curr_subjob.env
+        async_job = job_start(shell_cmd, {
+                env: environ(),
+                pty: 1,
+                out_mode: 'nl',
+                err_mode: 'nl',
+                out_cb: (ch, msg) => OnJobOut(key, ch, msg),
+                err_cb: (ch, msg) => OnJobErr(key, ch, msg),
+                exit_cb: (job, code) => OnJobExit(key, job, code)
+                })
+    else
+        # echom "no env: " .. curr_subjob.env
+        async_job = job_start(shell_cmd, {
+                out_mode: 'nl',
+                err_mode: 'nl',
+                out_cb: (ch, msg) => OnJobOut(key, ch, msg),
+                err_cb: (ch, msg) => OnJobErr(key, ch, msg),
+                exit_cb: (job, code) => OnJobExit(key, job, code)
+                })
+    endif
+
+    # job 对象填进字典
+    # 由于OnJobExit可以在job返回前结束，所以使用一个状态来控制
+    # OnJobExit是在vim进行执行的，所以和下面的逻辑是同步的
+    if S_async_jobs[key].state != 'done' && S_async_jobs[key].state != 'xdone'
+        S_async_jobs[key].job = async_job
+        S_async_jobs[key].state = 'running'
+        curr_subjob.sts = 'running'
+    endif
+
+    call UpdateTickCtr()
+enddef
+# }}}
+
+# ==========async的回调及后处理========== {{{
+def OnJobOut(key: string, ch: channel, msg: string)
+    # OnJobExit后仍可能收到OnJobOut和OnJobErr
+    if !has_key(S_async_jobs, key)
+        return
+    endif
+
+    call add(S_async_jobs[key].outs, msg)
+
+    # 如果out不会填充到quickfix，就打印它
+    # 如果m=0也打印，因为过程信息没有了
+    var subjob = GetCurrSubjob(key)
+    if subjob.m == '0' || (subjob.fil !=# 'out' && subjob.fil !=# 'all')
+        # echom GetCurrSubjobProgram(key) .. ": " .. msg
+        echom msg
+    endif
+enddef
+
+def OnJobErr(key: string, ch: channel, msg: string)
+    # OnJobExit后仍可能收到OnJobOut和OnJobErr
+    if !has_key(S_async_jobs, key)
+        return
+    endif
+
+    call add(S_async_jobs[key].errs, msg)
+
+    # 如果err不会填充到quickfix，就打印它
+    # 如果m=0也打印，因为过程信息没有了
+    var subjob = GetCurrSubjob(key)
+    if subjob.m == '0' || (subjob.fil !=# 'err' && subjob.fil !=# 'all')
+        # echom GetCurrSubjobProgram(key) .. ": " .. msg
+        echom msg
+    endif
+enddef
+
+def OnJobExit(key: string, job: job, code: number)
+    if !has_key(S_async_jobs, key)
+        echom 'job for [' .. key .. '] not exist!'
+        return
+    endif
+
+    var curr_subjob = GetCurrSubjob(key)
+
+    S_async_jobs[key].job = job
+    if S_async_jobs[key].state ==# 'uinit'
+        S_async_jobs[key].state = 'running'
+        curr_subjob.sts = 'running'
+    endif
+
+    try
+        # 如果是最后一个subjob或发送了stopping信号才停止timer
+        if IsLastSubJob(key) || S_async_jobs[key].state ==# 'stopping'
+            var timer = get(S_async_jobs[key], 'timer', -1)
+            call StopTimer(timer, 'term')
+            S_async_jobs[key].timer = -1
+        endif
+
+        # 执行后期处理任务
+        call AsyncJobDone(key, code)
+    finally
+
+        # 更新状态
+        var finish_type = S_async_jobs[key].state ==# 'stopping' ? 'xdone' : 'done'
+        S_async_jobs[key].state = finish_type
+        curr_subjob.sts = finish_type
+        var ts_list = eval(curr_subjob.ts)
+        var time = printf('%.1f', reltimefloat(reltime(ts_list)))
+        curr_subjob.te = time
+
+        if IsLastSubJob(key) || S_async_jobs[key].state ==# 'stopping'
+            # 如果是最后一个subjob或发送了停止命令清理整个AsyncJob
+            call remove(S_async_jobs, key)
+        else
+            # 如果不是最后一个subjob，启动一个新的job执行后续任务
+            # 先reset
+            S_async_jobs[key].state = 'uninit'
+            S_async_jobs[key].outs = []
+            S_async_jobs[key].errs = []
+            S_async_jobs[key].prog_idx = 0
+            S_async_jobs[key].subjob_id += 1
+
+            if curr_subjob.m == '1'
+                echo "Async-" .. GetCurrSubjobProgram(key) .. " running ... |"
+            endif
+            call StartAsyncSubjob(key)
+        endif
+    endtry
+enddef
+
+def AsyncJobDone(key: string, code: number)
+    var subjob = GetCurrSubjob(key)
+
+    if subjob.m == '1'
+        echom "Async-" .. GetCurrSubjobProgram(key) .. " finish(" .. string(code) .. "). Processing data ..."
+    endif
+
+    # call EchoMsg(S_async_jobs[key].outs)
+    # call EchoMsg(S_async_jobs[key].errs)
+
+    var num = AsyncDataProcess(key, code)
+    var finish_type = S_async_jobs[key].state ==# 'stopping' ? ' xdone | ' : ' done | '
+    var ts_list = eval(subjob.ts)
+    var time = printf('%.1f', reltimefloat(reltime(ts_list)))
+
+    if subjob.m == '1'
+        echom "Async-" .. GetCurrSubjobProgram(key) .. finish_type .. num.n_outs .. " outs + " .. num.n_errs .. ' errs | ' .. time .. 's'
+    endif
+enddef
+
+def AsyncDataProcess(key: string, code: number): any
+    var subjob = GetCurrSubjob(key)
+
+    var format = &errorformat
+    var errs = []
+    var outs = []
+    # 如果指定了具体格式, 过滤空项
+    if !empty(subjob.fmt)
+        errs = filter(S_async_jobs[key].errs, '!empty(v:val)')
+        outs = filter(S_async_jobs[key].outs, '!empty(v:val)')
+        format = subjob.fmt
+    else
+        errs = S_async_jobs[key].errs
+        outs = S_async_jobs[key].outs
+    endif
+
+    if subjob.fil ==? 'none'
+        return {'n_outs': len(outs), 'n_errs': len(errs)}
+    endif
+
+    var filled = v:false
+    if subjob.fil ==? 'err' && !empty(errs)
+        call setqflist([], ' ', {
+                    \ 'title': subjob.cmd,
+                    \ 'lines': errs,
+                    \ 'efm': format
+                    \ })
+        filled = v:true
+    elseif subjob.fil ==? 'out' && !empty(outs)
+        call setqflist([], ' ', {
+                    \ 'title': subjob.cmd,
+                    \ 'lines': outs,
+                    \ 'efm': format
+                    \ })
+        filled = v:true
+    elseif subjob.fil ==? 'all' && (!empty(errs) || !empty(outs))
+        call setqflist([], ' ', {
+                    \ 'title': subjob.cmd,
+                    \ 'lines': errs,
+                    \ 'efm': format
+                    \ })
+        call setqflist([], 'a', {
+                    \ 'lines': outs,
+                    \ 'efm': format
+                    \ })
+        filled = v:true
+    elseif subjob.fil ==? 'asp'
+        if !empty(outs)
+            call setqflist([], ' ', {
+                        \ 'title': subjob.cmd,
+                        \ 'lines': outs,
+                        \ 'efm': format
+                        \ })
+            filled = v:true
+        endif
+        if !empty(errs)
+            call setqflist([], ' ', {
+                        \ 'title': subjob.cmd,
+                        \ 'lines': errs,
+                        \ 'efm': format
+                        \ })
+            filled = v:true
+        endif
+    endif
+
+    # 打开窗口
+    if subjob.o == '1'  && filled
+        botright copen
+    endif
+
+    return {'n_outs': len(outs), 'n_errs': len(errs)}
+enddef
+
+def EchoMsg(lines: list<string>)
+    for line in lines
+        echom line
+    endfor
+enddef
+# }}}
+
+# ==========timer tick进度状态========== {{{
+def UpdateTickCtr()
+    # 更新最大最小值
+    var ids = map(values(S_async_jobs), 'v:val.id')
+    S_async_tick_ctr.min_id = min(ids)
+    S_async_tick_ctr.max_id = max(ids)
+    # 限制范围
+    if S_async_tick_ctr.loop_id < min(ids)
+        S_async_tick_ctr.loop_id = min(ids)
+    endif
+    if S_async_tick_ctr.loop_id > max(ids)
+        S_async_tick_ctr.loop_id = max(ids)
+    endif
+    # 如果当前loop_id不等于任何一个任务id就更新它
+    if index(ids, S_async_tick_ctr.loop_id) < 0
+        S_async_tick_ctr.loop_id = ids[0]
+    endif
+enddef
+
+def PauseAsyncTick(timems: number)
+    S_async_tick_ctr.timeout = timems
+    S_async_tick_ctr.start_time = string(reltime())
+enddef
+
+def AsyncTick(key: string, timer: number)
+    # stop and remove后可能仍然收到回调
+    if !has_key(S_async_jobs, key)
+        return
+    endif
+
+    # 检查 Vim 是否处于 more-prompt 或 hit-enter prompt 状态
+    if state('s') != ''
+        return
+    endif
+
+    # mode() ==# 'c' 表示正在命令行模式
+    # 或者 getcmdline() 非空表示已经在输入内容
+    if mode() ==# 'c' || !empty(getcmdline())
+        return
+    endif
+
+    # 暂停控制
+    if S_async_tick_ctr.timeout > 0
+        var st_list = eval(S_async_tick_ctr.start_time)
+        var time_ms = float2nr(reltimefloat(reltime(st_list)) * 1000)
+        if time_ms < S_async_tick_ctr.timeout
+            return
+        else
+            S_async_tick_ctr.timeout = 0
+        endif
+    endif
+
+    # ==================================================================
+    # 每个job都有一个timer，如果不加控制地更新状态
+    # 不同job的信息会在命令快速交替显示，效果很差
+    # 引入轮询循环控制，每个job完成一个循环显示后才切换到下一个job的显示
+    # S_async_tick_ctr做的就是这件事
+    # ------------------------------------------------------------------
+    # echom "min_id: " .. S_async_tick_ctr.min_id
+    #              \ .. " max_id: " .. S_async_tick_ctr.max_id
+    #              \ .. " loop_id:" .. S_async_tick_ctr.loop_id
+    #              \ .. " max_loop_times:" .. S_async_tick_ctr.max_loop_times
+    #              \ .. " curr_loop_times:" .. S_async_tick_ctr.curr_loop_times
+    #              \ .. " static_count:" .. S_async_tick_ctr.static_count
+
+    # 如果不是当前循环id
+    # TODO 多测下，似乎有卡住的bug!!!
+    if S_async_tick_ctr.loop_id != S_async_jobs[key].id
+        S_async_tick_ctr.static_count += 1
+        if S_async_tick_ctr.static_count > len(S_async_jobs)
+            # 如何很久没有变化了，更新一下防止其中一个退出导致无法驱动loop
+            call UpdateTickCtr()
+        endif
+        return
+    endif
+
+    # 驱动一次更新
+    S_async_tick_ctr.static_count = 0
+    call UpdateTickCtr()
+
+    # 当前id循环结束，切换到下一个循环id
+    S_async_tick_ctr.curr_loop_times += 1
+    if S_async_tick_ctr.curr_loop_times == S_async_tick_ctr.max_loop_times - 1
+        S_async_tick_ctr.curr_loop_times = 0
+        S_async_tick_ctr.loop_id += 1
+        if S_async_tick_ctr.loop_id > S_async_tick_ctr.max_id
+            S_async_tick_ctr.loop_id = S_async_tick_ctr.min_id
+        endif
+    endif
+    # ==================================================================
+
+    # 执行一次状态更新
+    var chars = ['|', '/', '-', '\']
+
+    # S_async_jobs[key].prog_idx = (S_async_jobs[key].prog_idx + 1) % len(chars)
+    # 在timer的回调中，echo后面不要有任何代码，否则光标会闪烁!!!
+    # if GetCurrSubjob(key).m
+    #     echo 'Async-' .. GetCurrSubjobProgram(key) .. ' running ... ' .. chars[S_async_jobs[key].prog_idx]
+    # endif
+
+    S_async_tick_ctr.index = (S_async_tick_ctr.index + 1) % len(chars)
+    # 在timer的回调中，echo后面不要有任何代码，否则光标会闪烁!!!
+
+    if GetCurrSubjob(key).m == '1'
+        echo 'Async-' .. GetCurrSubjobProgram(key) .. ' running ... ' .. chars[S_async_tick_ctr.index]
+    endif
+enddef
+# }}}
+
+# ==========async的停止========== {{{
+def StopTimer(timer: number, stop_way: string)
+    # 1. 检查 timer 是否存在且有效
+    if timer == -1
+        return
+    endif
+
+    # 2. 检查 timer 是否还在运行, 停止它
+    try
+        call timer_stop(timer)
+    catch
+        echohl ErrorMsg
+        echomsg v:exception
+        echohl None
+    endtry
+enddef
+
+def StopJob(job: job, stop_way: string)
+    # 1. 检查 job 是否存在且有效
+    if job is v:null
+        return
+    endif
+
+    # 2. 检查 job 是否还在运行, 停止它
+    try
+        if job_status(job) ==# 'run'
+            call job_stop(job, stop_way)
+        endif
+    catch
+        echohl ErrorMsg
+        echomsg v:exception
+        echohl None
+    endtry
+enddef
+
+def StopAsyncJob(async_job: any, stop_way: string)
+    if empty(async_job)
+        return
+    endif
+
+    async_job.state = 'stopping'
+
+    # 停止timer
+    var timer = get(async_job, 'timer', -1)
+    call StopTimer(timer, stop_way)
+    async_job.timer = -1
+
+    # 停止job
+    var job = get(async_job, 'job', v:null)
+    call StopJob(job, stop_way)
+    async_job.job = v:null
+
+    # 清理字典条目, 不需要在这里清理，exit callback通常会执行，哪怕是kill
+    # call remove(S_async_jobs, key)
+enddef
+
+def FindAsyncJobById(id: number): any
+    for [key, data] in items(S_async_jobs)
+        if data.id ==# id
+            return data
+        endif
+    endfor
+    return {}
+enddef
+
+def StopAsyncJobAll(stop_way: string)
+    for [key, data] in items(S_async_jobs)
+        call StopAsyncJob(data, stop_way)
+    endfor
+enddef
+
+def StopAsyncJobWithId(id: number, stop_way: string)
+    var async_job = FindAsyncJobById(id)
+    call StopAsyncJob(async_job, stop_way)
+enddef
+
+def StopAsyncJobWithKey(key: string, stop_way: string)
+    if !has_key(S_async_jobs, key)
+        return
+    endif
+    call StopAsyncJob(S_async_jobs[key], stop_way)
+enddef
+
+def StopAsyncJobWithName(name: string, stop_way: string)
+    for [key, data] in items(S_async_jobs)
+        var program = GetCurrSubjobProgram(key)
+        if program ==# name
+            call StopAsyncJob(data, stop_way)
+        endif
+    endfor
+enddef
+
+def AsyncStop(args: string)
+    var id = matchstr(args, '\%(^\|\s\)--id=\zs\S\+')
+    var key = matchstr(args, '\%(^\|\s\)--key=\zs\S\+')
+    var name = matchstr(args, '\%(^\|\s\)--name=\zs\S\+')
+    var stop_way = matchstr(args, '\%(^\|\s\)--stop-way=\zs\S\+')
+    if empty(stop_way)
+        stop_way = 'term'
+    endif
+
+    if !empty(id)
+        call StopAsyncJobWithId(str2nr(id), stop_way)
+    endif
+
+    if !empty(key)
+        call StopAsyncJobWithKey(key, stop_way)
+    endif
+
+    if !empty(name)
+        call StopAsyncJobWithName(name, stop_way)
+    endif
+
+    if index(split(args), '--all') >= 0
+        call StopAsyncJobAll(stop_way)
+    endif
+enddef
+
+# 定义补全函数
+def AsyncStopComplete(arglead: string, cmdline: string, cursorpos: number): list<string>
+    # 检查是否正在补全 --stop-way= 的值
+    if arglead =~# '^--stop-way='
+        # 提取 = 后面的部分（用户已经输入的值前缀，比如 'k'）
+        var prefix = substitute(arglead, '^--stop-way=', '', '')
+        var stop_ways = ['term', 'hup', 'int', 'quit', 'kill']
+        # 过滤出匹配的项
+        var matches = filter(copy(stop_ways), (_, v) => stridx(v, prefix) == 0)
+        # 【关键】把前缀拼回去，返回完整的参数
+        return map(matches, '"--stop-way=" .. v:val')
+    endif
+    # 否则补全选项名
+    var options = ['--id=', '--key=', '--name=', '--stop-way=', '--all']
+    return filter(copy(options), (_, v) => stridx(v, arglead) == 0)
+enddef
+# }}}
+
+# ==========async 命令参数处理========== {{{
+# 根据命令获取默认参数的subjob
+def GetDefaultSubJob(cmd: string, last: bool): dict<any>
+    var default_job = {
+        org: '',
+        cmd: cmd,
+        len: string(strchars(cmd)),
+        fmt: &errorformat,
+        fil: 'all',
+        env: '',
+        o: '0',
+        m: '1',
+        ts: '',
+        te: '',
+        sts: 'uinit'
+        }
+
+    var program = split(cmd)[0]
+    if program ==# 'grep'
+        default_job.fmt = '%f:%l:%m'
+        default_job.fil = 'out'
+        default_job.o = last ? '1' : default_job.o
+    elseif program ==# 'rg'
+        default_job.fmt = '%f:%l:%c:%m'
+        default_job.fil = 'out'
+        default_job.o = last ? '1' : default_job.o
+    endif
+    return default_job
+enddef
+
+# 将async命令的参数解析成subjobs
+def ParseAsyncArgs(args: string): list<dict<string>>
+    var subjobs = []
+    var cmdlist = SplitAsyncArgs(args)
+    for i in range(len(cmdlist))
+        var last: bool = (i == len(cmdlist) - 1)
+        var cmd = cmdlist[i]
+        # 获取默认参数的subjob
+        var subjob = GetDefaultSubJob(cmd.cmd, last)
+
+        # 从设置的命令更新参数
+        var org = empty(cmd.pre_cmd) ? cmd.cmd : cmd.pre_cmd .. ' ' .. cmd.cmd
+        var cmd_ctr = GetCtrFromPrecmd(cmd.pre_cmd)
+        # ---------------------------------------------
+        subjob.org = org
+        subjob.cmd = cmd.cmd
+        subjob.len = string(strchars(cmd.cmd))
+        if !empty(cmd_ctr.fmt)
+            subjob.fmt = cmd_ctr.fmt
+        endif
+        if !empty(cmd_ctr.fil)
+            subjob.fil = cmd_ctr.fil
+            if cmd_ctr.fil !=# 'none'
+                && cmd_ctr.fil !=# 'out'
+                && cmd_ctr.fil !=# 'err'
+                && cmd_ctr.fil !=# 'all'
+                echom "Warning: only support fil=[none/out/err/all], but is " .. subjob.fil
+            endif
+        endif
+        if !empty(cmd_ctr.env)
+            subjob.env = cmd_ctr.env
+        endif
+        if !empty(cmd_ctr.o)
+            subjob.o = cmd_ctr.o
+        endif
+        if !empty(cmd_ctr.m)
+            subjob.m = cmd_ctr.m
+        endif
+
+        # 加入到列表
+        call add(subjobs, subjob)
+    endfor
+
+    return subjobs
+enddef
+
+# 从<...|...>中解析出fmt、o等参数
+def GetCtrFromPrecmd(pre_cmd: string): any
+    var cmd_ctr = {'fmt': '', 'fil': '', 'env': '', 'o': '', 'm': ''}
+
+    if pre_cmd !~# '^<.*>$'
+        return cmd_ctr
+    endif
+
+    # 去掉首尾的 < >
+    var content = strcharpart(pre_cmd, 1, strchars(pre_cmd) - 2)
+
+    for field in split(content, '|', 1)
+        if field =~# '^fmt='
+            cmd_ctr.fmt = strpart(field, strlen('fmt='))
+        elseif field =~# '^fil='
+            cmd_ctr.fil = strpart(field, strlen('fil='))
+        elseif field =~# '^env='
+            cmd_ctr.env = strpart(field, strlen('env='))
+        elseif field =~# '^o='
+            cmd_ctr.o = strpart(field, strlen('o='))
+        elseif field =~# '^m='
+            cmd_ctr.m = strpart(field, strlen('m='))
+        endif
+    endfor
+
+    return cmd_ctr
+enddef
+
+# 分割async命令参数 [{pre_cmd=<...> cmd=...}]
+def SplitAsyncArgs(args: string): list<dict<string>>
+    var s = args
+    var total = strchars(s)
+    var i = 0
+    var result = []
+
+    while i < total
+        # 1. 找到第一个非空字符
+        while i < total && strcharpart(s, i, 1) =~# '^\s$'
+            i += 1
+        endwhile
+        if i >= total
+            break
+        endif
+
+        # 不以 < 开头：从当前位置到末尾，整体作为 cmd
+        if strcharpart(s, i, 1) !=# '<'
+            add(result, {
+                pre_cmd: '',
+                cmd: strcharpart(s, i)
+                })
+            break
+        endif
+
+        # 2. 读取整个 <...>，作为 pre_cmd
+        var pre_start = i
+        while i < total && strcharpart(s, i, 1) !=# '>'
+            i += 1
+        endwhile
+        if i >= total
+            throw 'SplitAsyncArgs: 缺少 >'
+        endif
+
+        var pre_cmd = strcharpart(s, pre_start, i - pre_start + 1)
+        var options = strcharpart(s, pre_start + 1, i - pre_start - 1)
+        i += 1
+
+        # | 分割 <...> 的内容，查找 len=数字
+        var len_text = ''
+        for field in split(options, '|', 1)
+            var value = matchstr(field, '^len=\zs[0-9]\+$')
+            if !empty(value)
+                len_text = value
+                break
+            endif
+        endfor
+
+        # 3. 找到 <...> 之后 cmd 的第一个非空字符
+        while i < total && strcharpart(s, i, 1) =~# '^\s$'
+            i += 1
+        endwhile
+        if i >= total
+            throw 'SplitAsyncArgs: <...> 之后缺少命令'
+        endif
+
+        # 没有 len：cmd 一直取到末尾
+        if empty(len_text)
+            add(result, {
+                pre_cmd: pre_cmd,
+                cmd: strcharpart(s, i)
+            })
+            break
+        endif
+
+        # len：按指定字符数截取 cmd
+        var cmd_len = str2nr(len_text)
+        if cmd_len <= 0 || i + cmd_len > total
+            throw 'SplitAsyncArgs: len 无效或命令长度不足'
+        endif
+
+        call add(result, {
+            pre_cmd: pre_cmd,
+            cmd: strcharpart(s, i, cmd_len)
+            })
+        i += cmd_len
+
+        # 4. 截取完 cmd 后，跳过空白并查找分隔符 |
+        while i < total && strcharpart(s, i, 1) =~# '^\s$'
+            i += 1
+        endwhile
+        if i >= total
+            break
+        endif
+        if strcharpart(s, i, 1) !=# '|'
+            throw 'SplitAsyncArgs: 命令之后缺少分隔符 |'
+        endif
+        i += 1
+
+        # 分隔符后不能只有空白
+        var next = i
+        while next < total && strcharpart(s, next, 1) =~# '^\s$'
+            next += 1
+        endwhile
+        if next >= total
+            throw 'SplitAsyncArgs: 分隔符 | 之后缺少命令'
+        endif
+    endwhile
+
+    return result
+enddef
+
+# 将多条命令合并成一条
+# 完整的async命令格式: Async <...> cmd1 [...] | <...> cmd2 [...]
+# 如: Async <len=42> find . -name "*.cpp" -print > cscope.files | <len=31|fmt=%f:%l:%m,%f:%l:%c:%m|o=1> cscope -b -q -k -i cscope.files
+# <...>是命令前缀，'<...> '后跟具体命令, 多条命令用|隔开
+# 命令前缀用来指定命令额外的一些行为，多个行为也用|隔开, 其中:
+# len: 指定了命令的长度, 多条命令拼接时需要
+# fmt: 指定命令输出的格式
+# o  : 指定命令结束后是否打开quickfix
 def MergeAsyncCmd(cmds: list<string>): string
     if len(cmds) == 0
         return ''
@@ -1387,92 +1398,93 @@ def MergeAsyncCmd(cmds: list<string>): string
 
     return merge_cmd
 enddef
-#" }}}
+# }}}
 
-#" ==========async 任务查询========== {{{
-#def AsyncQuery(args)
-#    time = matchstr(args, '\%(^\|\s\)--time=\zs\S\+')
-#    if empty(l:time)
-#        time = 1000
-#    endif
+# ==========async 任务查询========== {{{
+def AsyncQuery(args: string)
+    var time: number = 1000
+    var time_str = matchstr(args, '\%(^\|\s\)--time=\zs\S\+')
+    if !empty(time_str)
+        time = str2nr(time_str)
+    endif
 
-#    if index(split(args), '--table') >= 0
-#                \ || index(split(args), '--tab') >= 0
-#        call s:OpenCustomScheduleWindow('Async jobs', 's:ScheduleAsyncQuery', l:time)
-#    else
-#        " simple模式
-#        msg = ''
-#        for [l:key, l:data] in items(s:async_jobs)
-#            msg = l:msg . l:data.id . '-' . s:GetCurrSubjobProgram(l:key) . ' '
-#        endfor
-#        if !empty(l:msg)
-#            call s:PauseAsyncTick(5000)
-#            echom 'Async jobs [id-name]: ' . l:msg
-#        else
-#            echom 'No async job running!'
-#        endif
-#    endif
-#enddef
+    if index(split(args), '--table') >= 0 || index(split(args), '--tab') >= 0
+        call OpenCustomScheduleWindow('Async jobs', 'ScheduleAsyncQuery', time)
+    else
+        # simple模式
+        var msg = ''
+        for [key, data] in items(S_async_jobs)
+            msg = msg .. data.id .. '-' .. GetCurrSubjobProgram(key) .. ' '
+        endfor
+        if !empty(msg)
+            call PauseAsyncTick(5000)
+            echom 'Async jobs [id-name]: ' .. msg
+        else
+            echom 'No async job running!'
+        endif
+    endif
+enddef
 
-#" command! -nargs=0 AsyncQ call s:OpenCustomScheduleWindow('Async jobs', 's:ScheduleAsyncQuery', 200)
-#" 查询Async异步任务
-#def ScheduleAsyncQuery(bufnr, timer)
-#    " 如果 buffer 已经不存在了，停掉 timer
-#    if !bufexists(bufnr)
-#        call timer_stop(timer)
-#        return
-#    endif
+# command! -nargs=0 AsyncQ call OpenCustomScheduleWindow('Async jobs', 's:ScheduleAsyncQuery', 200)
+# 查询Async异步任务
+def ScheduleAsyncQuery(bufnr: number, timer: number)
+    # 如果 buffer 已经不存在了，停掉 timer
+    if !bufexists(bufnr)
+        call timer_stop(timer)
+        return
+    endif
 
-#    " 如果 buffer 不在任何窗口显示了，也可以停掉 timer
-#    if empty(win_findbuf(bufnr))
-#        call timer_stop(timer)
-#        return
-#    endif
+    # 如果 buffer 不在任何窗口显示了，也可以停掉 timer
+    if empty(win_findbuf(bufnr))
+        call timer_stop(timer)
+        return
+    endif
 
-#    " if empty(s:async_jobs)
-#    "     return
-#    " endif
+    # if empty(S_async_jobs)
+    #   return
+    # endif
 
-#    async_job_msg = []
-#    msg = printf("id  subjob-id   name        state       time(s)    cmd")
-#    call add(l:async_job_msg, l:msg)
-#    for [l:key, l:data] in items(s:async_jobs)
-#        for i in range(len(l:data.subjobs))
-#            subjob = l:data.subjobs[i]
+    var async_job_msg = []
+    var msg = printf("id  subjob-id   name        state       time(s)     cmd")
+    call add(async_job_msg, msg)
+    for [key, data] in items(S_async_jobs)
+        for i in range(len(data.subjobs))
+            var subjob = data.subjobs[i]
 
-#            time = l:subjob.te
-#            if empty(l:time)
-#                time = printf('%.1f', reltimefloat(reltime(l:subjob.ts)))
-#            endif
+            var time = subjob.te
+            if empty(time)
+                var ts_list = eval(subjob.ts)
+                time = printf('%.1f', reltimefloat(reltime(ts_list)))
+            endif
 
-#            msg = printf("%-2d\t\t%-2d\t\t%-8s\t%-8s\t%-5s\t\t%s",
-#                        \ l:data.id, i, split(l:subjob.cmd)[0], l:subjob.sts, l:time, l:subjob.cmd)
+            msg = printf("%-2d\t\t%-2d\t\t%-8s\t%-8s\t%-5s\t\t%s",
+                        data.id, i, split(subjob.cmd)[0], subjob.sts, time, subjob.cmd)
 
-#            call add(l:async_job_msg, l:msg)
-#        endfor
-#    endfor
-#    call sort(l:async_job_msg, 's:SortByIdStr')
+            call add(async_job_msg, msg)
+        endfor
+    endfor
+    call sort(async_job_msg, 'SortByIdStr')
 
-#    " 临时解除不可修改状态，填入内容
-#    call setbufvar(bufnr, '&modifiable', 1)
+    # 临时解除不可修改状态，填入内容
+    call setbufvar(bufnr, '&modifiable', 1)
 
-#    " 清空并写入新内容
-#    silent call deletebufline(bufnr, 1, '$')
-#    call setbufline(bufnr, 1, l:async_job_msg)
+    # 清空并写入新内容
+    silent call deletebufline(bufnr, 1, '$')
+    call setbufline(bufnr, 1, async_job_msg)
 
-#    " 恢复不可修改状态
-#    call setbufvar(bufnr, '&modifiable', 0)
-#enddef
+    # 恢复不可修改状态
+    call setbufvar(bufnr, '&modifiable', 0)
+enddef
 
-#def SortByIdStr(item1, item2)
-#    " 提取第一段作为 id，转成数字比较
-#    id1 = str2nr(split(item1)[0])
-#    id2 = str2nr(split(item2)[0])
-#    return l:id1 - l:id2
-#enddef
-#" }}}
-#" }}}
-#" }}}
+def SortByIdStr(item1: string, item2: string): number
+    # 提取第一段作为 id，转成数字比较
+    var id1 = str2nr(split(item1)[0])
+    var id2 = str2nr(split(item2)[0])
+    return id1 - id2
+enddef
+# }}}
+# }}}
+# }}}
 
 # ==========nocore settings========== {{{
 # ==========format settings========== {{{
