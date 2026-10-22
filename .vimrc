@@ -1359,34 +1359,34 @@ enddef
 #" len: 指定了命令的长度, 多条命令拼接时需要
 #" fmt: 指定命令输出的格式
 #" o  : 指定命令结束后是否打开quickfix
-#def MergeAsyncCmd(cmds)
-#    if len(cmds) == 0
-#        return ''
-#    elseif len(cmds) == 1
-#        return cmds[0]
-#    endif
+def MergeAsyncCmd(cmds: list<string>): string
+    if len(cmds) == 0
+        return ''
+    elseif len(cmds) == 1
+        return cmds[0]
+    endif
 
-#    merge_cmd = 'Async '
+    var merge_cmd = 'Async '
 
-#    for i in range(len(cmds))
-#        let cmd = cmds[i]
+    for i in range(len(cmds))
+        var cmd = cmds[i]
 
-#        " 去掉前面的Async
-#        let rcmd = trim(substitute(cmd, '^\s*\S\+', '', ''))
-#        " 注意这里必须用strchars, 如果用len则不等于字符数
-#        let opt_len = '<len=' . strchars(rcmd) . '> '
+        # 去掉前面的Async
+        var rcmd = trim(substitute(cmd, '^\s*\S\+', '', ''))
+        # 注意这里必须用strchars, 如果用len则不等于字符数
+        var opt_len = '<len=' .. strchars(rcmd) .. '> '
 
-#        if i == len(cmds) - 1
-#            " 最后一项
-#            merge_cmd = l:merge_cmd . rcmd
-#        else
-#            merge_cmd = l:merge_cmd . opt_len . rcmd . ' | '
-#        endif
+        if i == len(cmds) - 1
+            # 最后一项
+            merge_cmd = merge_cmd .. rcmd
+        else
+            merge_cmd = merge_cmd .. opt_len .. rcmd .. ' | '
+        endif
 
-#    endfor
+    endfor
 
-#    return l:merge_cmd
-#enddef
+    return merge_cmd
+enddef
 #" }}}
 
 #" ==========async 任务查询========== {{{
@@ -1474,279 +1474,105 @@ enddef
 #" }}}
 #" }}}
 
-#" ==========nocore settings========== {{{
-#" ==========ctags/cscope========== {{{
-#command! -nargs=* GenTags call s:GenTagsAsync(<q-args>)
-#command! -nargs=* GenCscope call s:GenCscopeAsync(<q-args>)
+# ==========nocore settings========== {{{
+# ==========format settings========== {{{
+def SetClangFormatPrg()
+    # 如果有.clang-format就优先使用，否则使用--fallback-style
+    var name = expand('%:t')
+    &l:formatprg = 'clang-format --style=file --fallback-style=Mozilla'
+        .. ' --assume-filename='
+        .. shellescape(empty(name) ? (&l:filetype ==# 'cpp' ? 'stdin.cpp' : 'stdin.c') : name)
+enddef
 
-#def GenTagsAsync(args)
-#    lang = matchstr(args, '\%(^\|\s\)--lang=\zs\S\+')
+augroup doc_format
+    autocmd!
+    autocmd FileType c,cpp SetClangFormatPrg()
+augroup END
 
-#    " language
-#    if empty(l:lang) || l:lang ==? 'auto'
-#        if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
-#            lang = '--languages=C,C++ '
-#        elseif &l:filetype ==# 'python'
-#            lang = '--languages=Python '
-#        else
-#            lang = ''
-#        endif
-#    else
-#        lang = '--languages=' . l:lang . ' '
-#    endif
+# style: LLVM Google Chromium Mozilla WebKit Microsoft GNU None
+var S_formatters = [
+    'LLVM',
+    'Google',
+    'Chromium',
+    'Mozilla',
+    'WebKit',
+    'Microsoft',
+    'GNU',
+    'None',
+    ]
 
-#    " exclude dirs
-#    exc =
-#        \ '--exclude=.git '
-#        \ . '--exclude=build '
+# 格式化, 缩进依赖于 tabstop shiftwidth expandtab
+def DocumentFormat(firstl: number, lastl: number, style: string)
+    var saved_fp = &l:formatprg
 
-#    " build ctags command
-#    cmd =
-#        \ 'Async ctags -R '
-#        \ . l:lang
-#        \ . l:exc
+    if !empty(style)
+        var base_style = ''
+        var brace_style = ''
 
-#    " 有--no_run命令
-#    " if match(args, '\%(^\|\s\)--no_run\%(\s\|$\)') >= 0
-#    if index(split(args), '--no_run') >= 0
-#        return l:cmd
-#    endif
+        if style ==? 'linux'
+            base_style = 'LLVM'
+            brace_style = 'BreakBeforeBraces: Linux'
+        elseif index(S_formatters, style) >= 0
+            base_style = style
+            brace_style = ''
+        else
+            echo 'Unknown format style: ' .. style
+            return
+        endif
 
-#    " 有--f命令
-#    " if match(args, '\%(^\|\s\)--f\%(\s\|$\)') >= 0
-#    if index(split(args), '--f') >= 0
-#        call feedkeys(':' . l:cmd . "\<C-f>", 'n')
-#    else
-#        execute l:cmd
-#    endif
+        # shiftwidth 为 0 时，使用 tabstop
+        var indent_width = &l:shiftwidth > 0 ? &l:shiftwidth : &l:tabstop
 
-#    return l:cmd
-#enddef
+        var use_tab = &l:expandtab ? 'Never' : 'ForIndentation'
 
-#def GenCscopeAsync(args)
-#    cmd_genf = s:GenCscopeFilesAsync(args . " --no_run")
-#    cmd_genc = s:GenCscopeFromFilesAsync(args . " --no_run")
+        var style_str = printf('{BasedOnStyle: %s, IndentWidth: %d, TabWidth: %d, UseTab: %s%s}',
+              base_style,
+              indent_width,
+              &l:tabstop,
+              use_tab,
+              empty(brace_style) ? '' : ', ' .. brace_style)
 
-#    " 如果指定了path直接用GenCscopeFromFilesAsync的命令, 否则组合命令
-#    path = s:ExtractPath(args)
-#    if !empty(l:path)
-#        cmd = l:cmd_genc
-#    else
-#        cmd = s:MergeAsyncCmd([l:cmd_genf, l:cmd_genc])
-#    endif
+        var cmd = 'clang-format --style=' .. shellescape(style_str)
 
-#    " 有--no_run命令
-#    " if match(args, '\%(^\|\s\)--no_run\%(\s\|$\)') >= 0
-#    if index(split(args), '--no_run') >= 0
-#        return l:cmd
-#    endif
+        var filename = expand('%:t')
+        if empty(filename)
+            filename = &l:filetype ==# 'cpp' ? 'stdin.cpp' : 'stdin.c'
+        endif
 
-#    " 有--f命令
-#    " if match(args, '\%(^\|\s\)--f\%(\s\|$\)') >= 0
-#    if index(split(args), '--f') >= 0
-#        call feedkeys(':' . l:cmd . "\<C-f>", 'n')
-#    else
-#        execute l:cmd
-#    endif
+        cmd ..= ' --assume-filename=' .. shellescape(filename)
+        &l:formatprg = cmd
+    endif
 
-#    return l:cmd
-#enddef
-
-#def GenCscopeFromFilesAsync(args)
-#    cmd = 'Async cscope -b -q -k -i '
-#    path = s:ExtractPath(args)
-#    if !empty(l:path)
-#        cmd = l:cmd . shellescape(s:ExtractPath(args))
-#    else
-#        cmd = l:cmd . 'cscope.files'
-#    endif
-
-#    " 有--no_run命令
-#    " if match(args, '\%(^\|\s\)--no_run\%(\s\|$\)') >= 0
-#    if index(split(args), '--no_run') >= 0
-#        return l:cmd
-#    endif
-
-#    " 有--f命令
-#    " if match(args, '\%(^\|\s\)--f\%(\s\|$\)') >= 0
-#    if index(split(args), '--f') >= 0
-#        call feedkeys(':' . l:cmd . "\<C-f>", 'n')
-#    else
-#        execute l:cmd
-#    endif
-
-#    return l:cmd
-#enddef
-
-#def GenCscopeFilesAsync(args)
-#    lang = matchstr(args, '\%(^\|\s\)--lang=\zs\S\+')
-
-#    " language
-#    if empty(l:lang) || l:lang ==? 'auto'
-#        if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
-#            lang = 'c,c++'
-#        elseif &l:filetype ==# 'python'
-#            lang = 'python'
-#        else
-#            lang = ''
-#        endif
-#    endif
-
-#    " include
-#    inc = ''
-#    if l:lang =~? '^\(c\|c++\|c,c++\)$'
-#        inc = '-type f "(" -name "*.c" -o -name "*.cc" -o -name "*.cpp" -o -name "*.h" -o -name "*.hpp" ")" '
-#    elseif l:lang ==? 'python'
-#        inc = '-type f "(" -name "*.py" ")" '
-#    endif
-
-#    " exclude dirs
-#    exc =
-#        \ '"(" -type d "(" '
-#        \ . '-name ".git" '
-#        \ . '-o -name "build" '
-#        \ . '")" ")" -prune -o '
-
-#    " build ctags command
-#    cmd =
-#        \ 'Async find . '
-#        \ . l:exc
-#        \ . l:inc
-#        \ . '-print > cscope.files'
-
-#    " 有--no_run命令
-#    " if match(args, '\%(^\|\s\)--no_run\%(\s\|$\)') >= 0
-#    if index(split(args), '--no_run') >= 0
-#        return l:cmd
-#    endif
-
-#    " 有--f命令
-#    " if match(args, '\%(^\|\s\)--f\%(\s\|$\)') >= 0
-#    if index(split(args), '--f') >= 0
-#        call feedkeys(':' . l:cmd . "\<C-f>", 'n')
-#    else
-#        execute l:cmd
-#    endif
-
-#    return l:cmd
-#enddef
-
-#def ExtractPath(s)
-#    " 1. 双引号包裹
-#    let path = matchstr(s, '--path="\zs[^"]\+')
-#    if !empty(path)
-#        return path
-#    endif
-
-#    " 2. 单引号包裹
-#    let path = matchstr(s, "--path='\\zs[^']\\+")
-#    if !empty(path)
-#        return path
-#    endif
-
-#    " 3. 无引号（到空格或结尾）
-#    let path = matchstr(s, '--path=\zs\S\+')
-#    return path
-#enddef
-#" }}}
-
-#" ==========format settings========== {{{
-#augroup doc_format
-#    autocmd!
-#    " 如果有.clang-format就优先使用，否则使用--fallback-style
-#    autocmd FileType c,cpp let &l:formatprg =
-#          \ 'clang-format --style=file --fallback-style=Mozilla'
-#          \ . ' --assume-filename='
-#          \ . shellescape(empty(expand('%:t')) ? 'stdin.c' : expand('%:t'))
-#augroup END
-
-#" style: LLVM Google Chromium Mozilla WebKit Microsoft GNU None
-#S_formatters = [
-#      \ 'LLVM',
-#      \ 'Google',
-#      \ 'Chromium',
-#      \ 'Mozilla',
-#      \ 'WebKit',
-#      \ 'Microsoft',
-#      \ 'GNU',
-#      \ 'None',
-#      \ ]
-
-#" 格式化, 缩进依赖于 tabstop shiftwidth expandtab
-#def DocumentFormat(firstl, lastl, style)
-#    saved_fp = &l:formatprg
-
-#    if !empty(style)
-#        base_style = ''
-
-#        if style ==? 'linux'
-#            base_style = 'LLVM'
-#            brace_style = 'BreakBeforeBraces: Linux'
-#        elseif index(s:formatters, style) >= 0
-#            base_style = style
-#            brace_style = ''
-#        else
-#            echo 'Unknown format style: ' . style
-#            return
-#        endif
-
-#        " shiftwidth 为 0 时，使用 tabstop
-#        indent_width = &l:shiftwidth > 0
-#              \ ? &l:shiftwidth
-#              \ : &l:tabstop
-
-#        use_tab = &l:expandtab ? 'Never' : 'ForIndentation'
-
-#        style = printf(
-#              \ '{BasedOnStyle: %s, IndentWidth: %d, TabWidth: %d, UseTab: %s%s}',
-#              \ l:base_style,
-#              \ l:indent_width,
-#              \ &l:tabstop,
-#              \ l:use_tab,
-#              \ empty(l:brace_style) ? '' : ', ' . l:brace_style
-#              \ )
-
-#        cmd = 'clang-format --style=' . shellescape(l:style)
-
-#        filename = expand('%:t')
-#        if empty(l:filename)
-#            filename = 'stdin.c'
-#        endif
-
-#        cmd .= ' --assume-filename=' . shellescape(l:filename)
-#        let &l:formatprg = l:cmd
-#    endif
-
-#    try
-#        execute 'normal! ' . firstl . 'Ggq' . lastl . 'G'
-#    finally
-#        let &l:formatprg = l:saved_fp
-#    endtry
-#enddef
+    try
+        execute 'normal! ' .. firstl .. 'Ggq' .. lastl .. 'G'
+    finally
+        &l:formatprg = saved_fp
+    endtry
+enddef
 
 
-#" 命令补全函数
-#def FormatComplete(ArgLead, CmdLine, CursorPos)
-#    styles = ['Linux'] + s:formatters
-#    result = []
+# 命令补全函数
+def FormatComplete(ArgLead: string, CmdLine: string, CursorPos: number): list<string>
+    var styles = ['Linux'] + S_formatters
+    var result = []
 
-#    for l:style in l:styles
-#        if strpart(l:style, 0, strlen(ArgLead)) ==# ArgLead
-#            call add(l:result, l:style)
-#        endif
-#    endfor
+    for style in styles
+        if strpart(style, 0, strlen(ArgLead)) ==# ArgLead
+            call add(result, style)
+        endif
+    endfor
 
-#    return l:result
-#enddef
+    return result
+enddef
 
-#" 格式化命令映射, 不带参数则使用doc_format中的默认设置,
-#" 这将使.clang-format成为第一优先级
-#" :Format [linux/Mozilla/...]           格式化整个文件
-#" :'<,'>Format [linux/Mozilla/...]      格式化选中的行
-#" command! -range=% -nargs=? Format call <SID>DocumentFormat(<line1>, <line2>, <q-args>)
-#command! -range=% -nargs=? -complete=customlist,s:FormatComplete Format
-#      \ call <SID>DocumentFormat(<line1>, <line2>, <q-args>)
-#" }}}
+# 格式化命令映射, 不带参数则使用doc_format中的默认设置,
+# 这将使.clang-format成为第一优先级
+# :Format [linux/Mozilla/...]           格式化整个文件
+# :'<,'>Format [linux/Mozilla/...]      格式化选中的行
+# command! -range=% -nargs=? Format call <SID>DocumentFormat(<line1>, <line2>, <q-args>)
+command! -range=% -nargs=? -complete=customlist,FormatComplete Format
+      \ call DocumentFormat(<line1>, <line2>, <q-args>)
+# }}}
 
 # ==========fold settings========== {{{
 # no fold when open file
@@ -1774,12 +1600,12 @@ def BuildFolds()
     setlocal foldmethod=manual
 enddef
 
-command! BuildFolds call s:BuildFolds()
+command! BuildFolds call <SID>BuildFolds()
 
 # toggle foldcolumn
-nnoremap <leader>d :call <SID>FoldColumnToggle()<CR>
+nnoremap <leader>n :call <SID>FoldColumnToggle()<CR>
 def FoldColumnToggle()
-    if &foldcolumn
+    if &foldcolumn > 0
         setlocal foldcolumn=0
     else
         setlocal foldcolumn=4
@@ -1787,337 +1613,531 @@ def FoldColumnToggle()
 enddef
 # }}}
 
-#" ==========statusline settings========== {{{
-#" set statusline
-#" set statusline=%f   "path to the file
-#" set statusline+=%=  "switch to the right side
-#" set statusline+=%l  "current line number
-#" set statusline+=/   "separator
-#" set statusline+=%L  "total line number
-#" set statusline+=%y  "file type
-#" }}}
+# ==========statusline settings========== {{{
+# set statusline
+# set statusline=%f   # path to the file
+# set statusline+=%=  # switch to the right side
+# set statusline+=%l  # current line number
+# set statusline+=/   # separator
+# set statusline+=%L  # total line number
+# set statusline+=%y  # file type
+# }}}
 
-#" ==========abbreviations settings========== {{{
-#" 缩略句abbreviations类似map, 插入模式下输入@g<space>可以快速替换为对应邮箱
-#" 不用担心所有@g都被替换，因为有iskeyword保护
-#" iabbrev @g xxxxxx@gmail.com
-#" }}}
+# ==========abbreviations settings========== {{{
+# 缩略句abbreviations类似map, 插入模式下输入@g<space>可以快速替换为对应邮箱
+# 不用担心所有@g都被替换，因为有iskeyword保护
+# iabbrev @g xxxxxx@gmail.com
+# }}}
 
-#" ==========more operator-pending mappings for markdown========== {{{
-#" more operator-pending mappings
-#" for markdown "change inside/around heading"
-#" for example in markdown:
-#" Topic one
-#" =========
-#" run normal command: cih
-#" Topic one will be deleted and change to insert mode
-#" what does the map do? seperate as heres:
-#" ?^==\+$
-#" :nohlsearch
-#" kvg_
-#augroup markdown_group
-#    autocmd!
-#    autocmd FileType markdown onoremap <buffer> ih :<c-u>execute "normal! ?\\(^==\\+$\\\|^--\\+$\\)\r:nohlsearch\rkvg_"<CR>
-#    autocmd FileType markdown onoremap <buffer> ah :<c-u>execute "normal! ?\\(^==\\+$\\\|^--\\+$\\)\r:nohlsearch\rg_vk0"<CR>
-#augroup END
-#" }}}
+# ==========more operator-pending mappings for markdown========== {{{
+# more operator-pending mappings
+# for markdown "change inside/around heading"
+# for example in markdown:
+# Topic one
+# =========
+# run normal command: cih
+# Topic one will be deleted and change to insert mode
+# what does the map do? seperate as heres:
+# ?^==\+$
+# :nohlsearch
+# kvg_
+augroup markdown_group
+    autocmd!
+    autocmd FileType markdown onoremap <buffer> ih :<c-u>execute "normal! ?\\(^==\\+$\\\|^--\\+$\\)\r:nohlsearch\rkvg_"<CR>
+    autocmd FileType markdown onoremap <buffer> ah :<c-u>execute "normal! ?\\(^==\\+$\\\|^--\\+$\\)\r:nohlsearch\rg_vk0"<CR>
+augroup END
+# }}}
 
-#" ==========toggle settings========== {{{
-#" toggle number
-#nnoremap <leader>N :setlocal number!<CR>
+# ==========toggle settings========== {{{
+# toggle number
+nnoremap <leader>N :setlocal number!<CR>
 
-#" toggle open/close quickfix window
-#" learn what is wincmd w、winnr()
-#" TODO bug: when use command 'copen' s:quickfix_is_open cannot be updated
-#nnoremap <leader>q :call QuickfixToggle()<cr>
-#S_quickfix_is_open = 0
-#function! QuickfixToggle()
-#    if s:quickfix_is_open
-#        cclose
-#        S_quickfix_is_open = 0
-#        execute s:quickfix_return_to_window . "wincmd w"
-#    else
-#        S_quickfix_return_to_window = winnr()
-#        botright copen
-#        S_quickfix_is_open = 1
-#    endif
-#enddef
-#" }}}
+# toggle open/close quickfix window
+# learn what is wincmd w、winnr()
+# TODO bug: when use command 'copen' s:quickfix_is_open cannot be updated
+nnoremap <silent> <leader>q :call <SID>QuickfixToggle()<cr>
+var S_quickfix_is_open = v:false
+var S_quickfix_return_to_window = 0
+def QuickfixToggle()
+    if S_quickfix_is_open
+        cclose
+        S_quickfix_is_open = v:false
+        execute ":" .. S_quickfix_return_to_window .. "wincmd w"
+    else
+        S_quickfix_return_to_window = winnr()
+        botright copen
+        S_quickfix_is_open = v:true
+    endif
+enddef
+# }}}
 
-#" ==========hex format========== {{{
-#command! Hex %!xxd
-#command! Uhex %!xxd -r
-#" }}}
+# ==========hex format========== {{{
+command! Hex :%!xxd
+command! Uhex :%!xxd -r
+# }}}
 
-#" ==========convenient map for grep searching========== {{{
-#" ==========vim grep========== {{{
-#" command completement of search
-#" g: 一行如果有多个匹配所有
-#" j: 不跳转到第一个匹配
-#" botright cwindow: 如果结果不为空最底部打开quickfix window
-#" <S-Left>/<Left>: 用于修改光标位置
-#nnoremap <leader>vw :vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<S-Left><S-Left><S-Left><S-Left><Left><Left><Left><Left><Left><Left>
-#nnoremap <leader>Vw :vimgrep /<C-r><C-w>/gj % \| botright cwindow<S-Left><S-Left><S-Left><S-Left><Left><Left><Left><Left>
+# ==========ctags/cscope========== {{{
+command! -nargs=* GenTags call GenTagsAsync(<q-args>)
+command! -nargs=* GenCscope call GenCscopeAsync(<q-args>)
 
-#" command completement of grep
-#nnoremap <leader>vc :silent! vimgrep /\<<C-r><C-w>\>/gj ./**/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
-#nnoremap <leader>vh :silent! vimgrep /\<<C-r><C-w>\>/gj ./**/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
-#nnoremap <leader>v% :silent! vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<C-f>BBBBhhhhhh
-#nnoremap <leader>vv :silent! vimgrep /\<<C-r><C-w>\>/gj ./**/* \| botright cwindow<C-f>BBBh
-#" -----------------------------------------------------------------------------------------------------------
-#nnoremap <leader>Vc :silent! vimgrep /<C-r><C-w>/gj ./**/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhh
-#nnoremap <leader>Vh :silent! vimgrep /<C-r><C-w>/gj ./**/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhh
-#nnoremap <leader>V% :silent! vimgrep /<C-r><C-w>/gj % \| botright cwindow<C-f>BBBBhhhh
-#nnoremap <leader>Vs :silent! vimgrep /<C-r><C-w>/gj ./**/* \| botright cwindow<C-f>BBBh
-#" }}}
+def GenTagsAsync(args: string): string
+    var lang = matchstr(args, '\%(^\|\s\)--lang=\zs\S\+')
 
-#" ==========async grep========== {{{
-#" g@: call the function set by the 'operatorfunc'
-#" <SID>: use for function namespace
-#" <c-u>: clear the command line to the begin
-#" visualmode(): vim inside function to get the last visual mode type: v, V, <C-v>
-#" the two map below are for nomal mode, visual mode
-#" how to use: <localleader>giw, viw<localleader>g ...
-#nnoremap <silent> <leader>g :set operatorfunc=<SID>GrepOperatorR<CR>g@
-#xnoremap <silent> <leader>g :<c-u>call <SID>GrepOperatorR(visualmode())<CR>
-#nnoremap <silent> <leader>G :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-#xnoremap <silent> <leader>G :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
-#" better use than <leader>G
-#" nnoremap <silent> <leader><leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
-#" xnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
+    # language
+    if empty(lang) || lang ==? 'auto'
+        if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
+            lang = '--languages=C,C++ '
+        elseif &l:filetype ==# 'python'
+            lang = '--languages=Python '
+        else
+            lang = ''
+        endif
+    else
+        lang = '--languages=' .. lang .. ' '
+    endif
 
-#def GrepOperatorR(type)
-#    call s:GrepOperatorAsync(type, 1)
-#enddef
+    # exclude dirs
+    var exc =
+        '--exclude=.git '
+        .. '--exclude=build '
 
-#def GrepOperatorNR(type)
-#    call s:GrepOperatorAsync(type, 0)
-#enddef
+    # build ctags command
+    var cmd = 'Async ctags -R ' .. lang .. exc
 
-#def GrepDetect()
-#    for i in range(len(s:grep_tools))
-#        tool = s:grep_tools[i]
-#        if executable(l:tool)
-#            S_grep_tool = l:tool
-#            return
-#        endif
-#    endfor
-#enddef
+    # 有--no_run命令
+    # if match(args, '\%(^\|\s\)--no_run\%(\s\|$\)') >= 0
+    if index(split(args), '--no_run') >= 0
+        return cmd
+    endif
 
-#function! SetGrep(name)
-#    for i in range(len(s:grep_tools))
-#        tool = s:grep_tools[i]
-#        if l:tool ==# name && executable(l:tool)
-#            S_grep_tool = l:tool
-#            break
-#        endif
-#    endfor
-#    echo 'grep_tool = ' . s:grep_tool
-#enddef
-#" --------------------------------------------------
-#S_grep_tools = ['rg', 'grep']
-#S_grep_tool = 'grep'
-#call s:GrepDetect()
+    # 有--f命令
+    # if match(args, '\%(^\|\s\)--f\%(\s\|$\)') >= 0
+    if index(split(args), '--f') >= 0
+        call feedkeys(':' .. cmd .. "\<C-f>", 'n')
+    else
+        execute ':' .. cmd
+    endif
 
-#" ==========grep 路由========== {{{
-#" 增强异步版本的grep，预填基础信息允许用户修改, 尤其是填充exclude信息
-#def GrepOperatorAsync(type, recursion)
-#    " save unnamed register
-#    saved_unnamed_register = @@
+    return cmd
+enddef
 
-#    try
-#        " yank selected text
-#        if type ==# 'v'
-#            normal! `<v`>y
-#        elseif type ==# 'char'
-#            normal! `[v`]y
-#        else
-#            return
-#        endif
+def GenCscopeAsync(args: string): string
+    var cmd_genf = GenCscopeFilesAsync(args .. " --no_run")
+    var cmd_genc = GenCscopeFromFilesAsync(args .. " --no_run")
 
-#        grep_cmd = ''
-#        if s:grep_tool ==# 'rg'
-#            grep_cmd = s:BuildCmdRipGrep(shellescape(@@), recursion)
-#        elseif s:grep_tool ==# 'grep'
-#            grep_cmd = s:BuildCmdGnuGrep(shellescape(@@), recursion)
-#        else
-#            echo "Unsupported grep tool: " . s:grep_tool
-#            return
-#        endif
+    # 如果指定了path直接用GenCscopeFromFilesAsync的命令, 否则组合命令
+    var path = ExtractPath(args)
+    var cmd = ''
+    if !empty(path)
+        cmd = cmd_genc
+    else
+        cmd = MergeAsyncCmd([cmd_genf, cmd_genc])
+    endif
 
-#        " open command-line window with editable command
-#        call feedkeys(':' . l:grep_cmd . "\<C-f>", 'n')
+    # 有--no_run命令
+    # if match(args, '\%(^\|\s\)--no_run\%(\s\|$\)') >= 0
+    if index(split(args), '--no_run') >= 0
+        return cmd
+    endif
 
-#    finally
-#        " restore unnamed register
-#        let @@ = l:saved_unnamed_register
-#    endtry
-#enddef
+    # 有--f命令
+    # if match(args, '\%(^\|\s\)--f\%(\s\|$\)') >= 0
+    if index(split(args), '--f') >= 0
+        call feedkeys(':' .. cmd .. "\<C-f>", 'n')
+    else
+        execute ':' .. cmd
+    endif
 
-#def BuildCmdGnuGrep(pattern, recursion)
-#    " include filters
-#    inc = ''
-#    if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
-#        inc =
-#            \ '--include=*.c '
-#            \ . '--include=*.cc '
-#            \ . '--include=*.cpp '
-#            \ . '--include=*.h '
-#            \ . '--include=*.hpp '
-#    elseif &l:filetype ==# 'python'
-#        inc = '--include=*.py '
-#    endif
+    return cmd
+enddef
 
-#    " exclude dirs
-#    exc =
-#        \ '--exclude-dir=.git '
-#        \ . '--exclude-dir=build '
+def GenCscopeFromFilesAsync(args: string): string
+    var cmd = 'Async cscope -b -q -k -i '
+    var path = ExtractPath(args)
+    if !empty(path)
+        cmd = cmd .. shellescape(ExtractPath(args))
+    else
+        cmd = cmd .. 'cscope.files'
+    endif
 
-#    " build grep command
-#    if recursion
-#        grep_cmd =
-#            \ 'Async grep -Rn '
-#            \ . l:inc
-#            \ . l:exc
-#            \ . pattern
-#            \ . ' .'
-#    else
-#        grep_cmd =
-#            \ 'Async grep -Hn '
-#            \ . pattern
-#            \ . ' ' . expand('%:p')
-#    endif
+    # 有--no_run命令
+    # if match(args, '\%(^\|\s\)--no_run\%(\s\|$\)') >= 0
+    if index(split(args), '--no_run') >= 0
+        return cmd
+    endif
 
-#    return l:grep_cmd
-#enddef
+    # 有--f命令
+    # if match(args, '\%(^\|\s\)--f\%(\s\|$\)') >= 0
+    if index(split(args), '--f') >= 0
+        call feedkeys(':' .. cmd .. "\<C-f>", 'n')
+    else
+        execute ':' .. cmd
+    endif
 
-#def BuildCmdRipGrep(pattern, recursion)
-#    " include filters
-#    inc = ''
-#    if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
-#        inc =
-#            \ '-g *.c '
-#            \ . '-g *.cc '
-#            \ . '-g *.cpp '
-#            \ . '-g *.h '
-#            \ . '-g *.hpp '
-#    elseif &l:filetype ==# 'python'
-#        inc = '-g *.py '
-#    endif
+    return cmd
+enddef
 
-#    " exclude dirs
-#    exc =
-#        \ '-g !.git '
-#        \ . '-g !build '
+def GenCscopeFilesAsync(args: string): string
+    var lang = matchstr(args, '\%(^\|\s\)--lang=\zs\S\+')
 
-#    " build grep command
-#    if recursion
-#        grep_cmd =
-#            \ 'Async rg --vimgrep -H -n '
-#            \ . l:inc
-#            \ . l:exc
-#            \ . pattern
-#            \ . ' .'
-#    else
-#        grep_cmd =
-#            \ 'Async rg --vimgrep -H -n '
-#            \ . pattern
-#            \ . ' ' . expand('%:p')
-#    endif
+    # language
+    if empty(lang) || lang ==? 'auto'
+        if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
+            lang = 'c,c++'
+        elseif &l:filetype ==# 'python'
+            lang = 'python'
+        else
+            lang = ''
+        endif
+    endif
 
-#    return l:grep_cmd
-#enddef
-#" }}}
-#" }}}
-#" }}}
+    # include
+    var inc = ''
+    if lang =~? '^\(c\|c++\|c,c++\)$'
+        inc = '-type f "(" -name "*.c" -o -name "*.cc" -o -name "*.cpp" -o -name "*.h" -o -name "*.hpp" ")" '
+    elseif lang ==? 'python'
+        inc = '-type f "(" -name "*.py" ")" '
+    endif
 
-#" ==========register macro record========== {{{
-#" 非常有用的宏保存到寄存器中，在开发时方便使用，就像工具箱一样
-#" [经典寄存器内容追加]，用于统计查找模式后的数据，比如有如下log日志：
-#" xxx
-#" time diff: 123
-#" xxx
-#" time diff: -23
-#" xxx
-#" time diff: 37
-#" ...
-#" 首先执行查找模式： '/time diff: '
-#" 然后串行执行宏：100@u
-#" 数据将保存到寄存器z中: '123 -23 37 '
-#let @u = 'gnl"ZyW'
-#" [相邻数据差值计算]，与@u类似
-#" 首先执行查找模式： '/time diff: '
-#" 然后串行执行宏：100@v
-#" 数据将保存到寄存器z中: '-146 60 '
-#" let @v = 'gnl"jyiWgnl"kyiW:let t = @k - @j:let @z = @z . t . " "Nh'
-#let @v = 'gnl"jyEgnl"kyE:let @j = RemoveLeftZero(@j):let @k = RemoveLeftZero(@k):let t = @k - @j:let @z = @z . t . " "Nh'
-#" [相邻时间差值计算]，时间格式应该形如: xxx时:分:秒.毫秒 例: I:time [17:12:39.638 11-03-2022]
-#" 首先执行查找模式： 'I:time ['
-#" 然后串行执行宏：100@w
-#" 一毫秒为单位的时间差数据将保存到寄存器z中
-#" let @w = 'gnl"tyiw:let i = @t * 60 * 60 * 1000f:w"tyiw:let i += @t * 60 * 1000;w"tyiw:let i += @t * 1000f.w"tyiw:let i += @tgnl"tyiw:let j = @t * 60 * 60 * 1000f:w"tyiw:let j += @t * 60 * 1000;w"tyiw:let j += @t * 1000f.w"tyiw:let j += @t:let t = j - i:let @z = @z . t . " "Nh'
-#let @w = 'gnl"jyEgnl"kyE:let @j = TimeToMillisecond(@j):let @k = TimeToMillisecond(@k):let t = @k - @j:let @z = @z . t . " "Nh'
-#" [以空格作为间隔符拼接所有行]
-#" 即把所有行以空格为间隔拼接到一行，或者将所有行的换行符替换为空格
-#" 直接串行执行宏：100@x
-#let @x = '"Zy$:let @z = @z . " "j'
-#" [拷贝整行数据] 在查看日志时使用grep，有时会显示很长的文件名前缀,
-#" 使用整行数据拷贝可以避免这种麻烦
-#" 先执行查找模式：'/[message]:'
-#" 执行宏一次: @y
-#" 数据将保存到寄存器z中，在一个缓冲区粘贴出来':put z'
-#let @y = ':global//yank Z'
-#" [长行后半部分截取] 是上面@y的加强版, 在一行很长的文本中截取后半部分有用的内容,
-#" 这在日志分析中当前缀内容太长时非常有用
-#" 先执行查找模式：'/message: '
-#" 然后串行执行宏：100@y
-#" 数据将保存到寄存器z中，在一个缓冲区粘贴出来':put z'
-#let @o = 'gnmmo"ty$:let @t = @t . "\n":let @z = @z . @t`ml'
-#" 提示：运行宏之前应该先清空寄存器z -> qzq
+    # exclude dirs
+    var exc =
+        '"(" -type d "(" '
+        .. '-name ".git" '
+        .. '-o -name "build" '
+        .. '")" ")" -prune -o '
 
-#" ==========tool functions========== {{{
-#" remove left zero: 050 -> 50
-#function! RemoveLeftZero(number)
-#    " echom 'input: ' . number
-#    let length = strlen(number)
-#    if length == 0
-#        return '0'
-#    endif
-#    let i = 0
-#    for n in split(number, '\zs')
-#        if n != '0'
-#            break
-#        endif
-#        let i += 1
-#    endfor
-#    if i == length
-#        return number
-#    else
-#        return number[i:length-1]
-#    endif
-#enddef
+    # build ctags command
+    var cmd =
+        'Async find . '
+        .. exc
+        .. inc
+        .. '-print > cscope.files'
 
-#" time to millisecond, input format: 23:03:55.998 or 03:55.998
-#function! TimeToMillisecond(time)
-#    " echom 'input: ' . time
-#    let length = len(time)
-#    if length == 0
-#        return 0
-#    endif
-#    let time_list = split(time, '\.')
-#    let front_time_list = split(time_list[0], ":")
-#    if len(front_time_list) == 2
-#        return RemoveLeftZero(front_time_list[0]) * 60 * 1000 + RemoveLeftZero(front_time_list[1]) * 1000 + RemoveLeftZero(time_list[1])
-#    elseif len(front_time_list) == 3
-#        return RemoveLeftZero(front_time_list[0]) * 60 * 60 * 1000 + RemoveLeftZero(front_time_list[1]) * 60 * 1000 + RemoveLeftZero(front_time_list[2]) * 1000 + RemoveLeftZero(time_list[1])
-#    else
-#        echo 'error time format!'
-#        return 0
-#    endif
-#enddef
-#" }}}
-#" }}}
-#" }}}
+    # 有--no_run命令
+    # if match(args, '\%(^\|\s\)--no_run\%(\s\|$\)') >= 0
+    if index(split(args), '--no_run') >= 0
+        return cmd
+    endif
+
+    # 有--f命令
+    # if match(args, '\%(^\|\s\)--f\%(\s\|$\)') >= 0
+    if index(split(args), '--f') >= 0
+        call feedkeys(':' .. cmd .. "\<C-f>", 'n')
+    else
+        execute ':' .. cmd
+    endif
+
+    return cmd
+enddef
+
+def ExtractPath(s: string): string
+    # 1. 双引号包裹
+    var path = matchstr(s, '--path="\zs[^"]\+')
+    if !empty(path)
+        return path
+    endif
+
+    # 2. 单引号包裹
+    path = matchstr(s, "--path='\\zs[^']\\+")
+    if !empty(path)
+        return path
+    endif
+
+    # 3. 无引号（到空格或结尾）
+    path = matchstr(s, '--path=\zs\S\+')
+    return path
+enddef
+# }}}
+
+# ==========convenient map for grep searching========== {{{
+# ==========vim grep========== {{{
+# command completement of search
+# g: 一行如果有多个匹配所有
+# j: 不跳转到第一个匹配
+# botright cwindow: 如果结果不为空最底部打开quickfix window
+# <S-Left>/<Left>: 用于修改光标位置
+nnoremap <leader>vw :vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<S-Left><S-Left><S-Left><S-Left><Left><Left><Left><Left><Left><Left>
+nnoremap <leader>vW :vimgrep /\<<C-r><C-a>\>/gj % \| botright cwindow<S-Left><S-Left><S-Left><S-Left><Left><Left><Left><Left><Left><Left>
+# ------------------------------------------------------------------------------------------------------------------------
+nnoremap <leader>Vw :vimgrep /<C-r><C-w>/gj % \| botright cwindow<S-Left><S-Left><S-Left><S-Left><Left><Left><Left><Left>
+nnoremap <leader>VW :vimgrep /<C-r><C-a>/gj % \| botright cwindow<S-Left><S-Left><S-Left><S-Left><Left><Left><Left><Left>
+
+# command completement of grep
+nnoremap <leader>vc :silent! vimgrep /\<<C-r><C-w>\>/gj ./**/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader>vh :silent! vimgrep /\<<C-r><C-w>\>/gj ./**/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader>v% :silent! vimgrep /\<<C-r><C-w>\>/gj % \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader>vv :silent! vimgrep /\<<C-r><C-w>\>/gj ./**/* \| botright cwindow<C-f>BBBh
+# -----------------------------------------------------------------------------------------------------------
+nnoremap <leader>vC :silent! vimgrep /\<<C-r><C-a>\>/gj ./**/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader>vH :silent! vimgrep /\<<C-r><C-a>\>/gj ./**/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader>v# :silent! vimgrep /\<<C-r><C-a>\>/gj % \| botright cwindow<C-f>BBBBhhhhhh
+nnoremap <leader>vV :silent! vimgrep /\<<C-r><C-a>\>/gj ./**/* \| botright cwindow<C-f>BBBh
+# -----------------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------------------------
+nnoremap <leader>Vc :silent! vimgrep /<C-r><C-w>/gj ./**/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader>Vh :silent! vimgrep /<C-r><C-w>/gj ./**/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader>V% :silent! vimgrep /<C-r><C-w>/gj % \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader>Vv :silent! vimgrep /<C-r><C-w>/gj ./**/* \| botright cwindow<C-f>BBBh
+# -----------------------------------------------------------------------------------------------------------
+nnoremap <leader>VC :silent! vimgrep /<C-r><C-a>/gj ./**/*.{c,cc,cpp,h,hpp} \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader>VH :silent! vimgrep /<C-r><C-a>/gj ./**/*.{h,hpp} \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader>V# :silent! vimgrep /<C-r><C-a>/gj % \| botright cwindow<C-f>BBBBhhhh
+nnoremap <leader>VV :silent! vimgrep /<C-r><C-a>/gj ./**/* \| botright cwindow<C-f>BBBh
+# }}}
+
+# ==========async grep========== {{{
+# g@: call the function set by the 'operatorfunc'
+# <SID>: use for function namespace
+# <c-u>: clear the command line to the begin
+# visualmode(): vim inside function to get the last visual mode type: v, V, <C-v>
+# the two map below are for nomal mode, visual mode
+# how to use: <localleader>giw, viw<localleader>g ...
+nnoremap <silent> <leader>g :set operatorfunc=<SID>GrepOperatorR<CR>g@
+xnoremap <silent> <leader>g :<c-u>call <SID>GrepOperatorR(visualmode())<CR>
+nnoremap <silent> <leader>G :set operatorfunc=<SID>GrepOperatorNR<CR>g@
+xnoremap <silent> <leader>G :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
+# better use than <leader>G
+# nnoremap <silent> <leader><leader>g :set operatorfunc=<SID>GrepOperatorNR<CR>g@
+# xnoremap <silent> <leader><leader>g :<c-u>call <SID>GrepOperatorNR(visualmode())<CR>
+
+def GrepOperatorR(type: string)
+    GrepOperatorAsync(type, 1)
+enddef
+
+def GrepOperatorNR(type: string)
+    GrepOperatorAsync(type, 0)
+enddef
+
+def GrepDetect()
+    for i in range(len(S_grep_tools))
+        var tool = S_grep_tools[i]
+        if executable(tool)
+            S_grep_tool = tool
+            return
+        endif
+    endfor
+enddef
+
+def g:SetGrep(name: string)
+    for i in range(len(S_grep_tools))
+        var tool = S_grep_tools[i]
+        if tool ==# name && executable(tool)
+            S_grep_tool = tool
+            break
+        endif
+    endfor
+    echo 'grep_tool = ' .. S_grep_tool
+enddef
+# --------------------------------------------------
+var S_grep_tools = ['rg', 'grep']
+var S_grep_tool = 'grep'
+call GrepDetect()
+
+# ==========grep 路由========== {{{
+# 增强异步版本的grep，预填基础信息允许用户修改, 尤其是填充exclude信息
+def GrepOperatorAsync(type: string, recursion: number)
+    # save unnamed register
+    var saved_unnamed_register = getreg('"', 0, 1)
+    var saved_register_type = getregtype('"')
+
+    try
+        # yank selected text
+        if type ==# 'v'
+            normal! `<v`>y
+        elseif type ==# 'char'
+            normal! `[v`]y
+        else
+            return
+        endif
+
+        var grep_cmd = ''
+        if S_grep_tool ==# 'rg'
+            grep_cmd = BuildCmdRipGrep(shellescape(getreg('"')), recursion)
+        elseif S_grep_tool ==# 'grep'
+            grep_cmd = BuildCmdGnuGrep(shellescape(getreg('"')), recursion)
+        else
+            echo "Unsupported grep tool: " .. S_grep_tool
+            return
+        endif
+
+        # open command-line window with editable command
+        call feedkeys(':' .. grep_cmd .. "\<C-f>", 'n')
+
+    finally
+        # restore unnamed register
+        setreg('"', saved_unnamed_register, saved_register_type)
+    endtry
+enddef
+
+def BuildCmdGnuGrep(pattern: string, recursion: number): string
+    # include filters
+    var inc = ''
+    if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
+        inc =
+            '--include=*.c '
+            .. '--include=*.cc '
+            .. '--include=*.cpp '
+            .. '--include=*.h '
+            .. '--include=*.hpp '
+    elseif &l:filetype ==# 'python'
+        inc = '--include=*.py '
+    endif
+
+    # exclude dirs
+    var exc =
+        '--exclude-dir=.git '
+        .. '--exclude-dir=build '
+
+    # build grep command
+    var grep_cmd = ''
+    if recursion
+        grep_cmd =
+            'Async grep -Rn '
+            .. inc
+            .. exc
+            .. pattern
+            .. ' .'
+    else
+        grep_cmd =
+            'Async grep -Hn '
+            .. pattern
+            .. ' ' .. expand('%:p')
+    endif
+
+    return grep_cmd
+enddef
+
+def BuildCmdRipGrep(pattern: string, recursion: number): string
+    # include filters
+    var inc = ''
+    if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
+        inc =
+            '-g *.c '
+            .. '-g *.cc '
+            .. '-g *.cpp '
+            .. '-g *.h '
+            .. '-g *.hpp '
+    elseif &l:filetype ==# 'python'
+        inc = '-g *.py '
+    endif
+
+    # exclude dirs
+    var exc =
+        '-g !.git '
+        .. '-g !build '
+
+    # build grep command
+    var grep_cmd = ''
+    if recursion
+        grep_cmd =
+            'Async rg --vimgrep -H -n '
+            .. inc
+            .. exc
+            .. pattern
+            .. ' .'
+    else
+        grep_cmd =
+            'Async rg --vimgrep -H -n '
+            .. pattern
+            .. ' ' .. expand('%:p')
+    endif
+
+    return grep_cmd
+enddef
+# }}}
+# }}}
+# }}}
+
+# ==========register macro record========== {{{
+# 非常有用的宏保存到寄存器中，在开发时方便使用，就像工具箱一样
+# [经典寄存器内容追加]，用于统计查找模式后的数据，比如有如下log日志：
+# xxx
+# time diff: 123
+# xxx
+# time diff: -23
+# xxx
+# time diff: 37
+# ...
+# 首先执行查找模式： '/time diff: '
+# 然后串行执行宏：100@u
+# 数据将保存到寄存器z中: '123 -23 37 '
+@u = 'gnl"ZyaW'
+# --------------------------------------------------------------------
+# [相邻数据差值计算]，与@u类似
+# 首先执行查找模式： '/time diff: '
+# 然后串行执行宏：100@v
+# 数据将保存到寄存器z中: '-146 60 '
+@v = 'gnl"jyEgnl"kyE:vim9cmd @j = string(g:RemoveLeftZero(@j)):vim9cmd @k = string(g:RemoveLeftZero(@k)):vim9cmd g:t = str2nr(@k) - str2nr(@j):vim9cmd @z = @z .. g:t .. " "Nh'
+# --------------------------------------------------------------------
+# [相邻时间差值计算]，时间格式应该形如: xxx时:分:秒.毫秒 例: I:time [17:12:39.638 11-03-2022]
+# 首先执行查找模式： '/I:time ['
+# 然后串行执行宏：100@w
+# 一毫秒为单位的时间差数据将保存到寄存器z中
+@w = 'gnl"jyEgnl"kyE:vim9cmd @j = string(g:TimeToMillisecond(@j)):vim9cmd @k = string(g:TimeToMillisecond(@k)):vim9cmd g:t = str2nr(@k) - str2nr(@j):vim9cmd @z = @z .. t .. " "Nh'
+# --------------------------------------------------------------------
+# [以空格作为间隔符拼接所有行]
+# 即把所有行以空格为间隔拼接到一行，或者将所有行的换行符替换为空格
+# 直接串行执行宏：100@x
+@x = '"Zy$:vim9cmd @z = @z .. " "j'
+# --------------------------------------------------------------------
+# [拷贝整行数据] 在查看日志时使用grep，有时会显示很长的文件名前缀,
+# 使用整行数据拷贝可以避免这种麻烦
+# 先执行查找模式：'/[message]:'
+# 执行宏一次: @y
+# 数据将保存到寄存器z中，在一个缓冲区粘贴出来':put z'
+@y = ':vim9cmd global//yank Z'
+# --------------------------------------------------------------------
+# [长行后半部分截取] 是上面@y的加强版, 在一行很长的文本中截取后半部分有用的内容,
+# 这在日志分析中当前缀内容太长时非常有用
+# 先执行查找模式：'/message: '
+# 然后串行执行宏：100@o
+# 数据将保存到寄存器z中，在一个缓冲区粘贴出来':put z'
+@o = 'gnmm"ty$:vim9cmd @t = @t .. "\n":vim9cmd @z = @z .. @t`ml'
+# 提示：运行宏之前应该先清空寄存器z -> qzq
+
+# ==========tool functions========== {{{
+# remove left zero: 050 -> 50
+def g:RemoveLeftZero(number: string): number
+    # echom 'input: ' .. number
+    var length = strlen(number)
+    if length == 0
+        return 0
+    endif
+    var i = 0
+    for n in split(number, '\zs')
+        if n != '0'
+            break
+        endif
+        i += 1
+    endfor
+    if i == length
+        return str2nr(number)
+    else
+        return str2nr(number[i : length - 1])
+    endif
+enddef
+
+# time to millisecond, input format: 23:03:55.998 or 03:55.998
+def g:TimeToMillisecond(time: string): number
+    # echom 'input: ' .. time
+    var length = len(time)
+    if length == 0
+        return 0
+    endif
+    var time_list = split(time, '\.')
+    var front_time_list = split(time_list[0], ":")
+    if len(front_time_list) == 2
+        return g:RemoveLeftZero(front_time_list[0]) * 60 * 1000 + g:RemoveLeftZero(front_time_list[1]) * 1000 + g:RemoveLeftZero(time_list[1])
+    elseif len(front_time_list) == 3
+        return g:RemoveLeftZero(front_time_list[0]) * 60 * 60 * 1000 + g:RemoveLeftZero(front_time_list[1]) * 60 * 1000 + g:RemoveLeftZero(front_time_list[2]) * 1000 + g:RemoveLeftZero(time_list[1])
+    else
+        echo 'error time format!'
+        return 0
+    endif
+enddef
+# }}}
+# }}}
+# }}}
 
 
 
