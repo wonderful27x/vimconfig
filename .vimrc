@@ -13,12 +13,9 @@ vim9script
 # 3) open your vim and run command for plugin install
 # >>>>> :PlugInstall
 
+
+
 var START_TIME = reltime()
-augroup VimStartup
-    autocmd!
-    autocmd VimEnter * echom "My best vim == >^.^< ==" .. ' ' .. string(END_TIME) .. 'ms'
-    # autocmd VimEnter * echom "My best vim == >^.^< ==" .. ' ' .. string(END_TIME) .. 'ms' | echom ''
-augroup END
 
 
 
@@ -2520,4 +2517,22 @@ enddef
 # }}}
 # }}}
 
+
+
+# ======================================================================================
 var END_TIME = float2nr(reltimefloat(reltime(START_TIME)) * 1000)
+augroup VimStartup
+    autocmd!
+    autocmd VimEnter * echom "My best vim == >^.^< ==" .. ' ' .. string(END_TIME) .. 'ms'
+    # autocmd VimEnter * echom "My best vim == >^.^< ==" .. ' ' .. string(END_TIME) .. 'ms' | echom ''
+augroup END
+
+command! Vim redraw <bar>
+            \ echom "vim == >^.^< == vim" <bar>
+            \ sleep 500m <bar>
+            \ redraw <bar>
+            \ echom "vim == >-.^< == vim" <bar>
+            \ sleep 200m <bar>
+            \ redraw <bar>
+            \ echom "vim == >^.^< == vim"
+# ======================================================================================
