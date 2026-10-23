@@ -33,6 +33,7 @@ Hello, welcome to the god of editor VIM !**
 - [x] Translator
 - [x] [LSP](#lsp)
 - [ ] Make
+- [x] Vim9
 
 
 
