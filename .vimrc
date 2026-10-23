@@ -1448,13 +1448,24 @@ def ScheduleAsyncQuery(bufnr: number, timer: number)
     var msg = printf("id  subjob-id   name        state       time(s)     cmd")
     call add(async_job_msg, msg)
     for [key, data] in items(S_async_jobs)
-        for i in range(len(data.subjobs))
-            var subjob = data.subjobs[i]
 
+        # 注意：ScheduleAsyncQuery是在Timer中的定时任务
+        # 获取到的job有可能尚未初始化
+        if data.state ==# 'uninit'
+            continue
+        endif
+
+        for i in range(len(data.subjobs))
+            # 这里的subjob可能是正在排队的任务
+            var subjob = data.subjobs[i]
             var time = subjob.te
             if empty(time)
-                var ts_list = eval(subjob.ts)
-                time = printf('%.1f', reltimefloat(reltime(ts_list)))
+                if empty(subjob.ts)
+                    time = '0.0'
+                else
+                    var ts_list = eval(subjob.ts)
+                    time = printf('%.1f', reltimefloat(reltime(ts_list)))
+                endif
             endif
 
             msg = printf("%-2d\t\t%-2d\t\t%-8s\t%-8s\t%-5s\t\t%s",
@@ -1820,10 +1831,10 @@ def GenCscopeFilesAsync(args: string): string
 
     # build ctags command
     var cmd =
-        'Async find . '
+        'Async find . -mindepth 1 '
         .. exc
         .. inc
-        .. '-print > cscope.files'
+        .. '-type f -print > cscope.files'
 
     # 有--no_run命令
     # if match(args, '\%(^\|\s\)--no_run\%(\s\|$\)') >= 0
