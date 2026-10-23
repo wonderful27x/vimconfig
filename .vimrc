@@ -831,17 +831,37 @@ def AsyncJobDone(key: string, code: number)
     endif
 enddef
 
+def SetQuickfixList(title: string, lines: list<string>, format: string, action: string)
+    var n = strcharlen(title)
+    var short_title = n > 100
+        ? strcharpart(title, 0, 30) .. ' ... ' .. strcharpart(title, n - 70, 70)
+        : title
+
+    if !empty(format)
+        call setqflist([], action, {
+            title: short_title,
+            lines: lines,
+            efm: format
+        })
+    else
+        setqflist([], action, {
+            title: short_title,
+            items: mapnew(lines, (_, line) => ({text: line}))
+        })
+    endif
+enddef
+
 def AsyncDataProcess(key: string, code: number): any
+    # var ts = reltime()
+
     var subjob = GetCurrSubjob(key)
 
-    var format = &errorformat
     var errs = []
     var outs = []
     # 如果指定了具体格式, 过滤空项
     if !empty(subjob.fmt)
         errs = filter(S_async_jobs[key].errs, '!empty(v:val)')
         outs = filter(S_async_jobs[key].outs, '!empty(v:val)')
-        format = subjob.fmt
     else
         errs = S_async_jobs[key].errs
         outs = S_async_jobs[key].outs
@@ -853,48 +873,28 @@ def AsyncDataProcess(key: string, code: number): any
 
     var filled = v:false
     if subjob.fil ==? 'err' && !empty(errs)
-        call setqflist([], ' ', {
-                    \ 'title': subjob.cmd,
-                    \ 'lines': errs,
-                    \ 'efm': format
-                    \ })
+        call SetQuickfixList(subjob.cmd, errs, subjob.fmt, ' ')
         filled = v:true
     elseif subjob.fil ==? 'out' && !empty(outs)
-        call setqflist([], ' ', {
-                    \ 'title': subjob.cmd,
-                    \ 'lines': outs,
-                    \ 'efm': format
-                    \ })
+        call SetQuickfixList(subjob.cmd, outs, subjob.fmt, ' ')
         filled = v:true
     elseif subjob.fil ==? 'all' && (!empty(errs) || !empty(outs))
-        call setqflist([], ' ', {
-                    \ 'title': subjob.cmd,
-                    \ 'lines': errs,
-                    \ 'efm': format
-                    \ })
-        call setqflist([], 'a', {
-                    \ 'lines': outs,
-                    \ 'efm': format
-                    \ })
+        call SetQuickfixList(subjob.cmd, errs, subjob.fmt, ' ')
+        call SetQuickfixList(subjob.cmd, outs, subjob.fmt, 'a')
         filled = v:true
     elseif subjob.fil ==? 'asp'
         if !empty(outs)
-            call setqflist([], ' ', {
-                        \ 'title': subjob.cmd,
-                        \ 'lines': outs,
-                        \ 'efm': format
-                        \ })
+            call SetQuickfixList(subjob.cmd, outs, subjob.fmt, ' ')
             filled = v:true
         endif
         if !empty(errs)
-            call setqflist([], ' ', {
-                        \ 'title': subjob.cmd,
-                        \ 'lines': errs,
-                        \ 'efm': format
-                        \ })
+            call SetQuickfixList(subjob.cmd, errs, subjob.fmt, ' ')
             filled = v:true
         endif
     endif
+
+    # var te = printf('%.1f', reltimefloat(reltime(ts)))
+    # echom "AsyncDataProcess cost: " .. te .. 's'
 
     # 打开窗口
     if subjob.o == '1'  && filled
@@ -1163,7 +1163,7 @@ def GetDefaultSubJob(cmd: string, last: bool): dict<any>
         org: '',
         cmd: cmd,
         len: string(strchars(cmd)),
-        fmt: &errorformat,
+        fmt: '',
         fil: 'all',
         env: '',
         o: '0',
