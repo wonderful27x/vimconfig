@@ -2277,7 +2277,7 @@ endif
 
 # C/C++ LSP
 # 若WSL下无法识别std，加入下面这条命令
-# \   '--query-driver=/usr/bin/c++*,/usr/bin/g++*',
+# '--query-driver=/usr/bin/c++*,/usr/bin/g++*',
 def RegisterC()
     lsp#register_server({
         name: 'clangd',
