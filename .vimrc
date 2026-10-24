@@ -447,6 +447,24 @@ enddef
 # }}}
 
 # ==========tools========== {{{
+var S_log_seq = 0
+def LogEvent(msg: string): void
+    var log_dir = expand('~/logs/vim')
+    if !isdirectory(log_dir)
+        mkdir(log_dir, 'p')
+    endif
+
+    # var time = strftime('%H:%M:%S')
+    # writefile([time .. ' ' .. msg], log_dir .. '/vim-async.log', 'a')
+
+    # 获取微秒精度的时间差
+    var us = float2nr(reltimefloat(reltime()) * 1000000)
+    S_log_seq += 1
+    # 格式：序号 | 微秒 | 事件
+    var line = printf('[%05d] [%d] %s', S_log_seq, us, msg)
+    writefile([line], log_dir .. '/vim-async.log', 'a')
+enddef
+
 # ==========schedule window========== {{{
 # 全局保存 timer 和 buffer 的映射
 var S_custom_schedule_window = {}
@@ -509,6 +527,10 @@ var S_async_tick_ctr = {
 
 var S_async_job_id = -1
 var S_async_jobs = {}
+var S_async_pause = v:false
+var S_async_paused_jobs = []
+var S_async_max_fill_first_time: number = 1000
+# var S_async_max_fill_first_time: number = (1 << 62) - 1 + (1 << 62)
 
 # " 子任务
 # S_subjob = {
@@ -522,7 +544,9 @@ var S_async_jobs = {}
 #     m: ''         "是否显示过程和状态信息, 如果m=0, out/err会被打印
 #     ts: '',       "命令执行起始时间
 #     te: '',       "命令执行结束时间
-#     sts: 'uninit',      "状态信息
+#     nouts: 0,     "命令结果out数
+#     nerrs: 0,     "命令结果err数
+#     sts: 'uninit',"状态信息
 # }
 
 # " 每个AsyncJob包含一个subjobs列表，里面包含具体的命令参数，
@@ -540,6 +564,7 @@ var S_async_jobs = {}
 #     prog_idx: 0,        "进度索引
 #     subjobs: [],        "子任务列表
 #     subjob_id: 0        "当前子任务索引
+#     job_exit: v:false   "exit_cb调用
 # }
 
 # Async异步命令，可以执行任意外部命令
@@ -619,15 +644,16 @@ def Async(args: string)
         errs: [],
         prog_idx: 0,
         subjobs: subjobs,
-        subjob_id: 0
+        subjob_id: 0,
+        job_exit: v:false
     }
 
     # 先把timer启动起来，防止job结束过快timer还没创建
     # 每 200 毫秒更新一次状态
     call StartAsyncTimer(cmd, 200)
 
-    # 启动异步任务
-    call StartAsyncSubjob(cmd)
+    # 启动异步任务, 从第0个任务开始
+    call StartAsyncSubjob(cmd, 0)
 enddef
 
 def AsyncComplete(ArgLead: string, CmdLine: string, CursorPos: number): list<string>
@@ -679,7 +705,17 @@ def StartAsyncTimer(key: string, tms: number)
 enddef
 
 # 启动一个子任务
-def StartAsyncSubjob(key: string)
+# subjob_id: 启动的subjob id
+def StartAsyncSubjob(key: string, subjob_id: number)
+    # 先reset
+    S_async_jobs[key].job_exit = v:false
+    S_async_jobs[key].state = 'uninit'
+    S_async_jobs[key].outs = []
+    S_async_jobs[key].errs = []
+    S_async_jobs[key].prog_idx = 0
+    # 最关键的
+    S_async_jobs[key].subjob_id = subjob_id
+
     var curr_subjob = GetCurrSubjob(key)
     var shell_cmd = [&shell, &shellcmdflag, curr_subjob.cmd]
 
@@ -694,24 +730,35 @@ def StartAsyncSubjob(key: string)
     if curr_subjob.env == '1'
         # echom "has env: " .. curr_subjob.env
         async_job = job_start(shell_cmd, {
-                env: environ(),
-                pty: 1,
-                out_mode: 'nl',
-                err_mode: 'nl',
-                out_cb: (ch, msg) => OnJobOut(key, ch, msg),
-                err_cb: (ch, msg) => OnJobErr(key, ch, msg),
-                exit_cb: (job, code) => OnJobExit(key, job, code)
-                })
+            env: environ(),
+            pty: 1,
+            out_mode: 'nl',
+            err_mode: 'nl',
+            out_cb: (ch, msg) => OnJobOut(key, ch, msg),
+            err_cb: (ch, msg) => OnJobErr(key, ch, msg),
+            close_cb: (ch) => OnJobClose(key, ch),
+            exit_cb: (job, code) => OnJobExit(key, job, code),
+        })
     else
         # echom "no env: " .. curr_subjob.env
         async_job = job_start(shell_cmd, {
-                out_mode: 'nl',
-                err_mode: 'nl',
-                out_cb: (ch, msg) => OnJobOut(key, ch, msg),
-                err_cb: (ch, msg) => OnJobErr(key, ch, msg),
-                exit_cb: (job, code) => OnJobExit(key, job, code)
-                })
+            out_mode: 'nl',
+            err_mode: 'nl',
+            out_cb: (ch, msg) => OnJobOut(key, ch, msg),
+            err_cb: (ch, msg) => OnJobErr(key, ch, msg),
+            close_cb: (ch) => OnJobClose(key, ch),
+            exit_cb: (job, code) => OnJobExit(key, job, code),
+        })
     endif
+
+    # var status = job_status(async_job)
+    # if status ==# 'fail'
+    #     echom '启动job失败(' .. status .. '): ' .. key
+    #     redraw
+    # else
+    #     echom '启动job成功(' .. status .. '): ' .. key
+    #     redraw
+    # endif
 
     # job 对象填进字典
     # 由于OnJobExit可以在job返回前结束，所以使用一个状态来控制
@@ -733,11 +780,21 @@ def OnJobOut(key: string, ch: channel, msg: string)
         return
     endif
 
+    # 截断输出，注意OnJobExit后OnJobOut和OnJobErr仍然可能被调用
+    # 这里截断是为了保持数据一致，实际上应该继续收集剩余才对，
+    # 但是目前还没找到数据buffer处理结束的回调，close_cb官方解释是在所有数据结束后，
+    # 但实际测试它甚至比OnJobExit调用还早, 这里只是权宜之计
+    if S_async_jobs[key].job_exit == v:true
+        return
+    endif
+
+    var subjob = GetCurrSubjob(key)
+
     call add(S_async_jobs[key].outs, msg)
+    subjob.nouts = len(S_async_jobs[key].outs)
 
     # 如果out不会填充到quickfix，就打印它
     # 如果m=0也打印，因为过程信息没有了
-    var subjob = GetCurrSubjob(key)
     if subjob.m == '0' || (subjob.fil !=# 'out' && subjob.fil !=# 'all')
         # echom GetCurrSubjobProgram(key) .. ": " .. msg
         echom msg
@@ -750,22 +807,43 @@ def OnJobErr(key: string, ch: channel, msg: string)
         return
     endif
 
+    # 截断输出，同上
+    if S_async_jobs[key].job_exit == v:true
+        return
+    endif
+
+    var subjob = GetCurrSubjob(key)
+
     call add(S_async_jobs[key].errs, msg)
+    subjob.nerrs = len(S_async_jobs[key].errs)
 
     # 如果err不会填充到quickfix，就打印它
     # 如果m=0也打印，因为过程信息没有了
-    var subjob = GetCurrSubjob(key)
     if subjob.m == '0' || (subjob.fil !=# 'err' && subjob.fil !=# 'all')
         # echom GetCurrSubjobProgram(key) .. ": " .. msg
         echom msg
     endif
 enddef
 
+# 在测试中发现OnJobClose设置了之后OnJobOut/OnJobExit
+# 就不会在OnJobExit之后调用了, 而OnJobClose会在OnJobExit之前调用
+def OnJobClose(key: string, ch: channel)
+    # echom "!!!OnJobClose"
+    # LogEvent('CLOSE')
+enddef
+
 def OnJobExit(key: string, job: job, code: number)
+    # echom "!!!OnJobExit"
+    # LogEvent('EXIT: ' .. code)
+
     if !has_key(S_async_jobs, key)
         echom 'job for [' .. key .. '] not exist!'
         return
     endif
+
+    # echom split(key)[0] .. " exit: " .. len(S_async_jobs[key].outs) .. " + " .. len(S_async_jobs[key].errs)
+
+    S_async_jobs[key].job_exit = v:true
 
     var curr_subjob = GetCurrSubjob(key)
 
@@ -773,6 +851,13 @@ def OnJobExit(key: string, job: job, code: number)
     if S_async_jobs[key].state ==# 'uinit'
         S_async_jobs[key].state = 'running'
         curr_subjob.sts = 'running'
+    endif
+
+    # 因为vim是单线程，不能真正暂停，这里是模拟暂停
+    # 先将数据存起来，后面再回放
+    if S_async_pause
+        add(S_async_paused_jobs, {'key': key, 'job': job, 'code': code})
+        return
     endif
 
     try
@@ -786,6 +871,8 @@ def OnJobExit(key: string, job: job, code: number)
         # 执行后期处理任务
         call AsyncJobDone(key, code)
     finally
+        # 这个方法及有可能出bug
+        # call AsyncContinue()
 
         # 更新状态
         var finish_type = S_async_jobs[key].state ==# 'stopping' ? 'xdone' : 'done'
@@ -800,17 +887,11 @@ def OnJobExit(key: string, job: job, code: number)
             call remove(S_async_jobs, key)
         else
             # 如果不是最后一个subjob，启动一个新的job执行后续任务
-            # 先reset
-            S_async_jobs[key].state = 'uninit'
-            S_async_jobs[key].outs = []
-            S_async_jobs[key].errs = []
-            S_async_jobs[key].prog_idx = 0
-            S_async_jobs[key].subjob_id += 1
-
             if curr_subjob.m == '1'
                 echo "Async-" .. GetCurrSubjobProgram(key) .. " running ... |"
             endif
-            call StartAsyncSubjob(key)
+            var subjob_id = S_async_jobs[key].subjob_id + 1
+            call StartAsyncSubjob(key, subjob_id)
         endif
     endtry
 enddef
@@ -855,6 +936,35 @@ def SetQuickfixList(title: string, lines: list<string>, format: string, action: 
     endif
 enddef
 
+def AsyncDataProcessRest(key: string, outs: list<string>, errs: list<string>)
+    var subjob = GetCurrSubjob(key)
+
+    if subjob.fil ==? 'err' && !empty(errs)
+        call SetQuickfixList(subjob.cmd, errs, subjob.fmt, 'a')
+    elseif subjob.fil ==? 'out' && !empty(outs)
+        call SetQuickfixList(subjob.cmd, outs, subjob.fmt, 'a')
+    elseif subjob.fil ==? 'all'
+        if !empty(errs)
+            call SetQuickfixList(subjob.cmd, errs, subjob.fmt, 'a')
+        endif
+        if !empty(outs)
+            call SetQuickfixList(subjob.cmd, outs, subjob.fmt, 'a')
+        endif
+    elseif subjob.fil ==? 'asp'
+        if !empty(outs)
+            call SetQuickfixList(subjob.cmd, outs, subjob.fmt, 'a')
+        endif
+        if !empty(errs)
+            # asp模式下outs和errs是分开的，如果outs非空，说明errs还没有填入
+            if !empty(outs)
+                call SetQuickfixList(subjob.cmd, errs, subjob.fmt, ' ')
+            else
+                call SetQuickfixList(subjob.cmd, errs, subjob.fmt, 'a')
+            endif
+        endif
+    endif
+enddef
+
 def AsyncDataProcess(key: string, code: number): any
     # var ts = reltime()
 
@@ -862,6 +972,7 @@ def AsyncDataProcess(key: string, code: number): any
 
     var errs = []
     var outs = []
+    var max_fill: number = S_async_max_fill_first_time
     # 如果指定了具体格式, 过滤空项
     if !empty(subjob.fmt)
         errs = filter(S_async_jobs[key].errs, '!empty(v:val)')
@@ -869,30 +980,108 @@ def AsyncDataProcess(key: string, code: number): any
     else
         errs = S_async_jobs[key].errs
         outs = S_async_jobs[key].outs
+        # 如果没有指定格式设置为最大值，即首次全部填充，因为速度是很快的
+        max_fill = (1 << 62) - 1 + (1 << 62)
+    endif
+    # 如果当前有多个job，全部填充，防止等待用户决定加载剩余数据时
+    # 后续的任务到来打乱时序，造成quickfix的混乱
+    if len(S_async_jobs) > 1
+        max_fill = (1 << 62) - 1 + (1 << 62)
     endif
 
     if subjob.fil ==? 'none'
         return {'n_outs': len(outs), 'n_errs': len(errs)}
     endif
 
+    # 如果大于最大首次填充数，第一次只填充最大的一半，剩下的让用户决定是否继续填充
+    # 因为10000条数据需要10s，会导致ui卡住，用户不知道发生了什么，体验很差
+    var outs_fill_len = 0
+    var errs_fill_len = 0
+    var outs_bg = 0
+    var errs_bg = 0
+    var filled_len = 0
+
     var filled = v:false
     if subjob.fil ==? 'err' && !empty(errs)
-        call SetQuickfixList(subjob.cmd, errs, subjob.fmt, ' ')
+        errs_fill_len = len(errs) > max_fill ? max_fill / 2 : len(errs)
+        var errs_sub_list = slice(errs, errs_bg, errs_bg + errs_fill_len)
+        call SetQuickfixList(subjob.cmd, errs_sub_list, subjob.fmt, ' ')
+        # 计算下次的
+        filled_len = errs_fill_len
+        errs_bg += errs_fill_len
+        errs_fill_len = len(errs) - errs_bg
+
         filled = v:true
     elseif subjob.fil ==? 'out' && !empty(outs)
-        call SetQuickfixList(subjob.cmd, outs, subjob.fmt, ' ')
+        outs_fill_len = len(outs) > max_fill ? max_fill / 2 : len(outs)
+        var outs_sub_list = slice(outs, outs_bg, outs_bg + outs_fill_len)
+        call SetQuickfixList(subjob.cmd, outs_sub_list, subjob.fmt, ' ')
+        # 计算下次的
+        filled_len = outs_fill_len
+        outs_bg += outs_fill_len
+        outs_fill_len = len(outs) - outs_bg
+
         filled = v:true
     elseif subjob.fil ==? 'all' && (!empty(errs) || !empty(outs))
-        call SetQuickfixList(subjob.cmd, errs, subjob.fmt, ' ')
-        call SetQuickfixList(subjob.cmd, outs, subjob.fmt, 'a')
+        if (len(errs) + len(outs)) > max_fill
+            # 这种情况二者之和只能是最大的一半
+            errs_fill_len = len(errs) > max_fill / 2 ? max_fill / 2 : len(errs)
+            var errs_sub_list = slice(errs, errs_bg, errs_bg + errs_fill_len)
+            call SetQuickfixList(subjob.cmd, errs_sub_list, subjob.fmt, ' ')
+            # outs补充那一半剩下的部分
+            outs_fill_len = max_fill / 2 - errs_fill_len
+            outs_fill_len = len(outs) < outs_fill_len ? len(outs) : outs_fill_len
+            var outs_sub_list = slice(outs, outs_bg, outs_bg + outs_fill_len)
+            call SetQuickfixList(subjob.cmd, outs_sub_list, subjob.fmt, 'a')
+
+            # 计算下次的
+            filled_len = errs_fill_len + outs_fill_len
+            errs_bg += errs_fill_len
+            errs_fill_len = len(errs) - errs_bg
+            outs_bg += outs_fill_len
+            outs_fill_len = len(outs) - outs_bg
+        else
+            # 这种情况说明二者全部填完
+            call SetQuickfixList(subjob.cmd, errs, subjob.fmt, ' ')
+            call SetQuickfixList(subjob.cmd, outs, subjob.fmt, 'a')
+            filled_len = len(errs) + len(outs)
+        endif
         filled = v:true
     elseif subjob.fil ==? 'asp'
-        if !empty(outs)
-            call SetQuickfixList(subjob.cmd, outs, subjob.fmt, ' ')
-            filled = v:true
+        if (len(errs) + len(outs)) > max_fill
+            # 这种情况二者之和只能是最大的一半
+            outs_fill_len = len(outs) > max_fill / 2 ? max_fill / 2 : len(outs)
+            var outs_sub_list = slice(outs, outs_bg, outs_bg + outs_fill_len)
+            if outs_fill_len > 0
+                call SetQuickfixList(subjob.cmd, outs_sub_list, subjob.fmt, ' ')
+            endif
+
+            # errs补充那一半剩下的部分
+            errs_fill_len = max_fill / 2 - outs_fill_len
+            errs_fill_len = len(errs) < errs_fill_len ? len(errs) : errs_fill_len
+            var errs_sub_list = slice(errs, errs_bg, errs_bg + errs_fill_len)
+            # 如果本次errs需要填，或者outs恰好填完errs下次还需要填
+            if errs_fill_len > 0 || (len(outs) - outs_fill_len == 0 && len(errs) > 0)
+                call SetQuickfixList(subjob.cmd, errs_sub_list, subjob.fmt, ' ')
+            endif
+
+            # 计算下次的
+            filled_len = outs_fill_len + errs_fill_len
+            outs_bg += outs_fill_len
+            outs_fill_len = len(outs) - outs_bg
+            errs_bg += errs_fill_len
+            errs_fill_len = len(errs) - errs_bg
+        else
+            # 这种情况说明二者全部填完
+            if !empty(outs)
+                call SetQuickfixList(subjob.cmd, outs, subjob.fmt, ' ')
+            endif
+            if !empty(errs)
+                call SetQuickfixList(subjob.cmd, errs, subjob.fmt, ' ')
+            endif
+            filled_len = len(errs) + len(outs)
         endif
-        if !empty(errs)
-            call SetQuickfixList(subjob.cmd, errs, subjob.fmt, ' ')
+        if !empty(outs) || !empty(errs)
             filled = v:true
         endif
     endif
@@ -905,6 +1094,39 @@ def AsyncDataProcess(key: string, code: number): any
         botright copen
     endif
 
+    if outs_fill_len > 0 || errs_fill_len > 0
+        var msg = "Async-" .. split(subjob.cmd)[0] .. ' finish(' .. string(code) .. ') | '
+            .. string(filled_len) .. ' loaded, ' .. '是否加载剩余 ' .. string(outs_fill_len + errs_fill_len) .. ' 行？'
+        redraw
+
+        # 等待用户输入时，后面的任务可能在这期间结束，
+        # 然后修改quickfix, 时序出现问题，所以
+        # 先暂停其他任务, 但后续的恢复有bug, 目前还没有好的解决方案
+        # call AsyncPause()
+
+        var answer = tolower(trim(input(msg .. ' (yes/no): ')))
+        if answer == 'yes' || answer == 'y'
+            echom "Async-" .. split(subjob.cmd)[0] .. " data processing ..."
+            var outs_sub_list = slice(outs, outs_bg, outs_bg + outs_fill_len)
+            var errs_sub_list = slice(errs, errs_bg, errs_bg + errs_fill_len)
+            call AsyncDataProcessRest(key, outs_sub_list, errs_sub_list)
+
+            # 放这里肯定不行，后面exit的会在当前exit之前完成工作, 时序是不对的，
+            # call AsyncContinue()
+        endif
+
+        # var choice = confirm(msg, "&Yes\n&No", 1)
+        # if choice == 1
+        #     echom "Async-" .. split(subjob.cmd)[0] .. " data processing ..."
+        #     var outs_sub_list = slice(outs, outs_bg, outs_bg + outs_fill_len)
+        #     var errs_sub_list = slice(errs, errs_bg, errs_bg + errs_fill_len)
+        #     call AsyncDataProcessRest(key, outs_sub_list, errs_sub_list)
+
+        #     # 放这里肯定不行，后面exit的会在当前exit之前完成工作, 时序是不对的，
+        #     # call AsyncContinue()
+        # endif
+    endif
+
     return {'n_outs': len(outs), 'n_errs': len(errs)}
 enddef
 
@@ -912,6 +1134,25 @@ def EchoMsg(lines: list<string>)
     for line in lines
         echom line
     endfor
+enddef
+
+def AsyncPause()
+    S_async_pause = v:true
+enddef
+
+def AsyncContinue()
+    # 先置为false，否则会循环导致卡死, 但是这样又会漏掉到来的exit任务!!!
+    # 单个pause似乎会被不同的subjob修改，
+    # 这是糟糕的，要不就不要兼容这种情况了
+    S_async_pause = v:false
+    while !empty(S_async_paused_jobs)
+        # 永远取第 0 个元素
+        var item = S_async_paused_jobs[0]
+        # 先删除，否则OnJobExit又会调用AsyncContinue导致无限循环
+        remove(S_async_paused_jobs, 0)
+        
+        call OnJobExit(item.key, item.job, item.code)
+    endwhile
 enddef
 # }}}
 
@@ -953,6 +1194,11 @@ def AsyncTick(key: string, timer: number)
     # mode() ==# 'c' 表示正在命令行模式
     # 或者 getcmdline() 非空表示已经在输入内容
     if mode() ==# 'c' || !empty(getcmdline())
+        return
+    endif
+
+    # 整体暂停
+    if S_async_pause
         return
     endif
 
@@ -1174,6 +1420,8 @@ def GetDefaultSubJob(cmd: string, last: bool): dict<any>
         m: '1',
         ts: '',
         te: '',
+        nouts: 0,
+        nerrs: 0,
         sts: 'uinit'
         }
 
@@ -1191,7 +1439,7 @@ def GetDefaultSubJob(cmd: string, last: bool): dict<any>
 enddef
 
 # 将async命令的参数解析成subjobs
-def ParseAsyncArgs(args: string): list<dict<string>>
+def ParseAsyncArgs(args: string): list<dict<any>>
     var subjobs = []
     var cmdlist = SplitAsyncArgs(args)
     for i in range(len(cmdlist))
@@ -1449,7 +1697,7 @@ def ScheduleAsyncQuery(bufnr: number, timer: number)
     # endif
 
     var async_job_msg = []
-    var msg = printf("id  subjob-id   name        state       time(s)     cmd")
+    var msg = printf("id  subjob-id   name        state       time(s)     outs    errs    cmd")
     call add(async_job_msg, msg)
     for [key, data] in items(S_async_jobs)
 
@@ -1472,8 +1720,10 @@ def ScheduleAsyncQuery(bufnr: number, timer: number)
                 endif
             endif
 
-            msg = printf("%-2d\t\t%-2d\t\t%-8s\t%-8s\t%-5s\t\t%s",
-                        data.id, i, split(subjob.cmd)[0], subjob.sts, time, subjob.cmd)
+            var nouts = subjob.nouts
+            var nerrs = subjob.nerrs
+            msg = printf("%-2d\t\t%-2d\t\t%-8s\t%-8s\t%-5s\t\t%-7d\t%-7d\t%s",
+                        data.id, i, split(subjob.cmd)[0], subjob.sts, time, nouts, nerrs, subjob.cmd)
 
             call add(async_job_msg, msg)
         endfor
@@ -2348,8 +2598,8 @@ g:asyncomplete_auto_completeopt = 0
 
 # lsp log
 # g:lsp_log_verbose = 1
-# g:lsp_log_file = expand('~/logs/vim-lsp.log')
-# g:asyncomplete_log_file = expand('~/logs/asyncomplete.log')
+# g:lsp_log_file = expand('~/logs/vim/vim-lsp.log')
+# g:asyncomplete_log_file = expand('~/logs/vim/asyncomplete.log')
 
 # 设置手动开关命令
 command! LspEnable call <SID>LspEnable()
