@@ -62,6 +62,10 @@ set fileencodings=ucs-bom,utf-8,gb18030,gbk,default,latin1
 # 可以理解为设置vim支持的文件编码格式，类似fileformats
 # }}}
 
+# 状态栏 statusline settings
+set laststatus=2
+&statusline = '%<%f %h%m%r%=[%{empty(&fenc) ? &enc : &fenc},%{&ff}]    %-14.(%l,%c%V%) %P'
+
 # tab 命令补全模式, 此模式tab会显示补全列表
 set wildmenu
 set wildmode=full
