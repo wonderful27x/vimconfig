@@ -115,6 +115,12 @@ xnoremap # :<C-u>call <SID>VSetSearch('?')<CR>?<C-R>=@/<CR><CR>
 nnoremap <silent> <C-p> :<C-u>nohlsearch<CR>
 nnoremap <silent> <leader><C-l> :<C-u>nohlsearch<CR><C-l>
 
+# 隐藏常规高亮并链接行与列的样式
+highlight! link CursorLine CursorColumn
+# 行列高亮切换，阅读代码时比较方便
+# nnoremap <leader><space> :set cursorline! cursorcolumn!<CR>
+nnoremap <leader><space> :set cursorline!<CR>
+
 # map Y to yank text from cursor to the end of line
 nnoremap Y y$
 
