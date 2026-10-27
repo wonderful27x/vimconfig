@@ -115,11 +115,18 @@ xnoremap # :<C-u>call <SID>VSetSearch('?')<CR>?<C-R>=@/<CR><CR>
 nnoremap <silent> <C-p> :<C-u>nohlsearch<CR>
 nnoremap <silent> <leader><C-l> :<C-u>nohlsearch<CR><C-l>
 
-# 隐藏常规高亮并链接行与列的样式
-highlight! link CursorLine CursorColumn
-# 行列高亮切换，阅读代码时比较方便
-# nnoremap <leader><space> :set cursorline! cursorcolumn!<CR>
-nnoremap <leader><space> :set cursorline!<CR>
+# # 光标出的行列高亮切换，阅读代码时比较方便
+# # 隐藏常规高亮并链接行与列的样式
+# highlight! link CursorLine None
+nnoremap <leader><space> :<C-u>call <SID>ToggleCursorHighlight()<CR>
+augroup TrackWindowCursorHighlight
+    autocmd!
+    autocmd WinNew * TrackWindowCursorHighlight('new')
+    autocmd WinLeave * TrackWindowCursorHighlight('leave')
+    autocmd WinEnter,BufEnter * TrackWindowCursorHighlight('enter')
+    # autocmd BufLeave * TrackWindowCursorHighlight('leave_buf')
+    # autocmd BufEnter * TrackWindowCursorHighlight('enter_buf')
+augroup END
 
 # map Y to yank text from cursor to the end of line
 nnoremap Y y$
@@ -274,6 +281,55 @@ def VSetSearch(cmdtype: string)
     norm! gv"sy
     @/ = '\V' .. substitute(escape(@s, cmdtype .. '\'), '\n', '\\n', 'g')
     @s = temp
+enddef
+# }}}
+
+# ==========functions for toggle cursor highlight========== {{{
+var S_cursor_hl = v:false
+var S_saved_cursorline_hl = hlget('CursorLine')
+var S_saved_cursorline_option = {
+    winid: -1,
+    cursorline: v:false
+}
+# --------------------------------------
+def RecoverCursorHighlight()
+    highlight clear CursorLine
+    hlset(S_saved_cursorline_hl)
+    &l:cursorline = S_saved_cursorline_option.cursorline
+    S_saved_cursorline_option.winid = -1
+    S_saved_cursorline_option.cursorline = v:false
+enddef
+
+def SetCursorHighlight()
+    if win_getid() != S_saved_cursorline_option.winid
+        S_saved_cursorline_option.winid = win_getid()
+        S_saved_cursorline_option.cursorline = &l:cursorline
+    endif
+    highlight! link CursorLine CursorColumn
+    setlocal cursorline
+enddef
+
+def ToggleCursorHighlight()
+    S_cursor_hl = !S_cursor_hl
+    if S_cursor_hl
+        call SetCursorHighlight()
+    else
+        call RecoverCursorHighlight()
+    endif
+enddef
+
+def TrackWindowCursorHighlight(action: string)
+    if action ==# 'new'
+        call RecoverCursorHighlight()
+    endif
+
+    if S_cursor_hl
+        if action ==# 'enter'
+            call SetCursorHighlight()
+        elseif action ==# 'leave'
+            call RecoverCursorHighlight()
+        endif
+    endif
 enddef
 # }}}
 
