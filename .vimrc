@@ -118,14 +118,22 @@ nnoremap <silent> <leader><C-l> :<C-u>nohlsearch<CR><C-l>
 # # 光标出的行列高亮切换，阅读代码时比较方便
 # # 隐藏常规高亮并链接行与列的样式
 # highlight! link CursorLine None
-nnoremap <leader><space> :<C-u>call <SID>ToggleCursorHighlight()<CR>
+nnoremap <silent> <leader><space> :<C-u>call <SID>ToggleCursorHighlight()<CR>
 augroup TrackWindowCursorHighlight
     autocmd!
-    autocmd WinNew * TrackWindowCursorHighlight('new')
-    autocmd WinLeave * TrackWindowCursorHighlight('leave')
     autocmd WinEnter,BufEnter * TrackWindowCursorHighlight('enter')
+    autocmd WinLeave * TrackWindowCursorHighlight('leave')
+    # -----------------------------------------------------
+    # autocmd WinNew * TrackWindowCursorHighlight('new')
+    # autocmd WinEnter * TrackWindowCursorHighlight('enter')
+    # autocmd WinLeave * TrackWindowCursorHighlight('leave')
     # autocmd BufLeave * TrackWindowCursorHighlight('leave_buf')
     # autocmd BufEnter * TrackWindowCursorHighlight('enter_buf')
+    # autocmd BufWinEnter * TrackWindowCursorHighlight('enter_buf_win')
+    # autocmd BufWinLeave * TrackWindowCursorHighlight('leave_buf_win')
+    # autocmd FileType * TrackWindowCursorHighlight('filetype')
+    # autocmd DirChanged * TrackWindowCursorHighlight('dir_changed')
+    # autocmd BufEnter,BufWinEnter,WinEnter,FileType,DirChanged * echomsg expand('<event>') bufname('%') &filetype
 augroup END
 
 # map Y to yank text from cursor to the end of line
@@ -145,7 +153,7 @@ nnoremap <Leader>P "+P
 # 设置快捷键打开vimrc
 nnoremap <Leader>ev :vsplit $MYVIMRC<CR>:<c-u>resize 9999<CR>:<c-u>vertical resize 9999<CR>:echo "edit vimrc ..."<CR>
 # 设置快捷键应用vimrc
-nnoremap <Leader>sv :source $MYVIMRC<CR>:<C-u>nohlsearch<CR>:echo "run source vimrc ok!"<CR>
+nnoremap <Leader>sv :<c-u>call <SID>SourceVimrcBefore()<CR>:<c-u>source $MYVIMRC<CR>:<C-u>nohlsearch<CR>:<c-u>call <SID>SourceVimrcAfter()<CR>
 
 # colorscheme morning   " 设置配色方案
 
@@ -275,6 +283,16 @@ xnoremap <leader>c :<c-u>call <SID>BinaryClear("false")<CR>
 # }}}
 
 # ================functions================ {{{
+# ==========functions for source MYVIMRC========== {{{
+def SourceVimrcBefore()
+    call ResetCursorHighlight()
+enddef
+
+def SourceVimrcAfter()
+    echo 'run source vimrc ok!'
+enddef
+# }}}
+
 # ==========functions for visual search for */# settings========== {{{
 def VSetSearch(cmdtype: string)
     var temp = @s
@@ -285,33 +303,34 @@ enddef
 # }}}
 
 # ==========functions for toggle cursor highlight========== {{{
-var S_cursor_hl = v:false
+var S_cursor_hl = -1
 var S_saved_cursorline_hl = hlget('CursorLine')
-var S_saved_cursorline_option = {
-    winid: -1,
-    cursorline: v:false
-}
 # --------------------------------------
+def ResetCursorHighlight()
+    if S_cursor_hl != -1
+        RecoverCursorHighlight()
+        S_cursor_hl = -1
+    endif
+enddef
+
 def RecoverCursorHighlight()
     highlight clear CursorLine
     hlset(S_saved_cursorline_hl)
-    &l:cursorline = S_saved_cursorline_option.cursorline
-    S_saved_cursorline_option.winid = -1
-    S_saved_cursorline_option.cursorline = v:false
+    setlocal nocursorline
 enddef
 
 def SetCursorHighlight()
-    if win_getid() != S_saved_cursorline_option.winid
-        S_saved_cursorline_option.winid = win_getid()
-        S_saved_cursorline_option.cursorline = &l:cursorline
-    endif
     highlight! link CursorLine CursorColumn
     setlocal cursorline
 enddef
 
 def ToggleCursorHighlight()
-    S_cursor_hl = !S_cursor_hl
-    if S_cursor_hl
+    if S_cursor_hl == -1
+        S_cursor_hl = 1
+    else
+        S_cursor_hl = S_cursor_hl == 1 ? 0 : 1
+    endif
+    if S_cursor_hl == 1
         call SetCursorHighlight()
     else
         call RecoverCursorHighlight()
@@ -319,16 +338,14 @@ def ToggleCursorHighlight()
 enddef
 
 def TrackWindowCursorHighlight(action: string)
-    if action ==# 'new'
-        call RecoverCursorHighlight()
+    # echom action
+    if S_cursor_hl == -1
+        return
     endif
-
-    if S_cursor_hl
-        if action ==# 'enter'
-            call SetCursorHighlight()
-        elseif action ==# 'leave'
-            call RecoverCursorHighlight()
-        endif
+    if S_cursor_hl == 1 && action ==# 'enter'
+        call SetCursorHighlight()
+    else
+        call RecoverCursorHighlight()
     endif
 enddef
 # }}}
@@ -1954,16 +1971,6 @@ def FoldColumnToggle()
         setlocal foldcolumn=4
     endif
 enddef
-# }}}
-
-# ==========statusline settings========== {{{
-# set statusline
-# set statusline=%f   # path to the file
-# set statusline+=%=  # switch to the right side
-# set statusline+=%l  # current line number
-# set statusline+=/   # separator
-# set statusline+=%L  # total line number
-# set statusline+=%y  # file type
 # }}}
 
 # ==========abbreviations settings========== {{{
