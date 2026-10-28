@@ -13,6 +13,7 @@ Hello, welcome to the god of editor VIM !**
 - [x] Blinking cursor insert mode
 - [x] Binary cursor move
 - [x] Cursor move insert mode
+- [x] Highlight cursorline/cursorcolumn
 - [x] Case conversion insert mode
 - [x] System clipboard for yank
 - [x] Fast `lcd`

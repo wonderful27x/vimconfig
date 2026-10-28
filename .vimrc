@@ -118,7 +118,8 @@ nnoremap <silent> <leader><C-l> :<C-u>nohlsearch<CR><C-l>
 # # 光标出的行列高亮切换，阅读代码时比较方便
 # # 隐藏常规高亮并链接行与列的样式
 # highlight! link CursorLine None
-nnoremap <silent> <leader><space> :<C-u>call <SID>ToggleCursorHighlight()<CR>
+nnoremap <silent> <leader><space> :<C-u>call <SID>ToggleCursorHighlight(v:false)<CR>
+nnoremap <silent> <leader><leader><space> :<C-u>call <SID>ToggleCursorHighlight(v:true)<CR>
 augroup TrackWindowCursorHighlight
     autocmd!
     autocmd WinEnter,BufEnter * TrackWindowCursorHighlight('enter')
@@ -304,27 +305,33 @@ enddef
 
 # ==========functions for toggle cursor highlight========== {{{
 var S_cursor_hl = -1
+var S_cursor_hl_col = v:false
 var S_saved_cursorline_hl = hlget('CursorLine')
 # --------------------------------------
 def ResetCursorHighlight()
     if S_cursor_hl != -1
         RecoverCursorHighlight()
         S_cursor_hl = -1
+        S_cursor_hl_col = v:false
     endif
 enddef
 
 def RecoverCursorHighlight()
     highlight clear CursorLine
     hlset(S_saved_cursorline_hl)
-    setlocal nocursorline
+    setlocal nocursorline nocursorcolumn
 enddef
 
 def SetCursorHighlight()
     highlight! link CursorLine CursorColumn
     setlocal cursorline
+    if S_cursor_hl_col
+        setlocal cursorcolumn
+    endif
 enddef
 
-def ToggleCursorHighlight()
+def ToggleCursorHighlight(col: bool)
+    S_cursor_hl_col = col
     if S_cursor_hl == -1
         S_cursor_hl = 1
     else
