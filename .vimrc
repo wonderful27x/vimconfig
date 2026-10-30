@@ -2866,3 +2866,59 @@ command! Vim redraw <bar>
             \ redraw <bar>
             \ echom "vim == >^.^< == vim"
 # ======================================================================================
+
+if empty(prop_type_get('MyVirtualText'))
+  prop_type_add('MyVirtualText', {highlight: 'Comment'})
+endif
+
+def g:ShowVirtualText(lnum: number, col: number, message: string)
+  if lnum < 1 || lnum > line('$')
+    echoerr '行號超出範圍'
+    return
+  endif
+
+  # prop_add() 的列號從 1 開始，以位元組計算
+  if col < 1 || col > strlen(getline(lnum)) + 1
+    echoerr '列號超出範圍'
+    return
+  endif
+
+  prop_add(lnum, col, {
+    type: 'MyVirtualText',
+    text: message,
+  })
+enddef
+
+var colnum = 1
+var rownum = 1
+def g:Show(direction: string)
+    if direction ==# 'left'
+        colnum -= 1
+    elseif direction ==# 'right'
+        colnum += 1
+    elseif direction ==# 'up'
+        rownum -= 1
+    elseif direction ==# 'down'
+        rownum += 1
+    endif
+    call g:ClearVirtualText()
+    call g:ShowVirtualText(rownum, colnum, '.ೃ🪼࿔')
+enddef
+
+def g:ClearVirtualText(lnum: number = 0)
+  if lnum == 0
+    # 不传行号：清除当前缓冲区中的全部虚拟文本
+    prop_remove({type: 'MyVirtualText', all: true}, 1, line('$'))
+  elseif lnum >= 1 && lnum <= line('$')
+    # 传行号：只清除指定行
+    prop_remove({type: 'MyVirtualText', all: true}, lnum, lnum)
+  else
+    echoerr '行号超出范围'
+  endif
+enddef
+
+
+nnoremap <silent> <C-Left> :call Show('left')<CR>
+nnoremap <silent> <C-Right> :call Show('right')<CR>
+nnoremap <silent> <C-Up> :call Show('up')<CR>
+nnoremap <silent> <C-Down> :call Show('down')<CR>
