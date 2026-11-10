@@ -537,24 +537,6 @@ enddef
 # }}}
 
 # ==========tools========== {{{
-var S_log_seq = 0
-def LogEvent(msg: string): void
-    var log_dir = expand('~/logs/vim')
-    if !isdirectory(log_dir)
-        mkdir(log_dir, 'p')
-    endif
-
-    # var time = strftime('%H:%M:%S')
-    # writefile([time .. ' ' .. msg], log_dir .. '/vim-async.log', 'a')
-
-    # 获取微秒精度的时间差
-    var us = float2nr(reltimefloat(reltime()) * 1000000)
-    S_log_seq += 1
-    # 格式：序号 | 微秒 | 事件
-    var line = printf('[%05d] [%d] %s', S_log_seq, us, msg)
-    writefile([line], log_dir .. '/vim-async.log', 'a')
-enddef
-
 # ==========schedule window========== {{{
 # 全局保存 timer 和 buffer 的映射
 var S_custom_schedule_window = {}
@@ -1009,8 +991,8 @@ enddef
 def SetQuickfixList(title: string, lines: list<string>, format: string, action: string)
     var n = strcharlen(title)
     var short_title = n > 100
-        ? strcharpart(title, 0, 30) .. ' ... ' .. strcharpart(title, n - 70, 70)
-        : title
+        ? 'Async ' .. strcharpart(title, 0, 30) .. ' ... ' .. strcharpart(title, n - 70, 70)
+        : 'Async ' .. title
 
     if !empty(format)
         call setqflist([], action, {
@@ -1226,6 +1208,24 @@ def EchoMsg(lines: list<string>)
     endfor
 enddef
 
+var S_log_seq = 0
+def LogEvent(msg: string): void
+    var log_dir = expand('~/logs/vim')
+    if !isdirectory(log_dir)
+        mkdir(log_dir, 'p')
+    endif
+
+    # var time = strftime('%H:%M:%S')
+    # writefile([time .. ' ' .. msg], log_dir .. '/vim-async.log', 'a')
+
+    # 获取微秒精度的时间差
+    var us = float2nr(reltimefloat(reltime()) * 1000000)
+    S_log_seq += 1
+    # 格式：序号 | 微秒 | 事件
+    var line = printf('[%05d] [%d] %s', S_log_seq, us, msg)
+    writefile([line], log_dir .. '/vim-async.log', 'a')
+enddef
+
 def AsyncPause()
     S_async_pause = v:true
 enddef
@@ -1243,6 +1243,63 @@ def AsyncContinue()
         
         call OnJobExit(item.key, item.job, item.code)
     endwhile
+enddef
+# }}}
+
+# ==========async quickfix高亮处理========== {{{
+augroup AsyncHighlight
+    autocmd!
+    autocmd BufWinEnter * call AsyncHighlight()
+augroup END
+
+def AsyncHighlight()
+    if &buftype != 'quickfix'
+        return
+    endif
+
+    # location list 的 buftype 也是 quickfix，额外排除
+    if getwininfo(win_getid())[0].loclist
+        return
+    endif
+
+    # 先清除残留配色
+    # call clearmatches()
+    for id in get(w:, 'async_highlight_ids', [])
+        matchdelete(id)
+    endfor
+    w:async_highlight_ids = []
+
+    var title = getqflist({'title': 0}).title
+    # echom 'quickfix title: ' .. title
+
+    # 根据不同命令设置不同颜色高亮
+    if title =~# '^Async git diff'
+        call AsyncHighlight_git_diff()
+    else
+    endif
+enddef
+
+def AsyncHighlight_git_diff()
+    # 隐藏 || 前缀
+    # setlocal conceallevel=2
+    # setlocal concealcursor=n
+    # syntax match qfPrefix /^||\s*/ conceal
+
+    # 自定义高亮组：只改前景色，不设背景色
+    highlight default qfDiffAdd      ctermfg=green  guifg=#98c379
+    highlight default qfDiffDelete   ctermfg=red    guifg=#e06c75
+    highlight default qfDiffChange   ctermfg=yellow guifg=#e5c07b
+    highlight default qfDiffText     ctermfg=blue   guifg=#61afef
+    highlight default qfDiffTitle    ctermfg=cyan   guifg=#56b6c2
+    highlight default qfDiffComment  ctermfg=gray   guifg=#5c6370
+
+    # 高亮 diff 内容（只改颜色）
+    add(w:async_highlight_ids, matchadd('qfDiffAdd',      '^||\s*+.*'))
+    add(w:async_highlight_ids, matchadd('qfDiffDelete',   '^||\s*-.*'))
+    add(w:async_highlight_ids, matchadd('qfDiffChange',   '^||\s*@@.*'))
+    add(w:async_highlight_ids, matchadd('qfDiffText',     '^||\s*diff --git.*'))
+    add(w:async_highlight_ids, matchadd('qfDiffTitle',    '^||\s*\(---\|+++\).*'))
+    add(w:async_highlight_ids, matchadd('qfDiffComment',  '^||\s*index .*'))
 enddef
 # }}}
 

@@ -22,6 +22,7 @@ Hello, welcome to the god of editor VIM !**
 - [x] Document format
 - [x] Section jump: [[、]]、[]、][
 - [x] Async command for anny
+- [x] Async result colorful
 - [x] Custom schedule window
 - [x] Grep
 - [x] ctags
