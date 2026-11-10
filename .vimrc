@@ -1273,33 +1273,140 @@ def AsyncHighlight()
     # echom 'quickfix title: ' .. title
 
     # 根据不同命令设置不同颜色高亮
-    if title =~# '^Async git diff'
-        call AsyncHighlight_git_diff()
+    if title =~# '^Async git'
+        call AsyncHighlight_git(title)
     else
     endif
 enddef
 
-def AsyncHighlight_git_diff()
-    # 隐藏 || 前缀
-    # setlocal conceallevel=2
-    # setlocal concealcursor=n
-    # syntax match qfPrefix /^||\s*/ conceal
+def AsyncHighlight_git(cmd: string)
+    if cmd !~# '^Async git \%(diff\|log\|show\|status\)\%(\s\|$\)'
+        return
+    endif
 
-    # 自定义高亮组：只改前景色，不设背景色
-    highlight default qfDiffAdd      ctermfg=green  guifg=#98c379
-    highlight default qfDiffDelete   ctermfg=red    guifg=#e06c75
-    highlight default qfDiffChange   ctermfg=yellow guifg=#e5c07b
-    highlight default qfDiffText     ctermfg=blue   guifg=#61afef
-    highlight default qfDiffTitle    ctermfg=cyan   guifg=#56b6c2
-    highlight default qfDiffComment  ctermfg=gray   guifg=#5c6370
+    # 普通输出以 || 开头；--graph 会在正文前插入 *、|、/、\ 等字符。
+    var prefix = '^||\s*'
+    if cmd =~# '\%(^\|\s\)--graph\%(\s\|=\|$\)'
+        prefix = '^||\s*\%([*|/\\]\s*\)*'
+    endif
 
-    # 高亮 diff 内容（只改颜色）
-    add(w:async_highlight_ids, matchadd('qfDiffAdd',      '^||\s*+.*'))
-    add(w:async_highlight_ids, matchadd('qfDiffDelete',   '^||\s*-.*'))
-    add(w:async_highlight_ids, matchadd('qfDiffChange',   '^||\s*@@.*'))
-    add(w:async_highlight_ids, matchadd('qfDiffText',     '^||\s*diff --git.*'))
-    add(w:async_highlight_ids, matchadd('qfDiffTitle',    '^||\s*\(---\|+++\).*'))
-    add(w:async_highlight_ids, matchadd('qfDiffComment',  '^||\s*index .*'))
+    # Diff
+    highlight default qfDiffAdd     ctermfg=green  guifg=#98c379
+    highlight default qfDiffDelete  ctermfg=red    guifg=#e06c75
+    highlight default qfDiffChange  ctermfg=yellow guifg=#e5c07b
+    highlight default qfDiffText    ctermfg=blue   guifg=#61afef
+    highlight default qfDiffTitle   ctermfg=cyan   guifg=#56b6c2
+    highlight default qfDiffComment ctermfg=gray   guifg=#5c6370
+
+    # Log
+    highlight default qfGitCommit   ctermfg=yellow  guifg=#e5c07b
+    highlight default qfGitMeta     ctermfg=cyan    guifg=#56b6c2
+    highlight default qfGitMessage  ctermfg=white   guifg=#abb2bf
+    highlight default qfGitRef      ctermfg=magenta guifg=#c678dd
+    highlight default qfGitStat     ctermfg=gray    guifg=#5c6370
+
+    # Status：按所在区块配色，而不是按 modified/deleted 等字样配色。
+    highlight default qfGitStatusBranch   ctermfg=cyan  guifg=#56b6c2
+    highlight default qfGitStatusHeader   ctermfg=yellow guifg=#e5c07b
+    highlight default qfGitStatusStaged   ctermfg=green guifg=#98c379
+    highlight default qfGitStatusUnstaged ctermfg=red   guifg=#e06c75
+    highlight default qfGitStatusClean    ctermfg=green guifg=#98c379
+    highlight default qfGitStatusHint     ctermfg=gray  guifg=#5c6370
+
+    if cmd =~# '^Async git status\%(\s\|$\)'
+        var section = ''
+
+        for lnum in range(1, line('$'))
+            var textline = getline(lnum)
+            if textline !~# '^||'
+                continue
+            endif
+
+            var text = trim(strpart(textline, 2))
+            var group = ''
+
+            if text =~# '^Changes to be committed:'
+                section = 'staged'
+                group = 'qfGitStatusHeader'
+            elseif text =~# '^\%(Changes not staged for commit:\|Unmerged paths:\)'
+                section = 'unstaged'
+                group = 'qfGitStatusHeader'
+            elseif text =~# '^Untracked files:'
+                section = 'untracked'
+                group = 'qfGitStatusHeader'
+            elseif text =~# '^\%(On branch \|Your branch \)'
+                section = ''
+                group = 'qfGitStatusBranch'
+            elseif text =~# '^\%(nothing to commit\|working tree clean\)'
+                section = ''
+                group = 'qfGitStatusClean'
+            elseif text =~# '^(\?use '
+                group = 'qfGitStatusHint'
+            elseif text !=# ''
+                if section ==# 'staged'
+                    group = 'qfGitStatusStaged'
+                elseif section ==# 'unstaged' || section ==# 'untracked'
+                    group = 'qfGitStatusUnstaged'
+                endif
+            endif
+
+            if group !=# ''
+                add(w:async_highlight_ids,
+                    matchaddpos(group, [[lnum, 1, strlen(textline)]]))
+            endif
+        endfor
+        return
+    endif
+
+    # 普通及合并提交的 diff 头
+    add(w:async_highlight_ids, matchadd('qfDiffText',
+        prefix .. 'diff --\%(git\|cc\|combined\) .*'))
+
+    # 补丁增删行、hunk 头（同时涵盖 @@ 和 @@@）
+    add(w:async_highlight_ids, matchadd('qfDiffAdd',
+        prefix .. '+.*'))
+    add(w:async_highlight_ids, matchadd('qfDiffDelete',
+        prefix .. '-.*'))
+    add(w:async_highlight_ids, matchadd('qfDiffChange',
+        prefix .. '@@.*'))
+
+    # 文件头优先级高于普通 +/- 行
+    add(w:async_highlight_ids, matchadd('qfDiffTitle',
+        prefix .. '\%(---\|+++\) .*', 20))
+
+    # 文件模式、重命名、复制、二进制补丁等信息
+    add(w:async_highlight_ids, matchadd('qfDiffComment',
+        prefix .. '\%(index \|new file mode \|deleted file mode \|old mode \|new mode \|similarity index \|dissimilarity index \|rename from \|rename to \|copy from \|copy to \|Binary files \|Binary file \|GIT binary patch\|literal \d\+\|delta \d\+\|Submodule \).*'))
+
+    # 文件末尾没有换行符
+    add(w:async_highlight_ids, matchadd('qfDiffComment',
+        prefix .. '\\ No newline at end of file'))
+
+    # git log / git show：提交头和元信息
+    add(w:async_highlight_ids, matchadd('qfGitCommit',
+        prefix .. 'commit \x\{7,64\}.*'))
+    add(w:async_highlight_ids, matchadd('qfGitMeta',
+        prefix .. '\%(Author:\|Date:\|Merge:\|Commit:\|CommitDate:\|AuthorDate:\).*'))
+
+    # --oneline：仅高亮开头的短哈希
+    add(w:async_highlight_ids, matchadd('qfGitCommit',
+        prefix .. '\x\{7,64\}\ze\s'))
+
+    # --decorate：高亮提交头或 oneline 中的引用
+    add(w:async_highlight_ids, matchadd('qfGitRef',
+        prefix .. 'commit \x\{7,64\}\s\+\zs([^)]*)', 20))
+    add(w:async_highlight_ids, matchadd('qfGitRef',
+        prefix .. '\x\{7,64\}\s\+\zs([^)]*)', 20))
+
+    # 默认 git log 格式中缩进四格的提交说明
+    add(w:async_highlight_ids, matchadd('qfGitMessage',
+        prefix .. ' \{4}\S.*'))
+
+    # --stat / --shortstat：整行灰色
+    add(w:async_highlight_ids, matchadd('qfGitStat',
+        prefix .. '.\{-} |\s*\%(\d\+\|Bin\).*'))
+    add(w:async_highlight_ids, matchadd('qfGitStat',
+        prefix .. '\d\+ files\? changed.*'))
 enddef
 # }}}
 
