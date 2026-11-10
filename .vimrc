@@ -1581,7 +1581,14 @@ def GetDefaultSubJob(cmd: string, last: bool): dict<any>
         default_job.fmt = '%f:%l:%c:%m'
         default_job.fil = 'out'
         default_job.o = last ? '1' : default_job.o
+    elseif program ==# 'git'
+        if cmd ==# 'git --version'
+            default_job.m = last ? '0' : default_job.o
+        else
+            default_job.o = last ? '1' : default_job.o
+        endif
     endif
+
     return default_job
 enddef
 
