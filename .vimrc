@@ -1313,6 +1313,25 @@ def AsyncHighlight_git(cmd: string)
     highlight default qfGitStatusClean    ctermfg=green guifg=#98c379
     highlight default qfGitStatusHint     ctermfg=gray  guifg=#5c6370
 
+    # git diff --check：错误说明及对应的新增行
+    highlight default qfGitCheckError    ctermfg=red    guifg=#e06c75
+    highlight default qfGitCheckLocation ctermfg=yellow guifg=#e5c07b
+    highlight default qfGitCheckWhitespace guibg=#e06c75 ctermbg=red
+
+    if cmd =~# '^Async git diff\%(\s\|$\)' && cmd =~# '\%(^\|\s\)--check\%(\s\|$\)'
+        # 例如 file.cpp:12: trailing whitespace.
+        add(w:async_highlight_ids, matchadd('qfGitCheckError', prefix .. '.\+:\d\+:.*'))
+        add(w:async_highlight_ids, matchadd('qfGitCheckLocation', prefix .. '.\+:\d\+:', 20))
+
+        # 例如 +some text   ：先将新增行染绿
+        add(w:async_highlight_ids, matchadd('qfDiffAdd', prefix .. '+.*'))
+
+        # 再用更高优先级把行尾空格或 Tab 染红；
+        # \zs 确保只给空白本身上色。
+        add(w:async_highlight_ids, matchadd('qfGitCheckWhitespace', prefix .. '+.\{-}\zs[ \t]\+$', 30))
+        return
+    endif
+
     if cmd =~# '^Async git status\%(\s\|$\)'
         var section = ''
 
@@ -1689,6 +1708,9 @@ def GetDefaultSubJob(cmd: string, last: bool): dict<any>
         default_job.fil = 'out'
         default_job.o = last ? '1' : default_job.o
     elseif program ==# 'git'
+        if cmd ==# 'git diff --check'
+            default_job.fmt = '%f:%l:%m'
+        endif
         if cmd ==# 'git --version'
             default_job.m = last ? '0' : default_job.o
         else
