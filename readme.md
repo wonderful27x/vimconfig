@@ -9,6 +9,7 @@ Hello, welcome to the god of editor VIM !**
 
 
 #### This is a vim setting through `.vimrc` for most useful skills with the traditional faster way
+- [x] [Vim a smile](#vim-a-smile)
 - [x] [Window control](#window-control)
 - [x] Blinking cursor insert mode
 - [x] Binary cursor move
@@ -50,7 +51,7 @@ Recommend compile source code
 - `./configure --prefix=/usr/local --with-features=huge`
 - `make -j8`
 - `sudo make install`
-> note: Install build tools first and `libwayland-dev` is very imported for clipboard support
+> note: Install build tools first and `libwayland-dev` is very important for clipboard support
 
 **Config vim**
 1. clone [vim-plug][1] for vim plugin manager  
@@ -61,6 +62,10 @@ Recommend compile source code
 `:PlugInstall`
 
 
+#### Vim a smile
+`:Vim`
+
+![vim-smile](vim_smile.gif)
 
 #### Window control
 
