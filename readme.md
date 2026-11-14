@@ -6,9 +6,9 @@
 **To make good work, to make sharp tools!  
 Hello, welcome to the god of editor VIM !**
 
+This is a configuration of vim via `.vimrc` for most useful skills with the traditional faster way.
 
-
-#### This is a vim setting through `.vimrc` for most useful skills with the traditional faster way
+#### Functions support
 - [x] [Vim a smile](#vim-a-smile)
 - [x] [Window control](#window-control)
 - [x] Blinking cursor insert mode
@@ -38,6 +38,10 @@ Hello, welcome to the god of editor VIM !**
 - [ ] Make
 - [x] Vim9
 
+> note: full test on linux/wsl but not windows!
+
+> note: only support vim9 in the latest version, checkout history for vim8
+
 
 
 #### Quick Start
@@ -60,6 +64,9 @@ Recommend compile source code
 `cp .vimrc ~/`
 3. open your vim and run this command for plugin install  
 `:PlugInstall`
+
+**Swap `Caps` `Ctrl`**  
+In vim `Ctrl` is a very important key, place it to a comfortable place `Caps` will get you superpowers
 
 
 #### Vim a smile
@@ -100,7 +107,11 @@ Recommend compile source code
 * `<S-Left>` : window size -1 vertical
 * `<S-Right>`: window size +1 vertical
 
-> note: `\` is a `<leader>` of vim by default
+![window-ctrl](window_ctrl.gif)
+
+> note: `CapsLock` = `Ctrl`
+
+> note: `\` is a `<leader>` key of vim by default
 
 > ugly: `let mapleader=";"` conflict with `f;`
 
