@@ -10,9 +10,9 @@ This is a configuration of vim via `.vimrc` for most useful skills with the trad
 
 #### Functions support
 - [x] [Vim a smile](#vim-a-smile)
+- [x] [Esc](#esc)
 - [x] [Window control](#window-control)
-- [x] Blinking cursor insert mode
-- [x] Binary cursor move
+- [x] [Binary cursor move](#binary-cursor-move)
 - [x] Cursor move insert mode
 - [x] Highlight cursorline/cursorcolumn
 - [x] Case conversion insert mode
@@ -74,6 +74,15 @@ In vim `Ctrl` is a very important key, place it to a comfortable place `Caps` wi
 
 ![vim-smile](vim_smile.gif)
 
+
+#### Esc
+`<C-[>`: esc to normal mode
+
+> ugly: `inoremap jj <esc>` / `inoremap jk <esc>`. Anything that affects input behavior is ugly!
+
+> note: remember to swap `Caps` `Ctrl`
+
+
 #### Window control
 
 **base skills**
@@ -115,6 +124,8 @@ In vim `Ctrl` is a very important key, place it to a comfortable place `Caps` wi
 
 > ugly: `let mapleader=";"` conflict with `f;`
 
+
+#### Binary cursor move
 
 
 #### LSP
