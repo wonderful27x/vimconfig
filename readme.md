@@ -8,7 +8,7 @@ Hello, welcome to the god of editor VIM !**
 
 This is a configuration of vim via `.vimrc` for most useful skills with the traditional faster way.
 
-#### Functions support
+### Functions support
 - [x] [Vim a smile](#vim-a-smile)
 - [x] [Esc](#esc)
 - [x] [Window control](#window-control)
@@ -44,7 +44,7 @@ This is a configuration of vim via `.vimrc` for most useful skills with the trad
 
 
 
-#### Quick Start
+### Quick Start
 
 **Install vim**
 
@@ -69,13 +69,13 @@ Recommend compile source code
 In vim `Ctrl` is a very important key, place it to a comfortable place `Caps` will get you superpowers
 
 
-#### Vim a smile
+### Vim a smile
 `:Vim`
 
 ![vim-smile](vim_smile.gif)
 
 
-#### Esc
+### Esc
 `<C-[>`: esc to normal mode
 
 > ugly: `inoremap jj <esc>` / `inoremap jk <esc>`. Anything that affects input behavior is ugly!
@@ -83,7 +83,7 @@ In vim `Ctrl` is a very important key, place it to a comfortable place `Caps` wi
 > note: remember to swap `Caps` `Ctrl`
 
 
-#### Window control
+### Window control
 
 **base skills**
 * `<C-w> s`: split window horizontal
@@ -125,16 +125,16 @@ In vim `Ctrl` is a very important key, place it to a comfortable place `Caps` wi
 > ugly: `let mapleader=";"` conflict with `f;`
 
 
-#### Binary cursor move
+### Binary cursor move
 
 
-#### LSP
+### LSP
 
 语言服务协议LSP默认使用[vim-lsp][2]支持
 
 
 
-#### Best way to learn vim
+### Best way to learn vim
 
 * 《Vim实用技巧 第二版》  
 ![practical vim](practical_vim.jpeg)
