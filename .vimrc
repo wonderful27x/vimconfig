@@ -610,7 +610,7 @@ var S_async_max_fill_first_time: number = 1000
 #     cmd: '',      "真正的program命令
 #     len: '',      "cmd的长度
 #     fmt: '',      "输出格式
-#     fil: '',      "填充类型，none/all/out/err
+#     fil: '',      "填充类型，none/all/asp/out/err
 #     env: '',      "是否继承vim终端env，模拟tty
 #     o: '',        "命令结束后是否打开quickfix
 #     m: ''         "是否显示过程和状态信息, 如果m=0, out/err会被打印
@@ -681,8 +681,46 @@ def AsyncSleep(args: string): string
     return cmd
 enddef
 
+def AsyncHelp()
+    var helps = []
+    add(helps, 'Async <options> cmd1 [args] | <options> cmd2 [args] | ...')
+    add(helps, '    cmd      : can be any external program that does not run at interaction mode')
+    add(helps, '    <options>: default is <m=1|o=0|env=0|fil=all|len=0|fmt=>')
+    add(helps, '        m  : print job working message for 1 and 0 will only print stdout/stderr')
+    add(helps, '             if you want to run a simple command let "m=0" is very useful')
+    add(helps, '             examples: "Async <m=0> ls -lh .vimrc" you will see the result in command line directly')
+    add(helps, '        o  : auto open quickfix window after job done for 1')
+    add(helps, '        fil: what to set to quickfix.')
+    add(helps, '             none: nothing to set to quickfix.')
+    add(helps, '             all : stderr + stdout int one window.')
+    add(helps, '             asp : stdout + stderr int different windows.')
+    add(helps, '             err : only stderr.')
+    add(helps, '             out : only stdout.')
+    add(helps, '        len: number of command chars for multi commands. multi commands can be concat with "|",')
+    add(helps, '             but the command args may also havs "|", so use "len=num" to specify the command len.')
+    add(helps, '             however if you do know command args does not contain "|" use "len=0" is easy.')
+    add(helps, '             for example: "Async <len=0> git add -u | git commit -m "message"" will be the same as:')
+    add(helps, '             "Async <len=10> git add -u | git commit -m "message"".')
+    add(helps, '             also there is a more easy commad: "Asyncx git add -u | git commit -m "message"".')
+    add(helps, '             note that each command result will put to a new quickfix, so use "colder" to checkout them.')
+    add(helps, '        fmt: errformat for quickfix')
+    add(helps, '        env: inherit terminal environment for 1')
+    add(helps, '             examples: "Async <m=0|env=1> echo $TERM"')
+
+    call setqflist([], ' ', {
+        title: "Async help",
+        lines: helps
+    })
+    botright copen 25
+enddef
+
 # 异步命令主函数
 def Async(args: string, subcmd: string)
+    if args ==# '--help' || args ==# '-h'
+        AsyncHelp()
+        return
+    endif
+
     var cmd = args
     var subjobs = ParseAsyncArgs(args, subcmd)
     var shell_cmd = [&shell, &shellcmdflag, subjobs[0].cmd]
