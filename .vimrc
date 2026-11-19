@@ -655,7 +655,8 @@ var S_async_max_fill_first_time: number = 1000
 # --key=: Async的完整命令
 # --all=: 停止所有任务
 # --stop-way=: 停止方式['term', 'hup', 'int', 'quit', 'kill']
-command! -nargs=+ -complete=customlist,AsyncComplete Async call <SID>Async(<q-args>)
+command! -nargs=+ -complete=customlist,AsyncComplete Async call <SID>Async(<q-args>, "Async")
+command! -nargs=+ -complete=customlist,AsyncComplete Asyncx call <SID>Async(<q-args>, "Asyncx")
 command! -nargs=* AsyncQuery call <SID>AsyncQuery(<q-args>)
 command! -nargs=+ -complete=customlist,AsyncStopComplete AsyncStop call <SID>AsyncStop(<q-args>)
 # ------------------------------------------------------
@@ -681,9 +682,9 @@ def AsyncSleep(args: string): string
 enddef
 
 # 异步命令主函数
-def Async(args: string)
+def Async(args: string, subcmd: string)
     var cmd = args
-    var subjobs = ParseAsyncArgs(args)
+    var subjobs = ParseAsyncArgs(args, subcmd)
     var shell_cmd = [&shell, &shellcmdflag, subjobs[0].cmd]
 
     echom 'Async ' .. cmd
@@ -1674,7 +1675,7 @@ def AsyncStopComplete(arglead: string, cmdline: string, cursorpos: number): list
         return map(matches, '"--stop-way=" .. v:val')
     endif
     # 否则补全选项名
-    var options = ['--id=', '--key=', '--name=', '--stop-way=', '--all']
+    var options = ['--all', '--id=', '--key=', '--name=', '--stop-way=']
     return filter(copy(options), (_, v) => stridx(v, arglead) == 0)
 enddef
 # }}}
@@ -1722,9 +1723,11 @@ def GetDefaultSubJob(cmd: string, last: bool): dict<any>
 enddef
 
 # 将async命令的参数解析成subjobs
-def ParseAsyncArgs(args: string): list<dict<any>>
+def ParseAsyncArgs(args: string, subcmd: string): list<dict<any>>
+    var nospr: bool = subcmd ==# 'Asyncx'
+    var cmdlist = SplitAsyncArgs(args, nospr)
     var subjobs = []
-    var cmdlist = SplitAsyncArgs(args)
+
     for i in range(len(cmdlist))
         var last: bool = (i == len(cmdlist) - 1)
         var cmd = cmdlist[i]
@@ -1769,7 +1772,7 @@ enddef
 
 # 从<...|...>中解析出fmt、o等参数
 def GetCtrFromPrecmd(pre_cmd: string): any
-    var cmd_ctr = {'fmt': '', 'fil': '', 'env': '', 'o': '', 'm': ''}
+    var cmd_ctr = {'fmt': '', 'fil': '', 'env': '', 'o': '', 'm': '', 'len': ''}
 
     if pre_cmd !~# '^<.*>$'
         return cmd_ctr
@@ -1789,14 +1792,37 @@ def GetCtrFromPrecmd(pre_cmd: string): any
             cmd_ctr.o = strpart(field, strlen('o='))
         elseif field =~# '^m='
             cmd_ctr.m = strpart(field, strlen('m='))
+        elseif field =~# '^len='
+            cmd_ctr.len = strpart(field, strlen('len='))
         endif
     endfor
 
     return cmd_ctr
 enddef
 
+def FindNextSpr(str: string, i: number, total: number, spr: string): dict<any>
+    var e = i
+    while e < total && strcharpart(str, e, 1) !=# spr
+        e += 1
+    endwhile
+    var len = e - i
+
+    if len <= 0 || i + len > total
+        throw 'FindNextSpr: len 无效或命令长度不足'
+    endif
+
+    var content = strcharpart(str, i, len)
+    var steps = len + 1
+    content = trim(content)
+
+    return {c: content, l: strchars(content), n: steps}
+enddef
+
 # 分割async命令参数 [{pre_cmd=<...> cmd=...}]
-def SplitAsyncArgs(args: string): list<dict<string>>
+# 如: Async <len=42> find . -name "*.cpp" -print > cscope.files | <len=31|fmt=%f:%l:%m,%f:%l:%c:%m|o=1> cscope -b -q -k -i cscope.files
+# 当len <= 0时: 认为cmd中不含分割符|，则当前命令的长度按查找到下一个|的长度
+# nospr参数为true时则是显示指明cmd中没有分隔符|
+def SplitAsyncArgs(args: string, nospr: bool): list<dict<string>>
     var s = args
     var total = strchars(s)
     var i = 0
@@ -1811,13 +1837,30 @@ def SplitAsyncArgs(args: string): list<dict<string>>
             break
         endif
 
-        # 不以 < 开头：从当前位置到末尾，整体作为 cmd
+        # 不以 < 开头, 即没有<...>命令前缀
+        var cmd_len = 0
         if strcharpart(s, i, 1) !=# '<'
-            add(result, {
-                pre_cmd: '',
-                cmd: strcharpart(s, i)
-                })
-            break
+            if nospr
+                # 如果显示指明了cmd中没有分隔符|, 则按分隔符|获取一个命令
+                var cmdinfo = FindNextSpr(s, i, total, '|')
+                if !empty(cmdinfo.c)
+                    call add(result, {
+                        pre_cmd: '',
+                        cmd: cmdinfo.c
+                        })
+                endif
+
+                # i前进到找到的分隔符|之后, 然后进行下个循环
+                i += cmdinfo.n
+                continue
+            else
+                # 如果没有显示指明cmd中没有分隔符|, 从当前位置到末尾，整体作为 cmd
+                add(result, {
+                    pre_cmd: '',
+                    cmd: strcharpart(s, i)
+                    })
+                break
+            endif
         endif
 
         # 2. 读取整个 <...>，作为 pre_cmd
@@ -1851,21 +1894,47 @@ def SplitAsyncArgs(args: string): list<dict<string>>
             throw 'SplitAsyncArgs: <...> 之后缺少命令'
         endif
 
-        # 没有 len：cmd 一直取到末尾
+        # <...>中没有指定len
         if empty(len_text)
-            add(result, {
-                pre_cmd: pre_cmd,
-                cmd: strcharpart(s, i)
-            })
-            break
+            if nospr
+                # 如果显示指明了cmd中没有分隔符|, 则按分隔符|获取一个命令
+                var cmdinfo = FindNextSpr(s, i, total, '|')
+                if !empty(cmdinfo.c)
+                    call add(result, {
+                        pre_cmd: pre_cmd,
+                        cmd: cmdinfo.c
+                        })
+                endif
+
+                # i前进到找到的分隔符|之后, 然后进行下个循环
+                i += cmdinfo.n
+                continue
+            else
+                # 如果没有显示指明cmd中没有分隔符|, 从当前位置到末尾，整体作为 cmd
+                add(result, {
+                    pre_cmd: pre_cmd,
+                    cmd: strcharpart(s, i)
+                })
+                break
+            endif
         endif
 
         # len：按指定字符数截取 cmd
-        var cmd_len = str2nr(len_text)
+        cmd_len = str2nr(len_text)
+        # 防越界处理
+        if i + cmd_len > total
+            cmd_len = total - i
+        endif
+        # 如果len指定的长度小于等于0，把它当作一种特殊情况：
+        # 即当前命令中没有分隔符|，因此cmd的长度等于直到下个|的长度，
+        # 这样在明确cmd中不存在分隔符|的情况下用<len=0>比数数方便得多
+        if cmd_len <= 0
+            var cmdinfo = FindNextSpr(s, i, total, '|')
+            cmd_len = cmdinfo.l
+        endif
         if cmd_len <= 0 || i + cmd_len > total
             throw 'SplitAsyncArgs: len 无效或命令长度不足'
         endif
-
         call add(result, {
             pre_cmd: pre_cmd,
             cmd: strcharpart(s, i, cmd_len)
