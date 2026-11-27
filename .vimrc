@@ -2357,8 +2357,8 @@ def GenTagsAsync(args: string): string
 
     # exclude dirs
     var exc =
-        '--exclude=.git '
-        .. '--exclude=build '
+        "--exclude='.git' "
+        .. "--exclude='build' "
 
     # build ctags command
     var cmd = 'Async ctags -R ' .. lang .. exc
@@ -2381,15 +2381,14 @@ def GenTagsAsync(args: string): string
 enddef
 
 def GenCscopeAsync(args: string): string
-    var cmd_genf = GenCscopeFilesAsync(args .. " --no_run")
-    var cmd_genc = GenCscopeFromFilesAsync(args .. " --no_run")
-
     # 如果指定了path直接用GenCscopeFromFilesAsync的命令, 否则组合命令
     var path = ExtractPath(args)
     var cmd = ''
     if !empty(path)
-        cmd = cmd_genc
+        cmd = GenCscopeFromFilesAsync(args .. " --no_run")
     else
+        var cmd_genf = GenCscopeFilesAsync(args .. " --no_run")
+        var cmd_genc = GenCscopeFromFilesAsync(args .. " --no_run")
         cmd = MergeAsyncCmd([cmd_genf, cmd_genc])
     endif
 
@@ -2446,6 +2445,7 @@ def GenCscopeFilesAsync(args: string): string
         elseif &l:filetype ==# 'python'
             lang = 'python'
         else
+            echom 'GenCscope: no support filetype=' .. &l:filetype .. ', index all files'
             lang = ''
         endif
     endif
@@ -2633,19 +2633,19 @@ def BuildCmdGnuGrep(pattern: string, recursion: number): string
     var inc = ''
     if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
         inc =
-            '--include=*.c '
-            .. '--include=*.cc '
-            .. '--include=*.cpp '
-            .. '--include=*.h '
-            .. '--include=*.hpp '
+            "--include='*.c' "
+            .. "--include='*.cc' "
+            .. "--include='*.cpp' "
+            .. "--include='*.h' "
+            .. "--include='*.hpp' "
     elseif &l:filetype ==# 'python'
-        inc = '--include=*.py '
+        inc = "--include='*.py' "
     endif
 
     # exclude dirs
     var exc =
-        '--exclude-dir=.git '
-        .. '--exclude-dir=build '
+        "--exclude-dir='.git' "
+        .. "--exclude-dir='build' "
 
     # build grep command
     var grep_cmd = ''
@@ -2660,7 +2660,7 @@ def BuildCmdGnuGrep(pattern: string, recursion: number): string
         grep_cmd =
             'Async grep -Hn '
             .. pattern
-            .. ' ' .. expand('%:p')
+            .. ' ' .. shellescape(expand('%:p'))
     endif
 
     return grep_cmd
@@ -2671,19 +2671,19 @@ def BuildCmdRipGrep(pattern: string, recursion: number): string
     var inc = ''
     if &l:filetype ==# 'cpp' || &l:filetype ==# 'c'
         inc =
-            '-g *.c '
-            .. '-g *.cc '
-            .. '-g *.cpp '
-            .. '-g *.h '
-            .. '-g *.hpp '
+            "-g '*.c' "
+            .. "-g '*.cc' "
+            .. "-g '*.cpp' "
+            .. "-g '*.h' "
+            .. "-g '*.hpp' "
     elseif &l:filetype ==# 'python'
-        inc = '-g *.py '
+        inc = "-g '*.py' "
     endif
 
     # exclude dirs
     var exc =
-        '-g !.git '
-        .. '-g !build '
+        "-g '!.git' "
+        .. "-g '!build' "
 
     # build grep command
     var grep_cmd = ''
@@ -2698,7 +2698,7 @@ def BuildCmdRipGrep(pattern: string, recursion: number): string
         grep_cmd =
             'Async rg --vimgrep -H -n '
             .. pattern
-            .. ' ' .. expand('%:p')
+            .. ' ' .. shellescape(expand('%:p'))
     endif
 
     return grep_cmd
