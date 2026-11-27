@@ -635,8 +635,10 @@ var S_async_max_fill_first_time: number = 1000
 #     errs: [],           "错误输出
 #     prog_idx: 0,        "进度索引
 #     subjobs: [],        "子任务列表
-#     subjob_id: 0        "当前子任务索引
-#     job_exit: v:false   "exit_cb调用
+#     subjob_id: 0,       "当前子任务索引
+#     exit_code: 0,       "exit code
+#     exit_done: v:false, "exit_cb回调完成
+#     close_done: v:false "close_cb回调完成
 # }
 
 # Async异步命令，可以执行任意外部命令
@@ -756,7 +758,9 @@ def Async(args: string, subcmd: string)
         prog_idx: 0,
         subjobs: subjobs,
         subjob_id: 0,
-        job_exit: v:false
+        exit_code: 0,
+        exit_done: v:false,
+        close_done: v:false
     }
 
     # 先把timer启动起来，防止job结束过快timer还没创建
@@ -819,7 +823,9 @@ enddef
 # subjob_id: 启动的subjob id
 def StartAsyncSubjob(key: string, subjob_id: number)
     # 先reset
-    S_async_jobs[key].job_exit = v:false
+    S_async_jobs[key].exit_code = 0
+    S_async_jobs[key].exit_done = v:false
+    S_async_jobs[key].close_done = v:false
     S_async_jobs[key].state = 'uninit'
     S_async_jobs[key].outs = []
     S_async_jobs[key].errs = []
@@ -887,17 +893,7 @@ enddef
 # ==========async的回调及后处理========== {{{
 def OnJobOut(key: string, ch: channel, msg: string)
     # OnJobExit后仍可能收到OnJobOut和OnJobErr
-    if !has_key(S_async_jobs, key)
-        return
-    endif
-
-    # 截断输出，注意OnJobExit后OnJobOut和OnJobErr仍然可能被调用
-    # 这里截断是为了保持数据一致，实际上应该继续收集剩余才对，
-    # 但是目前还没找到数据buffer处理结束的回调，close_cb官方解释是在所有数据结束后，
-    # 但实际测试它甚至比OnJobExit调用还早, 这里只是权宜之计
-    if S_async_jobs[key].job_exit == v:true
-        return
-    endif
+    if !has_key(S_async_jobs, key) | return | endif
 
     var subjob = GetCurrSubjob(key)
 
@@ -914,14 +910,7 @@ enddef
 
 def OnJobErr(key: string, ch: channel, msg: string)
     # OnJobExit后仍可能收到OnJobOut和OnJobErr
-    if !has_key(S_async_jobs, key)
-        return
-    endif
-
-    # 截断输出，同上
-    if S_async_jobs[key].job_exit == v:true
-        return
-    endif
+    if !has_key(S_async_jobs, key) | return | endif
 
     var subjob = GetCurrSubjob(key)
 
@@ -936,74 +925,90 @@ def OnJobErr(key: string, ch: channel, msg: string)
     endif
 enddef
 
-# 在测试中发现OnJobClose设置了之后OnJobOut/OnJobExit
-# 就不会在OnJobExit之后调用了, 而OnJobClose会在OnJobExit之前调用
+# 测试中发现exit_cb和close_cb的调用顺序并不是固定的，
+# 但close_cb一定在所有数据回调之后，
+# 所以收尾工作应该在close_cb和exit_cb都调用之后
 def OnJobClose(key: string, ch: channel)
     # echom "!!!OnJobClose"
     # LogEvent('CLOSE')
+    if !has_key(S_async_jobs, key) | return | endif
+    S_async_jobs[key].close_done = v:true
+    AsyncJobFinish(key)
 enddef
 
 def OnJobExit(key: string, job: job, code: number)
     # echom "!!!OnJobExit"
     # LogEvent('EXIT: ' .. code)
 
-    if !has_key(S_async_jobs, key)
-        echom 'job for [' .. key .. '] not exist!'
-        return
-    endif
+    if !has_key(S_async_jobs, key) | return | endif
 
-    # echom split(key)[0] .. " exit: " .. len(S_async_jobs[key].outs) .. " + " .. len(S_async_jobs[key].errs)
-
-    S_async_jobs[key].job_exit = v:true
+    S_async_jobs[key].job = job
+    S_async_jobs[key].exit_done = v:true
+    S_async_jobs[key].exit_code = code
 
     var curr_subjob = GetCurrSubjob(key)
 
-    S_async_jobs[key].job = job
-    if S_async_jobs[key].state ==# 'uinit'
+    if S_async_jobs[key].state ==# 'uninit'
         S_async_jobs[key].state = 'running'
         curr_subjob.sts = 'running'
     endif
 
+    # echom split(key)[0] .. " exit: " .. len(S_async_jobs[key].outs) .. " + " .. len(S_async_jobs[key].errs)
+
+    AsyncJobFinish(key)
+enddef
+
+def AsyncJobFinish(key: string)
+    if !has_key(S_async_jobs, key) | return | endif
+
+    var job = S_async_jobs[key]
+
     # 因为vim是单线程，不能真正暂停，这里是模拟暂停
     # 先将数据存起来，后面再回放
     if S_async_pause
-        add(S_async_paused_jobs, {'key': key, 'job': job, 'code': code})
+        add(S_async_paused_jobs, {'key': key, 'job': job, 'code': job.exit_code})
         return
     endif
 
+    # exit_cb和close_cb都调用了才执行结束工作
+    if !job.exit_done || !job.close_done | return | endif
+
+    var curr_subjob = GetCurrSubjob(key)
+
     try
         # 如果是最后一个subjob或发送了stopping信号才停止timer
-        if IsLastSubJob(key) || S_async_jobs[key].state ==# 'stopping'
-            var timer = get(S_async_jobs[key], 'timer', -1)
+        if IsLastSubJob(key) || job.state ==# 'stopping'
+            var timer = get(job, 'timer', -1)
             call StopTimer(timer, 'term')
-            S_async_jobs[key].timer = -1
+            job.timer = -1
         endif
 
         # 执行后期处理任务
-        call AsyncJobDone(key, code)
+        call AsyncJobDone(key, job.exit_code)
     finally
         # 这个方法及有可能出bug
         # call AsyncContinue()
 
+        # 如果是最后一个subjob或发送了停止命令清理整个AsyncJob
+        if IsLastSubJob(key) || job.state ==# 'stopping'
+            call remove(S_async_jobs, key)
+            return
+        endif
+
         # 更新状态
-        var finish_type = S_async_jobs[key].state ==# 'stopping' ? 'xdone' : 'done'
-        S_async_jobs[key].state = finish_type
+        var finish_type = job.state ==# 'stopping' ? 'xdone' : 'done'
+        job.state = finish_type
         curr_subjob.sts = finish_type
         var ts_list = eval(curr_subjob.ts)
         var time = printf('%.1f', reltimefloat(reltime(ts_list)))
         curr_subjob.te = time
 
-        if IsLastSubJob(key) || S_async_jobs[key].state ==# 'stopping'
-            # 如果是最后一个subjob或发送了停止命令清理整个AsyncJob
-            call remove(S_async_jobs, key)
-        else
-            # 如果不是最后一个subjob，启动一个新的job执行后续任务
-            if curr_subjob.m == '1'
-                echo "Async-" .. GetCurrSubjobProgram(key) .. " running ... |"
-            endif
-            var subjob_id = S_async_jobs[key].subjob_id + 1
-            call StartAsyncSubjob(key, subjob_id)
+        # 启动一个新的job执行后续任务
+        if curr_subjob.m == '1'
+            echo "Async-" .. GetCurrSubjobProgram(key) .. " running ... |"
         endif
+        var subjob_id = job.subjob_id + 1
+        call StartAsyncSubjob(key, subjob_id)
     endtry
 enddef
 
@@ -1734,7 +1739,7 @@ def GetDefaultSubJob(cmd: string, last: bool): dict<any>
         te: '',
         nouts: 0,
         nerrs: 0,
-        sts: 'uinit'
+        sts: 'uninit'
         }
 
     var program = split(cmd)[0]
