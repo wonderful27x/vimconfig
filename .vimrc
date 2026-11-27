@@ -543,6 +543,18 @@ var S_custom_schedule_window = {}
 
 # 打开窗口并初始化, titile: 窗口标题 timer_fun: timer回调函数名 time刷新时间
 def OpenCustomScheduleWindow(title: string, timer_fun: string, time: number)
+    # 复用同标题窗口
+    var exist = bufnr('[' .. title .. ']')
+    if exist != -1
+        var wins = win_findbuf(exist)
+        if !empty(wins)
+            call win_gotoid(wins[0])
+            return
+        endif
+        execute 'botright sbuffer ' .. exist
+        return
+    endif
+
     # 在下方开一个 10 行的分屏
     execute 'botright :10split'
 
@@ -563,12 +575,6 @@ def OpenCustomScheduleWindow(title: string, timer_fun: string, time: number)
     # 立即执行一次回调，不然会等待time的时间间隔
     call call(function(timer_fun), [bufnr, timer])
 
-    # 监听 buffer 销毁（窗口关闭时自动触发）
-    augroup WindowAutoCleanup
-        autocmd!
-        execute 'autocmd BufWipeout <buffer=' .. bufnr .. '> call OnCustomScheduleWindowClosed(' .. bufnr .. ')'
-    augroup END
-
     # 映射 q 关闭窗口
     nnoremap <buffer> <silent> q :close<CR>
 enddef
@@ -582,6 +588,12 @@ def OnCustomScheduleWindowClosed(bufnr: number)
     # 可以在这里写其他清理逻辑
     # echom "自定义窗口已关闭，timer 已停止"
 enddef
+
+# 监听 buffer 销毁（窗口关闭时自动触发）
+augroup WindowAutoCleanup
+  autocmd!
+  autocmd BufWipeout * call OnCustomScheduleWindowClosed(str2nr(expand('<abuf>')))
+augroup END
 # }}}
 
 # ==========async========== {{{
@@ -599,8 +611,6 @@ var S_async_tick_ctr = {
 
 var S_async_job_id = -1
 var S_async_jobs = {}
-var S_async_pause = v:false
-var S_async_paused_jobs = []
 var S_async_max_fill_first_time: number = 1000
 # var S_async_max_fill_first_time: number = (1 << 62) - 1 + (1 << 62)
 
@@ -725,7 +735,6 @@ def Async(args: string, subcmd: string)
 
     var cmd = args
     var subjobs = ParseAsyncArgs(args, subcmd)
-    var shell_cmd = [&shell, &shellcmdflag, subjobs[0].cmd]
 
     echom 'Async ' .. cmd
     redraw
@@ -735,6 +744,7 @@ def Async(args: string, subcmd: string)
     endif
 
     # test
+    # var shell_cmd = [&shell, &shellcmdflag, subjobs[0].cmd]
     # echom 'Async cmd: ' .. cmd
     # echom 'Async subjobs: '
     # echom subjobs
@@ -742,7 +752,7 @@ def Async(args: string, subcmd: string)
     # return
 
     if has_key(S_async_jobs, cmd)
-        echom 'job for [' .. S_async_jobs[cmd].job .. "] 已存在!"
+        echom 'job for [' .. cmd .. "] 已存在!"
         return
     endif
 
@@ -963,13 +973,6 @@ def AsyncJobFinish(key: string)
 
     var job = S_async_jobs[key]
 
-    # 因为vim是单线程，不能真正暂停，这里是模拟暂停
-    # 先将数据存起来，后面再回放
-    if S_async_pause
-        add(S_async_paused_jobs, {'key': key, 'job': job, 'code': job.exit_code})
-        return
-    endif
-
     # exit_cb和close_cb都调用了才执行结束工作
     if !job.exit_done || !job.close_done | return | endif
 
@@ -986,9 +989,6 @@ def AsyncJobFinish(key: string)
         # 执行后期处理任务
         call AsyncJobDone(key, job.exit_code)
     finally
-        # 这个方法及有可能出bug
-        # call AsyncContinue()
-
         # 如果是最后一个subjob或发送了停止命令清理整个AsyncJob
         if IsLastSubJob(key) || job.state ==# 'stopping'
             call remove(S_async_jobs, key)
@@ -1215,20 +1215,12 @@ def AsyncDataProcess(key: string, code: number): any
             .. string(filled_len) .. ' loaded, ' .. '是否加载剩余 ' .. string(outs_fill_len + errs_fill_len) .. ' 行？'
         redraw
 
-        # 等待用户输入时，后面的任务可能在这期间结束，
-        # 然后修改quickfix, 时序出现问题，所以
-        # 先暂停其他任务, 但后续的恢复有bug, 目前还没有好的解决方案
-        # call AsyncPause()
-
         var answer = tolower(trim(input(msg .. ' (yes/no): ')))
         if answer == 'yes' || answer == 'y'
             echom "Async-" .. split(subjob.cmd)[0] .. " data processing ..."
             var outs_sub_list = slice(outs, outs_bg, outs_bg + outs_fill_len)
             var errs_sub_list = slice(errs, errs_bg, errs_bg + errs_fill_len)
             call AsyncDataProcessRest(key, outs_sub_list, errs_sub_list)
-
-            # 放这里肯定不行，后面exit的会在当前exit之前完成工作, 时序是不对的，
-            # call AsyncContinue()
         endif
 
         # var choice = confirm(msg, "&Yes\n&No", 1)
@@ -1237,9 +1229,6 @@ def AsyncDataProcess(key: string, code: number): any
         #     var outs_sub_list = slice(outs, outs_bg, outs_bg + outs_fill_len)
         #     var errs_sub_list = slice(errs, errs_bg, errs_bg + errs_fill_len)
         #     call AsyncDataProcessRest(key, outs_sub_list, errs_sub_list)
-
-        #     # 放这里肯定不行，后面exit的会在当前exit之前完成工作, 时序是不对的，
-        #     # call AsyncContinue()
         # endif
     endif
 
@@ -1268,25 +1257,6 @@ def LogEvent(msg: string): void
     # 格式：序号 | 微秒 | 事件
     var line = printf('[%05d] [%d] %s', S_log_seq, us, msg)
     writefile([line], log_dir .. '/vim-async.log', 'a')
-enddef
-
-def AsyncPause()
-    S_async_pause = v:true
-enddef
-
-def AsyncContinue()
-    # 先置为false，否则会循环导致卡死, 但是这样又会漏掉到来的exit任务!!!
-    # 单个pause似乎会被不同的subjob修改，
-    # 这是糟糕的，要不就不要兼容这种情况了
-    S_async_pause = v:false
-    while !empty(S_async_paused_jobs)
-        # 永远取第 0 个元素
-        var item = S_async_paused_jobs[0]
-        # 先删除，否则OnJobExit又会调用AsyncContinue导致无限循环
-        remove(S_async_paused_jobs, 0)
-        
-        call OnJobExit(item.key, item.job, item.code)
-    endwhile
 enddef
 # }}}
 
@@ -1503,7 +1473,7 @@ def AsyncTick(key: string, timer: number)
         return
     endif
 
-    # 检查 Vim 是否处于 more-prompt 或 hit-enter prompt 状态
+    # screen has scrolled for messages
     if state('s') != ''
         return
     endif
@@ -1511,11 +1481,6 @@ def AsyncTick(key: string, timer: number)
     # mode() ==# 'c' 表示正在命令行模式
     # 或者 getcmdline() 非空表示已经在输入内容
     if mode() ==# 'c' || !empty(getcmdline())
-        return
-    endif
-
-    # 整体暂停
-    if S_async_pause
         return
     endif
 
@@ -1665,6 +1630,7 @@ enddef
 
 def StopAsyncJobWithKey(key: string, stop_way: string)
     if !has_key(S_async_jobs, key)
+        echom 'key: ' .. key .. ' not found'
         return
     endif
     call StopAsyncJob(S_async_jobs[key], stop_way)
@@ -1679,11 +1645,44 @@ def StopAsyncJobWithName(name: string, stop_way: string)
     endfor
 enddef
 
+def ExtractStopKey(args: string): dict<any>
+  var key = ''
+  var rest = args
+
+  # 双引号：支持 \" 和 \\，其余反斜杠原样
+  var dpat = '\%(^\|\s\)--key="\(\%(\\.\|[^"\\]\)*\)"'
+  var m = matchlist(args, dpat)
+  if !empty(m)
+      key = substitute(m[1], '\\\(["\\]\)', '\1', 'g')
+      return {key: key, rest: substitute(args, dpat, '', ''), quoted: v:true}
+  endif
+
+  # 单引号：内容原样
+  var spat = '\%(^\|\s\)--key=''\([^'']*\)'''
+  m = matchlist(args, spat)
+  if !empty(m)
+      return {key: m[1], rest: substitute(args, spat, '', ''), quoted: v:true}
+  endif
+
+  # 可选：兼容单词裸值（不舍空格的旧写法）
+  var bpat = '\%(^\|\s\)--key=\(\S\+\)'
+  m = matchlist(args, bpat)
+  if !empty(m)
+      return {key: m[1], rest: substitute(args, bpat, '', ''), quoted: v:false}
+  endif
+
+  return {key: '', rest: rest, quoted: false}
+enddef
+
 def AsyncStop(args: string)
-    var id = matchstr(args, '\%(^\|\s\)--id=\zs\S\+')
-    var key = matchstr(args, '\%(^\|\s\)--key=\zs\S\+')
-    var name = matchstr(args, '\%(^\|\s\)--name=\zs\S\+')
-    var stop_way = matchstr(args, '\%(^\|\s\)--stop-way=\zs\S\+')
+    var t = ExtractStopKey(args)
+    var key = t.key
+    var rest = t.rest
+
+    var id = matchstr(rest, '\%(^\|\s\)--id=\zs\S\+')
+    var name = matchstr(rest, '\%(^\|\s\)--name=\zs\S\+')
+    var stop_way = matchstr(rest, '\%(^\|\s\)--stop-way=\zs\S\+')
+
     if empty(stop_way)
         stop_way = 'term'
     endif
@@ -1700,7 +1699,7 @@ def AsyncStop(args: string)
         call StopAsyncJobWithName(name, stop_way)
     endif
 
-    if index(split(args), '--all') >= 0
+    if index(split(rest), '--all') >= 0
         call StopAsyncJobAll(stop_way)
     endif
 enddef
@@ -1756,7 +1755,7 @@ def GetDefaultSubJob(cmd: string, last: bool): dict<any>
             default_job.fmt = '%f:%l:%m'
         endif
         if cmd ==# 'git --version'
-            default_job.m = last ? '0' : default_job.o
+            default_job.m = last ? '0' : default_job.m
         else
             default_job.o = last ? '1' : default_job.o
         endif
@@ -1793,7 +1792,8 @@ def ParseAsyncArgs(args: string, subcmd: string): list<dict<any>>
                 && cmd_ctr.fil !=# 'out'
                 && cmd_ctr.fil !=# 'err'
                 && cmd_ctr.fil !=# 'all'
-                echom "Warning: only support fil=[none/out/err/all], but is " .. subjob.fil
+                && cmd_ctr.fil !=# 'asp'
+                echom "Warning: only support fil=[none/out/err/all/asp], but is " .. subjob.fil
             endif
         endif
         if !empty(cmd_ctr.env)
