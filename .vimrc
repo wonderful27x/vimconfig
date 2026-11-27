@@ -365,7 +365,7 @@ enddef
 
 # 删除转换处单词
 def DeleteToggleWord(): string
-    var len = strlen(S_toggle_case_word)
+    var len = strchars(S_toggle_case_word)
     return repeat("\<C-h>", len)
 enddef
 
@@ -374,21 +374,18 @@ def ToggleCase(mode: string): string
     S_toggle_case_word = ''
 
     var line = getline('.')
+    # col('.') 是字节位置，strpart 也是字节语义，二者保持一致
     var pos = col('.') - 1
-    var start = pos
+    var before = strpart(line, 0, pos)
 
-    # '\k': iskeyword
-    # '\S': non-whitespace
-    var key = mode ==# 'WORD' ? '\S' : '\k'
-    while start > 0 && line[start - 1] =~# key
-        start -= 1
-    endwhile
+    # '\k': iskeyword, '\S': non-whitespace
+    # 正则按字符匹配，天然支持多字节
+    var pat = mode ==# 'WORD' ? '\S\+$' : '\k\+$'
+    var word = matchstr(before, pat)
 
-    if start == pos
+    if empty(word)
         return ""
     endif
-
-    var word = line[start : pos - 1]
 
     for char in split(word, '\zs')
         if char =~# '\u'
